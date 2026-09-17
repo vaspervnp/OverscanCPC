@@ -32,6 +32,15 @@ STEP_ACROSS = 28        # bytes of gap on a level or downward hop
 
 
 class Build:
+    """The binary as the Z80 sees it once the game has started.
+
+    The tables are assembled to run at DATA_ORG but travel in the file at
+    DATA_STORE, because AMSDOS cannot load into the sixteen kilobytes the
+    lower ROM sits over - see config.asm. The game moves them down in its
+    first dozen instructions, so this does the same before reading anything:
+    the symbols are all low-block addresses.
+    """
+
     def __init__(self, binpath, sympath, org=0x4000):
         self.mem = bytearray(0x10000)
         code = open(binpath, "rb").read()
@@ -41,6 +50,10 @@ class Build:
             m = re.match(r"^(\S+)\s+#([0-9A-Fa-f]+)\s", line)
             if m:
                 self.sym[m.group(1).upper()] = int(m.group(2), 16)
+        store = self.c("DATA_STORE")
+        dest = self.c("DATA_ORG")
+        size = self.c("DATA_LEN")
+        self.mem[dest:dest + size] = self.mem[store:store + size]
 
     def __getitem__(self, addr):
         return self.mem[addr]

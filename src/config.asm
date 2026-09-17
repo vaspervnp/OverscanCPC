@@ -117,6 +117,23 @@ CENTRE_HALF     EQU BYTES_PER_LINE/2    ; 48
 
 STACK_TOP       EQU #7FFE   ; safely below the screen at #8000
 
+;; --- Where the level data lives --------------------------------------------
+;; The screen is 32 KB at #8000-#FFFF and the code has to load somewhere the
+;; lower ROM is not, which leaves #4000-#7FFF - sixteen kilobytes for the
+;; engine, the font, the sprites, the furniture and twenty-nine rooms. That is
+;; not enough, and #0000-#3FFF is sixteen more that nothing is using: with
+;; both ROMs disabled it is plain RAM, and the only thing in it is the
+;; interrupt jump at #0038.
+;;
+;; It cannot be *loaded* there - AMSDOS hands control over with the lower ROM
+;; still enabled, so a program at #0100 would never execute - but it can be
+;; loaded high and copied down. The tables are assembled to run at DATA_ORG
+;; and stored at DATA_STORE, which is inside the file; the first thing the
+;; game does after turning the ROMs off is move them. Nothing in the low block
+;; is ever executed, only read, so it never has to be there before then.
+DATA_ORG        EQU #0100   ; clear of the #0038 interrupt jump
+DATA_STORE      EQU #6000   ; where the file carries it; past the workspace
+
 ;; ---------------------------------------------------------------------------
 ;; Which room the game starts in. Always 0 in a build anyone plays; make check
 ;; passes -DSTARTROOM=n so a scripted run can be aimed at one room without

@@ -13,7 +13,7 @@
 ENEMY_COUNT     EQU 3
 ENEMY_BUF       EQU 96          ; background under the largest enemy
 
-E_TYPE          EQU 0           ; 0 empty, 1 robot, 2 canary
+E_TYPE          EQU 0           ; 0 for an empty slot, else an ET_* id
 E_X             EQU 1
 E_Y             EQU 2
 E_DX            EQU 3
@@ -28,9 +28,6 @@ E_OW            EQU 11
 E_OH            EQU 12
 E_DRAWN         EQU 13
 E_SIZE          EQU 14
-
-ET_ROBOT        EQU 1
-ET_CANARY       EQU 2
 
 SINE_LEN        EQU 32
 SINE_MASK       EQU SINE_LEN-1

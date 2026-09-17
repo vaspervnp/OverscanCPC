@@ -33,6 +33,14 @@ import sys
 PARITY = [bin(i).count("1") % 2 == 0 for i in range(256)]
 
 
+#: An LDIR longer than this is reported. The game does one legitimate copy of
+#: about twelve kilobytes at startup - the level data moving down into the RAM
+#: under the lower ROM - so the threshold has to clear that while still
+#: catching the failure this exists for: a length that reached zero, decremented
+#: once more and became 65536.
+LDIR_SUSPECT = 20000
+
+
 class Unsupported(Exception):
     pass
 
@@ -525,7 +533,7 @@ class Z80:
         if op in (0xA0, 0xA8, 0xB0, 0xB8):              # ldi ldd ldir lddr
             step = 1 if op in (0xA0, 0xB0) else -1
             repeat = op >= 0xB0
-            if repeat and self.bc > 4096 and self.big_ldir is None:
+            if repeat and self.bc > LDIR_SUSPECT and self.big_ldir is None:
                 # Almost always a zero length that wrapped to 65535, which on
                 # a CPC smears one byte over the whole of memory.
                 self.big_ldir = (self.pc - 2, self.bc, self.hl, self.de,

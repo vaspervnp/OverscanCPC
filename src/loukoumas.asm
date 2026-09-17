@@ -32,6 +32,25 @@ H_SMALL         EQU 8                   ; one small text row
 H_TITLE         EQU TITLE_YS*8
 BLINK_BIT       EQU #20                 ; frame_count bit: ~0.64 s each way
 
+;; ---------------------------------------------------------------------------
+;; The low block: everything that is only ever read. Assembled to run at
+;; DATA_ORG, carried in the file at DATA_STORE, and moved down by the first
+;; dozen instructions of the game. See config.asm for why.
+;;
+;; It comes first in the source because rasm resolves a table entry as it
+;; reads it: rooms.asm names sprites and messages, and play.asm indexes room
+;; records with IY, so all of that has to be defined before either is read.
+;; ---------------------------------------------------------------------------
+    ORG DATA_ORG,DATA_STORE
+data_start
+    include "font.asm"
+    include "strings.asm"
+    include "sprites.asm"
+    include "enemykind.asm"
+    include "rooms.asm"
+data_end
+DATA_LEN        EQU data_end-data_start
+
     ORG #4000
 
 ;; ---------------------------------------------------------------------------
@@ -41,6 +60,11 @@ loukoumas_start
 
     ld bc,#7F8C                 ; mode 0, both ROMs disabled
     out (c),c
+
+    ld hl,DATA_STORE            ; #0000-#3FFF is RAM now the ROMs are off, so
+    ld de,DATA_ORG              ; the tables can go where they were built for
+    ld bc,DATA_LEN
+    ldir
 
     ld hl,pal_blank             ; build the screen unseen
     call set_pal
@@ -249,15 +273,8 @@ pal_title
     include "irq.asm"
     include "keys.asm"
     include "text.asm"
-    ;; Data first: rooms.asm names sprites and messages in table entries, and
-    ;; play.asm indexes room records with IY, both of which rasm resolves as it
-    ;; reads them rather than on a later pass.
     include "sprite.asm"
-    include "font.asm"
-    include "strings.asm"
-    include "sprites.asm"
     include "enemy.asm"
-    include "rooms.asm"
     include "play.asm"
 
 ;; ASSERT evaluates immediately, so this has to come after the generated
@@ -346,15 +363,25 @@ ord_y         defs SPRITE_MAX
 draw_order    defs SPRITE_MAX       ; ids: 0 is the cat, an enemy is index+1
 draw_n        defs 1                ; how many of them were drawn last frame
 
+;; The workspace is uninitialised RAM, but it is still addresses: it must stop
+;; before the file's copy of the low block, or it would be built on top of the
+;; tables before they are moved down.
+    ASSERT workspace_end <= DATA_STORE
+    ASSERT DATA_ORG+DATA_LEN <= #4000
+
+;; What the file has to hold: the code, the gap the workspace will use, and
+;; the low block riding along at the end of it.
+IMAGE_LEN       EQU DATA_STORE+DATA_LEN-loukoumas_start
+
     IF TARGET==1
 RUN loukoumas_start
     ENDIF
 
     IF TARGET==2
       IF LANG==0
-    SAVE "LOUK.BIN",loukoumas_start,code_end-loukoumas_start,DSK,"build/loukoumas_en.dsk"
+    SAVE "LOUK.BIN",loukoumas_start,IMAGE_LEN,DSK,"build/loukoumas_en.dsk"
       ENDIF
       IF LANG==1
-    SAVE "LOUK.BIN",loukoumas_start,code_end-loukoumas_start,DSK,"build/loukoumas_el.dsk"
+    SAVE "LOUK.BIN",loukoumas_start,IMAGE_LEN,DSK,"build/loukoumas_el.dsk"
       ENDIF
     ENDIF
