@@ -117,6 +117,16 @@ CENTRE_HALF     EQU BYTES_PER_LINE/2    ; 48
 
 STACK_TOP       EQU #7FFE   ; safely below the screen at #8000
 
+;; --- What a room is lit by --------------------------------------------------
+;; A room's palette is one byte: the hardware colour pen 0 and the border are
+;; set to. Everything else keeps its meaning in every room - the cat is butter
+;; yellow whatever is behind it - so the whole of a room's light is the colour
+;; of the empty space in it, which is exactly what changes between a wall at
+;; three in the morning, a school playground at nine, and a roof at midnight.
+PAL_INDOOR      EQU 4       ; deep navy - a wall, or a garden before dawn
+PAL_DAY         EQU 23      ; sky blue
+PAL_NIGHT       EQU 20      ; black - the rooftops, at the end of it all
+
 ;; --- Where the level data lives --------------------------------------------
 ;; The screen is 32 KB at #8000-#FFFF and the code has to load somewhere the
 ;; lower ROM is not, which leaves #4000-#7FFF - sixteen kilobytes for the

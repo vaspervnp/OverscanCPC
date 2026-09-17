@@ -79,16 +79,31 @@ enemies_init_empty_loop
     ret
 
 ;; ---------------------------------------------------------------------------
+;; enemy_kind - HL = this enemy's row of enemy_kinds: sprite, then behaviour.
+;; Type 0 is an empty slot and never gets here, so the ids start at 1.
+;; ---------------------------------------------------------------------------
+enemy_kind
+    ld a,(iy+E_TYPE)
+    dec a
+    ld l,a
+    ld h,0
+    ld d,h
+    ld e,l
+    add hl,hl
+    add hl,de                   ; three bytes to the row
+    ld de,enemy_kinds
+    add hl,de
+    ret
+
+;; ---------------------------------------------------------------------------
 ;; enemy_sprite - HL = the sprite for the enemy IY points at.
 ;; ---------------------------------------------------------------------------
 enemy_sprite
-    ld a,(iy+E_TYPE)
-    cp ET_ROBOT
-    jr nz,enemy_sprite_canary
-    ld hl,spr_robot
-    ret
-enemy_sprite_canary
-    ld hl,spr_canary
+    call enemy_kind
+    ld a,(hl)
+    inc hl
+    ld h,(hl)
+    ld l,a
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -116,15 +131,19 @@ enemy_update_one
     ld (iy+E_STUN),a
     ret
 enemy_update_move
-    ld a,(iy+E_TYPE)
-    cp ET_ROBOT
-    jr z,enemy_move_robot
-    ;; fall through to the canary
+    call enemy_kind
+    inc hl
+    inc hl
+    ld a,(hl)                   ; which of the two behaviours it is
+    or a
+    jr z,enemy_move_walk
+    ;; fall through to the one that flies
 
 ;; ---------------------------------------------------------------------------
-;; enemy_move_canary - a bounce across its patrol, plus a sine in y.
+;; enemy_move_fly - a bounce across its patrol, plus a sine in y. The canary,
+;; the pigeons, the wasps, the paper plane, the syringe and the bats.
 ;; ---------------------------------------------------------------------------
-enemy_move_canary
+enemy_move_fly
     call enemy_bounce
     ld a,(iy+E_PHASE)
     inc a
@@ -140,7 +159,8 @@ enemy_move_canary
     ret
 
 ;; ---------------------------------------------------------------------------
-;; enemy_move_robot - half the cat's speed, so it can be outrun.
+;; enemy_move_walk - half the cat's speed, so it can be outrun. The robots,
+;; the dog, the football, the caretaker's bucket, the blob and the stray.
 ;;
 ;; Counted per enemy rather than off the parity of frame_count. A free-running
 ;; interrupt counter looks like the same thing until the game loop overruns a
@@ -150,9 +170,9 @@ enemy_move_canary
 ;; for no reason, and it happened most often on the frame a sausage was
 ;; collected, because that is the frame that repaints the whole HUD.
 ;;
-;; E_PHASE is free here - only the canary uses it, as its sine index.
+;; E_PHASE is free here - only the ones that fly use it, as a sine index.
 ;; ---------------------------------------------------------------------------
-enemy_move_robot
+enemy_move_walk
     ld a,(iy+E_PHASE)
     xor 1
     ld (iy+E_PHASE),a

@@ -29,7 +29,26 @@ MSG_ROOM7      EQU 18
 MSG_ROOM8      EQU 19
 MSG_ROOM9      EQU 20
 MSG_ROOM10     EQU 21
-MSG_COUNT EQU 22
+MSG_ROOM11     EQU 22
+MSG_ROOM12     EQU 23
+MSG_ROOM13     EQU 24
+MSG_ROOM14     EQU 25
+MSG_ROOM15     EQU 26
+MSG_ROOM16     EQU 27
+MSG_ROOM17     EQU 28
+MSG_ROOM18     EQU 29
+MSG_ROOM19     EQU 30
+MSG_ROOM20     EQU 31
+MSG_ROOM21     EQU 32
+MSG_ROOM22     EQU 33
+MSG_ROOM23     EQU 34
+MSG_ROOM24     EQU 35
+MSG_ROOM25     EQU 36
+MSG_ROOM26     EQU 37
+MSG_ROOM27     EQU 38
+MSG_ROOM28     EQU 39
+MSG_ROOM29     EQU 40
+MSG_COUNT EQU 41
 
 ;; language -> table of message pointers
 lang_tables
@@ -59,6 +78,25 @@ msgtab_en
     defw str_en_ROOM8
     defw str_en_ROOM9
     defw str_en_ROOM10
+    defw str_en_ROOM11
+    defw str_en_ROOM12
+    defw str_en_ROOM13
+    defw str_en_ROOM14
+    defw str_en_ROOM15
+    defw str_en_ROOM16
+    defw str_en_ROOM17
+    defw str_en_ROOM18
+    defw str_en_ROOM19
+    defw str_en_ROOM20
+    defw str_en_ROOM21
+    defw str_en_ROOM22
+    defw str_en_ROOM23
+    defw str_en_ROOM24
+    defw str_en_ROOM25
+    defw str_en_ROOM26
+    defw str_en_ROOM27
+    defw str_en_ROOM28
+    defw str_en_ROOM29
 
 msgtab_el
     defw str_el_TITLE1
@@ -83,14 +121,33 @@ msgtab_el
     defw str_el_ROOM8
     defw str_el_ROOM9
     defw str_el_ROOM10
+    defw str_el_ROOM11
+    defw str_el_ROOM12
+    defw str_el_ROOM13
+    defw str_el_ROOM14
+    defw str_el_ROOM15
+    defw str_el_ROOM16
+    defw str_el_ROOM17
+    defw str_el_ROOM18
+    defw str_el_ROOM19
+    defw str_el_ROOM20
+    defw str_el_ROOM21
+    defw str_el_ROOM22
+    defw str_el_ROOM23
+    defw str_el_ROOM24
+    defw str_el_ROOM25
+    defw str_el_ROOM26
+    defw str_el_ROOM27
+    defw str_el_ROOM28
+    defw str_el_ROOM29
 
 str_en_TITLE1
     defb 9
     defb 12,15,21,11,15,21,13,1,19
 str_en_TITLE2
-    defb 21
-    defb 20,8,5,0,7,18,5,1,20,0,6,18,9,4,7,5
-    defb 0,18,1,9,4
+    defb 23
+    defb 20,8,5,0,7,18,5,1,20,0,19,1,21,19,1,7
+    defb 5,0,3,8,1,19,5
 str_en_PRESS
     defb 19
     defb 16,18,5,19,19,0,6,9,18,5,0,20,15,0,19,20
@@ -153,14 +210,71 @@ str_en_ROOM9
 str_en_ROOM10
     defb 7
     defb 11,9,20,3,8,5,14
+str_en_ROOM11
+    defb 9
+    defb 2,1,3,11,0,25,1,18,4
+str_en_ROOM12
+    defb 8
+    defb 12,5,13,15,14,1,4,5
+str_en_ROOM13
+    defb 10
+    defb 16,12,1,25,7,18,15,21,14,4
+str_en_ROOM14
+    defb 4
+    defb 16,1,18,11
+str_en_ROOM15
+    defb 11
+    defb 19,3,8,15,15,12,0,7,1,20,5
+str_en_ROOM16
+    defb 8
+    defb 3,15,18,18,9,4,15,18
+str_en_ROOM17
+    defb 9
+    defb 3,12,1,19,19,18,15,15,13
+str_en_ROOM18
+    defb 10
+    defb 19,20,1,6,6,0,18,15,15,13
+str_en_ROOM19
+    defb 11
+    defb 19,3,9,5,14,3,5,0,12,1,2
+str_en_ROOM20
+    defb 3
+    defb 7,25,13
+str_en_ROOM21
+    defb 5
+    defb 16,9,20,3,8
+str_en_ROOM22
+    defb 8
+    defb 3,1,18,0,16,1,18,11
+str_en_ROOM23
+    defb 10
+    defb 19,3,8,15,15,12,0,2,21,19
+str_en_ROOM24
+    defb 8
+    defb 16,1,22,5,13,5,14,20
+str_en_ROOM25
+    defb 9
+    defb 18,5,3,5,16,20,9,15,14
+str_en_ROOM26
+    defb 7
+    defb 19,21,18,7,5,18,25
+str_en_ROOM27
+    defb 9
+    defb 19,20,15,18,5,18,15,15,13
+str_en_ROOM28
+    defb 8
+    defb 18,15,15,6,20,15,16,19
+str_en_ROOM29
+    defb 7
+    defb 3,8,9,13,14,5,25
 
 str_el_TITLE1
     defb 9
     defb 30,15,25,11,15,25,13,1,33
 str_el_TITLE2
-    defb 28
-    defb 8,0,13,5,27,1,30,8,0,5,32,9,28,16,15,13
-    defb 8,0,33,20,15,0,35,25,27,5,9,15
+    defb 24
+    defb 20,15,0,11,25,14,8,27,9,0,20,15,25,0,30,15
+    defb 25,11,1,14,9,11,15,25
 str_el_PRESS
     defb 22
     defb 32,1,20,1,0,6,9,18,5,0,27,9,1,0,5,11
@@ -223,3 +337,60 @@ str_el_ROOM9
 str_el_ROOM10
     defb 7
     defb 11,15,25,26,9,14,1
+str_el_ROOM11
+    defb 9
+    defb 32,9,33,36,0,1,25,30,8
+str_el_ROOM12
+    defb 8
+    defb 30,5,13,15,14,1,28,1
+str_el_ROOM13
+    defb 12
+    defb 32,1,9,28,9,11,8,0,24,1,16,1
+str_el_ROOM14
+    defb 5
+    defb 32,1,16,11,15
+str_el_ROOM15
+    defb 13
+    defb 32,25,30,8,0,33,24,15,30,5,9,15,25
+str_el_ROOM16
+    defb 9
+    defb 28,9,1,28,16,15,13,15,33
+str_el_ROOM17
+    defb 4
+    defb 20,1,31,8
+str_el_ROOM18
+    defb 7
+    defb 27,16,1,34,5,9,1
+str_el_ROOM19
+    defb 6
+    defb 24,8,13,5,9,15
+str_el_ROOM20
+    defb 11
+    defb 27,25,13,14,1,33,20,8,16,9,15
+str_el_ROOM21
+    defb 6
+    defb 27,8,32,5,28,15
+str_el_ROOM22
+    defb 8
+    defb 32,1,16,11,9,14,27,11
+str_el_ROOM23
+    defb 9
+    defb 30,5,36,34,15,16,5,9,15
+str_el_ROOM24
+    defb 10
+    defb 32,5,26,15,28,16,15,13,9,15
+str_el_ROOM25
+    defb 7
+    defb 25,32,15,28,15,24,8
+str_el_ROOM26
+    defb 11
+    defb 5,31,5,20,1,33,20,8,16,9,15
+str_el_ROOM27
+    defb 7
+    defb 1,32,15,29,8,11,8
+str_el_ROOM28
+    defb 8
+    defb 20,1,16,1,20,33,5,33
+str_el_ROOM29
+    defb 8
+    defb 11,1,13,9,14,1,28,1

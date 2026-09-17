@@ -46,6 +46,7 @@ data_start
     include "font.asm"
     include "strings.asm"
     include "sprites.asm"
+    include "artwork.asm"
     include "enemykind.asm"
     include "rooms.asm"
 data_end
@@ -281,6 +282,16 @@ pal_title
 ;; sprite sizes exist.
     ASSERT SPR_ROBOT_W*SPR_ROBOT_H <= ENEMY_BUF
     ASSERT SPR_CANARY_W*SPR_CANARY_H <= ENEMY_BUF
+    ASSERT SPR_DOG_W*SPR_DOG_H <= ENEMY_BUF
+    ASSERT SPR_MOP_W*SPR_MOP_H <= ENEMY_BUF
+    ASSERT SPR_STRAY_W*SPR_STRAY_H <= ENEMY_BUF
+    ASSERT SPR_BAT_W*SPR_BAT_H <= ENEMY_BUF
+    ASSERT SPR_BALL_W*SPR_BALL_H <= ENEMY_BUF
+    ASSERT SPR_BLOB_W*SPR_BLOB_H <= ENEMY_BUF
+    ASSERT SPR_PLANE_W*SPR_PLANE_H <= ENEMY_BUF
+    ASSERT SPR_PIGEON_W*SPR_PIGEON_H <= ENEMY_BUF
+    ASSERT SPR_WASP_W*SPR_WASP_H <= ENEMY_BUF
+    ASSERT SPR_SYRINGE_W*SPR_SYRINGE_H <= ENEMY_BUF
 
 code_end
 
@@ -330,6 +341,9 @@ exit_px     defs 1                  ; where the exit prop is drawn
 exit_py     defs 1
 prop_x      defs 1                  ; origin of the prop being drawn
 prop_y      defs 1
+dec_w       defs 1                  ; width of the decal being painted
+room_pal    defs 1                  ; hardware colour of pen 0 in this room
+room_floor  defs 1                  ; and the pen its floor is made of
 box_top     defs 1                  ; the box draw_boxes is filling
 box_high    defs 1
 box_over    defs 1                  ; did its top run off the bottom?
@@ -340,6 +354,11 @@ sausages_got  defs 1
 sausage_alive defs SAUSAGE_MAX
 saus_x        defs 1                ; the sausage being tested
 saus_y        defs 1
+pick_h        defs 1                ; height of the pickup being rubbed out
+milk_x        defs 1                ; the saucer, if this room has one
+milk_y        defs 1
+milk_alive    defs 1
+milk_flash    defs 1                ; frames of border left to flash
 hud_dirty     defs 1
 level_done    defs 1                ; every sausage in this room found
 game_over     defs 1                ; out of lives, or the fridge is open
@@ -372,6 +391,11 @@ draw_n        defs 1                ; how many of them were drawn last frame
 ;; What the file has to hold: the code, the gap the workspace will use, and
 ;; the low block riding along at the end of it.
 IMAGE_LEN       EQU DATA_STORE+DATA_LEN-loukoumas_start
+
+;; AMSDOS keeps its own buffers from #A67B up, which is why HIMEM drops when a
+;; disc drive is attached. The file may run over the screen at #8000 - nothing
+;; has looked at the screen yet when it is loaded - but not over those.
+    ASSERT loukoumas_start+IMAGE_LEN <= #A67B
 
     IF TARGET==1
 RUN loukoumas_start

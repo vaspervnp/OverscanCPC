@@ -39,5 +39,25 @@ enemy_kinds
     defb EB_WALK
     defw spr_canary
     defb EB_FLY
+    defw spr_dog
+    defb EB_WALK
+    defw spr_pigeon
+    defb EB_FLY
+    defw spr_wasp
+    defb EB_FLY
+    defw spr_ball
+    defb EB_WALK
+    defw spr_plane
+    defb EB_FLY
+    defw spr_mop
+    defb EB_WALK
+    defw spr_blob
+    defb EB_WALK
+    defw spr_syringe
+    defb EB_FLY
+    defw spr_bat
+    defb EB_FLY
+    defw spr_stray
+    defb EB_WALK
 
 EK_SIZE         EQU 3

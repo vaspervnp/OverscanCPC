@@ -57,7 +57,17 @@ BANNER_PAD      EQU 6           ; clear space above and below the message
 WELLDONE_YS     EQU 3
 
 LIVES_START     EQU 3
+LIVES_MAX       EQU 5           ; the HUD has one digit, and five is generous
 INVUL_FRAMES    EQU 100         ; two seconds of grace after a respawn
+
+;; A saucer of milk, in every third room. Twenty-nine rooms on three lives is
+;; not a game, it is an endurance test, so there is a way to earn them back -
+;; but it is only ever one, it is always on the awkward shelf, and the room
+;; still has five sausages to find whether the cat goes for it or not.
+MILK_POINTS     EQU #05         ; BCD, into the hundreds digit
+MILK_FLASH_LEN  EQU 12          ; frames the border flashes to say it counted
+MILK_FLASH_COL  EQU 3           ; pale yellow, hardware colour 3
+NO_MILK         EQU 255         ; in the R_MILKX of a room that has none
 
 ;; ---------------------------------------------------------------------------
 ;; play_screen - walk the flat, one room at a time. Returns on Escape.
@@ -128,6 +138,7 @@ play_draw
     call sprites_draw
 play_over
     call shake_update
+    call flash_update
     jr play_loop
 
 play_quit
@@ -227,19 +238,54 @@ room_load_alive
     ld b,a
     call enemies_init
 
-    ld hl,pal_play
-    call set_pal
+    ld a,(milk_x)               ; 255 in the two rooms out of three that
+    inc a                       ; have none
+    jr z,room_load_nomilk
+    ld a,1
+room_load_nomilk
+    ld (milk_alive),a
+    xor a
+    ld (milk_flash),a
+
+    call set_room_pal
 
     ld hl,line_tab
     ld de,DISPLAY_LINES
     ld a,PEN0_BYTE
     call clear_rows
 
-    call draw_props             ; furniture first, everything else on top
+    call draw_props             ; scenery and furniture, everything else on top
     call draw_platforms
     call draw_exit
     call draw_sausages
+    call draw_milk
     jp draw_hud
+
+;; ---------------------------------------------------------------------------
+;; set_room_pal - pal_play, then the one pen that makes a room what it is.
+;;
+;; Every room is lit by the same sixteen colours but one: pen 0, which is the
+;; background and the border both, and is therefore the whole of the light in
+;; a room. Navy is a wall at three in the morning and a garden before dawn,
+;; sky blue is nine o'clock outside a school, black is a roof at midnight.
+;; Nothing else moves, so the cat stays butter yellow and every piece of
+;; furniture keeps the colour it was drawn in.
+;; ---------------------------------------------------------------------------
+set_room_pal
+    ld hl,pal_play
+    call set_pal
+    ld a,(room_pal)
+    add a,#40                   ; Gate Array: #40 + hardware colour
+    ld e,a
+    ld bc,#7F00                 ; pen 0
+    out (c),c
+    ld a,e
+    out (c),a
+    ld c,#10                    ; and the border with it
+    out (c),c
+    ld a,e
+    out (c),a
+    ret
 
 ;; ---------------------------------------------------------------------------
 ;; Furniture. A prop is a list of filled rectangles rather than a bitmap: at
@@ -366,10 +412,84 @@ draw_props_loop
     inc hl
     push hl                     ; the prop list
     ld a,e
+    bit 7,a
+    jr z,draw_props_boxes
+    and #7F                     ; a decal: scenery that is not a rectangle
+    call draw_decal
+    pop hl
+    jr draw_props_loop
+draw_props_boxes
     call prop_boxes_at
     call draw_boxes
     pop hl
     jr draw_props_loop
+
+;; ---------------------------------------------------------------------------
+;; draw_decal - A = decal id, painted at (prop_x),(prop_y).
+;;
+;; Furniture is boxes because boxes are almost free, and a fridge is a box.
+;; A tree is not, and neither is a cloud, a slide or a street lamp, so the
+;; scenery that has to curve is a bitmap after all - see tools/mkart.py.
+;;
+;; No mask: the room has just been cleared to pen 0 and these go down before
+;; anything else, so ORing the picture on leaves pen 0 wherever the art is
+;; transparent and the background shows through by itself. That is half the
+;; bytes of a masked sprite, and the whole cost is paid once, when the room
+;; loads - nothing here runs while the game is being played.
+;; ---------------------------------------------------------------------------
+draw_decal
+    add a,a
+    ld e,a
+    ld d,0
+    ld hl,decal_table
+    add hl,de
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    ex de,hl                    ; HL = width, height, then the pixels
+    ld a,(hl)
+    inc hl
+    ld (dec_w),a
+    ld a,(hl)
+    inc hl
+    ld b,a                      ; rows to go
+    ld a,(prop_y)
+    ld c,a                      ; the scanline it is on
+draw_decal_row
+    push bc
+    push hl
+    ld l,c
+    ld h,0
+    add hl,hl
+    ld de,line_tab
+    add hl,de
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    ld a,(prop_x)
+    add a,e
+    ld e,a
+    jr nc,draw_decal_set
+    inc d
+draw_decal_set
+    pop hl
+    ld a,(dec_w)
+    ld b,a
+draw_decal_col
+    ld a,(de)
+    or (hl)
+    ld (de),a
+    inc hl
+    inc de
+    djnz draw_decal_col
+    pop bc
+    inc c
+    ret z                       ; past scanline 255: the line table is indexed
+                                ; by a byte here, the same limit draw_boxes
+                                ; works to. The floor is at 236 and no scenery
+                                ; hangs below it.
+    djnz draw_decal_row
+    ret
 
 ;; ---------------------------------------------------------------------------
 ;; draw_exit - the way out, shut or open. Outlined like the rest of the
@@ -414,9 +534,14 @@ check_exit
 ;; room's first platform is its floor.
 ;; ---------------------------------------------------------------------------
 draw_platforms
+    ld a,(room_floor)           ; boards, grass, tarmac or a roof
+    ld l,a
+    ld h,0
+    ld de,pen_bytes
+    add hl,de
+    ld a,(hl)
     ld hl,line_tab+FLOOR_Y*2
     ld de,FLOOR_H
-    ld a,PEN3_BYTE
     call clear_rows
 
     ld hl,(cur_plat)
@@ -480,6 +605,53 @@ draw_sausages_loop
     pop hl
     pop bc
     djnz draw_sausages_loop
+    ret
+
+;; ---------------------------------------------------------------------------
+;; draw_milk - the saucer, if this room has one. Blitted into the background
+;; like a sausage, and like a sausage it is masked: it stands on a shelf.
+;; ---------------------------------------------------------------------------
+draw_milk
+    ld a,(milk_alive)
+    or a
+    ret z
+    ld a,(milk_x)
+    ld (spr_x),a
+    ld a,(milk_y)
+    ld c,a
+    ld hl,spr_milk
+    call spr_size
+    push hl
+    ld a,c
+    call spr_row_ptr
+    pop hl
+    jp spr_blit
+
+;; ---------------------------------------------------------------------------
+;; flash_update - the border, for a moment, when a life comes back.
+;;
+;; The lives digit going from 3 to 4 in a corner of a two-row HUD is not
+;; something anyone notices while they are being chased. The border is the
+;; one thing on a CPC that can be changed in a single byte and cannot be
+;; missed, and this game has 384 pixels of picture and no border left to
+;; speak of - which makes the frame around it exactly the right place.
+;; ---------------------------------------------------------------------------
+flash_update
+    ld a,(milk_flash)
+    or a
+    ret z
+    dec a
+    ld (milk_flash),a
+    ld a,MILK_FLASH_COL
+    jr nz,flash_set
+    ld a,(room_pal)             ; done - back to whatever the room is lit by
+flash_set
+    add a,#40
+    ld e,a
+    ld bc,#7F10                 ; border
+    out (c),c
+    ld a,e
+    out (c),a
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -610,7 +782,8 @@ score_add
 ;; ===========================================================================
 
 check_sausages
-    ld a,(level_done)
+    call check_milk             ; before the early-out: the milk is still
+    ld a,(level_done)           ; there to be had after the last sausage
     or a
     ret nz
     ld hl,(cur_saus)
@@ -675,23 +848,83 @@ check_sausages_next
     jp draw_exit                ; the way out opens
 
 ;; ---------------------------------------------------------------------------
-;; erase_sausage - paint over it. Sausages sit on the background above a
-;; platform, never on one, so plain pen 0 is the right thing to leave behind.
+;; check_milk - a life back, up to five, and nothing else changes: the milk
+;; is not one of the sausages and the way out does not wait for it.
+;; ---------------------------------------------------------------------------
+check_milk
+    ld a,(milk_alive)
+    or a
+    ret z
+    ld a,(milk_x)
+    ld (box_x),a
+    ld a,(milk_y)
+    ld (box_y),a
+    ld a,SPR_MILK_W
+    ld (box_w),a
+    ld a,SPR_MILK_H
+    ld (box_h),a
+    call cat_hits_box
+    ret nc
+
+    xor a
+    ld (milk_alive),a
+    call erase_milk
+    ld a,(cat_lives)
+    cp LIVES_MAX
+    jr nc,check_milk_score      ; already full: it is worth points instead
+    inc a
+    ld (cat_lives),a
+check_milk_score
+    ld a,MILK_POINTS
+    call score_add
+    ld a,1
+    ld (hud_dirty),a
+    ld a,MILK_FLASH_LEN
+    ld (milk_flash),a
+    ret
+
+erase_milk
+    ld a,(milk_x)
+    ld (fill_x),a
+    ld a,(milk_y)
+    ld c,a
+    ld b,SPR_MILK_W
+    ld a,SPR_MILK_H
+    jp erase_pickup
+
+;; ---------------------------------------------------------------------------
+;; erase_sausage / erase_pickup - paint over it. Sausages and saucers sit on
+;; the background above a platform, never on one, so plain pen 0 is the right
+;; thing to leave behind.
+;;
+;; erase_pickup wants (fill_x) set, C = top scanline, B = width in bytes and
+;; A = height in scanlines.
 ;; ---------------------------------------------------------------------------
 erase_sausage
     ld a,(saus_x)
     ld (fill_x),a
-    ld hl,SPR_SAUSAGE_W
+    ld a,(saus_y)
+    ld c,a
+    ld b,SPR_SAUSAGE_W
+    ld a,SPR_SAUSAGE_H
+    ;; fall through
+
+erase_pickup
+    ld (pick_h),a
+    ld a,b
+    ld l,a
+    ld h,0
     ld (fill_w),hl
     ld a,PEN0_BYTE
     ld (fill_b),a
-    ld a,(saus_y)
-    ld l,a
+    ld l,c
     ld h,0
     add hl,hl
     ld de,line_tab
     add hl,de
-    ld de,SPR_SAUSAGE_H
+    ld a,(pick_h)
+    ld e,a
+    ld d,0
     jp fill_rows
 
 ;; ---------------------------------------------------------------------------

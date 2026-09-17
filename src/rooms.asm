@@ -41,7 +41,11 @@ R_EXITSHUT      EQU 17          ; prop drawn while the room is unfinished
 R_EXITOPEN      EQU 18          ; and once every sausage is gone
 R_STARTX        EQU 19
 R_STARTY        EQU 20
-R_SIZE          EQU 21
+R_MILKX         EQU 21          ; the saucer, or NO_MILK
+R_MILKY         EQU 22
+R_PAL           EQU 23          ; hardware colour for pen 0 - what lights it
+R_FLOOR         EQU 24          ; pen the floor band is painted in
+R_SIZE          EQU 25
 
 ROOM_COUNT      EQU 10
 SAUSAGE_MAX     EQU 6
@@ -574,6 +578,7 @@ box_bookcase
 
 CAT_FLOOR       EQU FLOOR_Y-SPR_CAT_STAND_H
 SAUS_ON         EQU SPR_SAUSAGE_H       ; a sausage sits this far above its shelf
+MILK_ON         EQU SPR_MILK_H          ; and so does a saucer
 ROBOT_ON        EQU SPR_ROBOT_H
 
 rooms
@@ -587,6 +592,8 @@ rooms
     defb 76, 56                     ; the door out, against the right wall
     defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
     defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 3
 
     ;; --- 2: the garage -----------------------------------------------------
     defb MSG_ROOM2
@@ -598,6 +605,8 @@ rooms
     defb 0, 56                      ; back into the house, on the left
     defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
     defb 88, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 5               ; concrete
 
     ;; --- 3: the garden -----------------------------------------------------
     defb MSG_ROOM3
@@ -609,6 +618,8 @@ rooms
     defb 76, 56
     defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
     defb 4, CAT_FLOOR
+    defb 54, SHELF_2-MILK_ON        ; the saucer, out on the low branch
+    defb PAL_INDOOR, 8               ; a garden at three in the morning
 
     ;; --- 4: the entrance hall ----------------------------------------------
     defb MSG_ROOM4
@@ -620,6 +631,8 @@ rooms
     defb 0, 56
     defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
     defb 88, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 3
 
     ;; --- 5: the bedroom ----------------------------------------------------
     defb MSG_ROOM5
@@ -631,6 +644,8 @@ rooms
     defb 66, 60                     ; the way on is through the wardrobe
     defb 68, 176, 26, 60, PROP_WARDROBE, PROP_WARDROBEOPEN
     defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 3
 
     ;; --- 6: inside the wardrobe --------------------------------------------
     defb MSG_ROOM6
@@ -642,6 +657,8 @@ rooms
     defb 80, 84                     ; a vent in the back panel, up on the shelf
     defb 80, 84, 6, 24, PROP_VENT, PROP_VENTOPEN
     defb 4, CAT_FLOOR
+    defb 70, SHELF_4-MILK_ON        ; the saucer, up where the robot is
+    defb PAL_INDOOR, 3
 
     ;; --- 7: the bathroom ---------------------------------------------------
     defb MSG_ROOM7
@@ -653,6 +670,8 @@ rooms
     defb 0, 56
     defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
     defb 88, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 3
 
     ;; --- 8: the study ------------------------------------------------------
     defb MSG_ROOM8
@@ -664,6 +683,8 @@ rooms
     defb 76, 56
     defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
     defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 3
 
     ;; --- 9: the living room ------------------------------------------------
     defb MSG_ROOM9
@@ -678,6 +699,8 @@ rooms
     defb 86, SHELF4-24
     defb 86, SHELF4-24, 6, 24, PROP_VENT, PROP_VENTOPEN
     defb 4, CAT_FLOOR
+    defb 36, SHELF3-MILK_ON         ; the saucer, along from the sausage
+    defb PAL_INDOOR, 3
 
     ;; --- 10: the kitchen ---------------------------------------------------
     defb MSG_ROOM10
@@ -691,6 +714,8 @@ rooms
     defb 78, FLOOR_Y-136
     defb 78, 170, 12, 66, PROP_FRIDGE, PROP_FRIDGEOPEN
     defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 3
 
 ;; ---------------------------------------------------------------------------
 ;; 1 - the basement. Steel shelving on the left, packing crates in the middle,

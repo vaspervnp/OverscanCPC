@@ -11,6 +11,7 @@ up hanging in mid-air - the game just becomes quietly unfinishable. This reads
 the tables back out of the binary, through the symbol file, and checks:
 
   * every sausage rests on a platform, inside its span
+  * every third room has a saucer of milk on one, and no other room does
   * the cat starts on one
   * every platform can be reached from the start, one jump at a time
   * the exit can be reached from a platform the cat can get to
@@ -94,6 +95,10 @@ def read_rooms(b):
             "open": b[r + b.c("R_EXITOPEN")],
             "startx": b[r + b.c("R_STARTX")],
             "starty": b[r + b.c("R_STARTY")],
+            "milkx": b[r + b.c("R_MILKX")],
+            "milky": b[r + b.c("R_MILKY")],
+            "pal": b[r + b.c("R_PAL")],
+            "floor": b[r + b.c("R_FLOOR")],
         })
     return rooms
 
@@ -168,6 +173,8 @@ def main():
     cat_h = b.c("SPR_CAT_STAND_H")
     saus_h = b.c("SPR_SAUSAGE_H")
     saus_w = b.c("SPR_SAUSAGE_W")
+    milk_h = b.c("SPR_MILK_H")
+    milk_w = b.c("SPR_MILK_W")
     robot_h = b.c("SPR_ROBOT_H")
     robot_w = b.c("SPR_ROBOT_W")
     canary_w = b.c("SPR_CANARY_W")
@@ -175,6 +182,7 @@ def main():
     lines = b.c("DISPLAY_LINES")
     play_top = b.c("PLAY_TOP")
     prop_boxes = b.c("PROP_BOXES")
+    decal_table = b.c("DECAL_TABLE")
 
     bad = []
     for r in read_rooms(b):
@@ -220,6 +228,26 @@ def main():
                     and sy < r["starty"] + cat_h and r["starty"] < sy + saus_h):
                 fail("sausage %d is where the cat starts" % (si + 1))
 
+        # The saucer, in every third room, has to stand on a platform the
+        # cat can get to - it is the only way to earn a life back, and one
+        # hanging in mid-air would simply never be collected.
+        if r["milkx"] != b.c("NO_MILK"):
+            mx, my = r["milkx"], r["milky"]
+            on = [i for i, (x0, x1, y) in enumerate(plats)
+                  if y == my + milk_h and x0 <= mx and mx + milk_w <= x1 + 1]
+            if not on:
+                fail("the saucer at x=%d y=%d is not standing on a platform"
+                     % (mx, my))
+            elif not (set(on) & got):
+                fail("the saucer at x=%d y=%d is out of reach" % (mx, my))
+            for si, (sx, sy) in enumerate(read_sausages(b, r["saus"],
+                                                        r["nsaus"])):
+                if (sx < mx + milk_w and mx < sx + saus_w
+                        and sy < my + milk_h and my < sy + saus_h):
+                    fail("the saucer is on top of sausage %d" % (si + 1))
+        if (r["index"] % 3 == 2) != (r["milkx"] != b.c("NO_MILK")):
+            fail("every third room has a saucer and no other room does")
+
         # The exit has to overlap somewhere the cat can stand.
         ex0, ex1 = r["exit_x"], r["exit_x"] + r["exit_w"]
         ey0, ey1 = r["exit_y"], r["exit_y"] + r["exit_h"]
@@ -243,19 +271,29 @@ def main():
                     fail("robot %d at y=%d patrols %d..%d, which is not a "
                          "platform" % (ei + 1, ey, x0p, x1p))
 
-        # Furniture stays on screen.
+        # Furniture and scenery stay on screen. A prop id with bit 7 set is
+        # a decal - a picture rather than a list of boxes - so its size comes
+        # out of the decal table instead.
         for pid, px, py in read_props(b, r["props"]):
-            for dx, dy, w, h, _pen in read_boxes(b, b.word(prop_boxes + 2 * pid)):
+            if pid & 0x80:
+                d = b.word(decal_table + 2 * (pid & 0x7F))
+                pieces = [(0, 0, b[d], b[d + 1])]
+                what = "decal %d" % (pid & 0x7F)
+            else:
+                pieces = [(dx, dy, w, h) for dx, dy, w, h, _pen
+                          in read_boxes(b, b.word(prop_boxes + 2 * pid))]
+                what = "prop %d" % pid
+            for dx, dy, w, h in pieces:
                 if px + dx + w > line_w:
-                    fail("prop %d runs %d bytes past the right edge"
-                         % (pid, px + dx + w - line_w))
+                    fail("%s runs %d bytes past the right edge"
+                         % (what, px + dx + w - line_w))
                     break
                 if py + dy + h > lines:
-                    fail("prop %d runs %d scanlines past the bottom"
-                         % (pid, py + dy + h - lines))
+                    fail("%s runs %d scanlines past the bottom"
+                         % (what, py + dy + h - lines))
                     break
                 if py + dy < play_top:
-                    fail("prop %d starts above the play area" % pid)
+                    fail("%s starts above the play area" % what)
                     break
 
     if bad:

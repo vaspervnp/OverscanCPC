@@ -3,10 +3,11 @@
 # Only characters the font has are allowed - tools/mktext.py checks.
 # TITLE1, WELLDONE and GAMEOVER are drawn large: 12 characters at most,
 # or they will not fit across 384 pixels.
-# ROOM1..ROOM10 go in the HUD, which has room for 12 characters.
+# ROOM1..ROOM29 go in the HUD, from column 48 to the right edge: 48 bytes
+# at 3 to a letter, so 16 characters at most.
 
 TITLE1    = LOUKOUMAS
-TITLE2    = THE GREAT FRIDGE RAID
+TITLE2    = THE GREAT SAUSAGE CHASE
 PRESS     = PRESS FIRE TO START
 LANGNAME  = ENGLISH
 LANGHINT  = PRESS L FOR GREEK
@@ -18,6 +19,7 @@ PAUSED    = PAUSED
 GAMEOVER  = GAME OVER
 WELLDONE  = WELL DONE!
 
+# --- Act one: the flat, at a quarter past three in the morning -------------
 ROOM1     = BASEMENT
 ROOM2     = GARAGE
 ROOM3     = GARDEN
@@ -28,3 +30,26 @@ ROOM7     = BATHROOM
 ROOM8     = STUDY
 ROOM9     = LOUNGE
 ROOM10    = KITCHEN
+
+# --- Act two: the neighbourhood and the school, in daylight ----------------
+ROOM11    = BACK YARD
+ROOM12    = LEMONADE
+ROOM13    = PLAYGROUND
+ROOM14    = PARK
+ROOM15    = SCHOOL GATE
+ROOM16    = CORRIDOR
+ROOM17    = CLASSROOM
+ROOM18    = STAFF ROOM
+ROOM19    = SCIENCE LAB
+ROOM20    = GYM
+ROOM21    = PITCH
+ROOM22    = CAR PARK
+ROOM23    = SCHOOL BUS
+ROOM24    = PAVEMENT
+
+# --- Act three: the vet, and the way home ---------------------------------
+ROOM25    = RECEPTION
+ROOM26    = SURGERY
+ROOM27    = STOREROOM
+ROOM28    = ROOFTOPS
+ROOM29    = CHIMNEY
