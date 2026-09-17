@@ -182,4 +182,152 @@ function M.save(dir, name)
   print(string.format("%-10s %2d x %2d  %d pens", name, W, H, n))
 end
 
+
+-- ---------------------------------------------------------------------------
+-- The title screen needs three things the room art does not: the game's own
+-- font at four times the size, the actual in-game sprites stamped into a
+-- scene, and an outline round the letters.
+-- ---------------------------------------------------------------------------
+
+--- Stamp rows of "." and pen digits - the format of assets/sprites.txt.
+function M.stampRows(rows, x, y, sx, sy)
+  sx = sx or 1
+  sy = sy or 1
+  for j, row in ipairs(rows) do
+    for i = 1, #row do
+      local ch = row:sub(i, i)
+      if ch ~= "." then
+        local pen = tonumber(ch, 16)
+        for dy = 0, sy - 1 do
+          for dx = 0, sx - 1 do
+            M.px(x + (i - 1) * sx + dx, y + (j - 1) * sy + dy, pen)
+          end
+        end
+      end
+    end
+  end
+end
+
+--- Read assets/font.txt into a table of glyph name -> 8 rows of "#" and ".".
+function M.readFont(path)
+  local font, name, rows = {}, nil, nil
+  for line in io.lines(path) do
+    line = line:gsub("%s+$", "")
+    if line:sub(1, 1) == ":" then
+      if name then font[name] = rows end
+      name = line:sub(2)
+      rows = {}
+    elseif name and #line == 5 and line:match("^[.#]+$") then
+      -- exactly five columns of "." and "#". Testing for a leading "#" and
+      -- calling it a comment throws away every row that starts with a set
+      -- pixel, which is most of the alphabet.
+      rows[#rows + 1] = line
+    end
+  end
+  if name then font[name] = rows end
+  return font
+end
+
+--- How wide a line of glyphs comes out, in mode 0 pixels.
+function M.textWidth(names, sx, gap)
+  return #names * (5 * sx + gap) - gap
+end
+
+--- Draw a line of glyph names. The font is 5 columns by 7 rows plus a blank
+--- row of line spacing, so a letter at sx=3, sy=6 is 15 by 42.
+function M.text(font, names, x, y, sx, sy, pen, gap)
+  gap = gap or sx
+  for _, name in ipairs(names) do
+    local g = font[name]
+    if not g then error("no glyph for " .. name) end
+    for j = 1, 8 do
+      local row = g[j] or "....."
+      for i = 1, 5 do
+        if row:sub(i, i) == "#" then
+          for dy = 0, sy - 1 do
+            for dx = 0, sx - 1 do
+              M.px(x + (i - 1) * sx + dx, y + (j - 1) * sy + dy, pen)
+            end
+          end
+        end
+      end
+    end
+    x = x + 5 * sx + gap
+  end
+end
+
+--- Put an outline round everything drawn in `pen`, in the pixels next to it
+--- that are still empty. Four ways, then the diagonals, so it closes.
+function M.outline(pen, outpen)
+  local W, H = M.size()
+  local hits = {}
+  for y = 0, H - 1 do
+    for x = 0, W - 1 do
+      if M.get(x, y) == pen then
+        for _, d in ipairs({{-1, 0}, {1, 0}, {0, -1}, {0, 1},
+                            {-1, -1}, {1, -1}, {-1, 1}, {1, 1}}) do
+          local nx, ny = x + d[1], y + d[2]
+          if M.get(nx, ny) < 0 then hits[#hits + 1] = {nx, ny} end
+        end
+      end
+    end
+  end
+  for _, p in ipairs(hits) do M.px(p[1], p[2], outpen) end
+end
+
+--- A filled triangle, for ears and anything else with a point on it.
+function M.tri(x1, y1, x2, y2, x3, y3, pen)
+  local minx = math.floor(math.min(x1, x2, x3))
+  local maxx = math.ceil(math.max(x1, x2, x3))
+  local miny = math.floor(math.min(y1, y2, y3))
+  local maxy = math.ceil(math.max(y1, y2, y3))
+  local function side(ax, ay, bx, by, px, py)
+    return (px - ax) * (by - ay) - (py - ay) * (bx - ax)
+  end
+  for y = miny, maxy do
+    for x = minx, maxx do
+      local a = side(x1, y1, x2, y2, x, y)
+      local b = side(x2, y2, x3, y3, x, y)
+      local c = side(x3, y3, x1, y1, x, y)
+      if (a >= 0 and b >= 0 and c >= 0) or (a <= 0 and b <= 0 and c <= 0) then
+        M.px(x, y, pen)
+      end
+    end
+  end
+end
+
+--- Stamp a PNG that was drawn by one of the other scripts, so the title
+--- screen shows the cast the game actually has rather than a second drawing
+--- of it. Every colour in it has to be one of the sixteen pens.
+local BY_RGB = nil
+function M.stampPng(path, x, y, sx, sy)
+  if not BY_RGB then
+    BY_RGB = {}
+    for i = 0, 15 do
+      local c = M.PEN[i]
+      BY_RGB[c[1] * 65536 + c[2] * 256 + c[3]] = i
+    end
+  end
+  sx = sx or 1
+  sy = sy or 1
+  local img = Image{fromFile = path}
+  for j = 0, img.height - 1 do
+    for i = 0, img.width - 1 do
+      local v = img:getPixel(i, j)
+      if app.pixelColor.rgbaA(v) >= 128 then
+        local key = app.pixelColor.rgbaR(v) * 65536
+                  + app.pixelColor.rgbaG(v) * 256
+                  + app.pixelColor.rgbaB(v)
+        local pen = BY_RGB[key]
+        if not pen then error(path .. ": colour off the palette") end
+        for dy = 0, sy - 1 do
+          for dx = 0, sx - 1 do
+            M.px(x + i * sx + dx, y + j * sy + dy, pen)
+          end
+        end
+      end
+    end
+  end
+end
+
 return M
