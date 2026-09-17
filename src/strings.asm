@@ -21,7 +21,15 @@ MSG_GAMEOVER   EQU 10
 MSG_WELLDONE   EQU 11
 MSG_ROOM1      EQU 12
 MSG_ROOM2      EQU 13
-MSG_COUNT EQU 14
+MSG_ROOM3      EQU 14
+MSG_ROOM4      EQU 15
+MSG_ROOM5      EQU 16
+MSG_ROOM6      EQU 17
+MSG_ROOM7      EQU 18
+MSG_ROOM8      EQU 19
+MSG_ROOM9      EQU 20
+MSG_ROOM10     EQU 21
+MSG_COUNT EQU 22
 
 ;; language -> table of message pointers
 lang_tables
@@ -43,6 +51,14 @@ msgtab_en
     defw str_en_WELLDONE
     defw str_en_ROOM1
     defw str_en_ROOM2
+    defw str_en_ROOM3
+    defw str_en_ROOM4
+    defw str_en_ROOM5
+    defw str_en_ROOM6
+    defw str_en_ROOM7
+    defw str_en_ROOM8
+    defw str_en_ROOM9
+    defw str_en_ROOM10
 
 msgtab_el
     defw str_el_TITLE1
@@ -59,6 +75,14 @@ msgtab_el
     defw str_el_WELLDONE
     defw str_el_ROOM1
     defw str_el_ROOM2
+    defw str_el_ROOM3
+    defw str_el_ROOM4
+    defw str_el_ROOM5
+    defw str_el_ROOM6
+    defw str_el_ROOM7
+    defw str_el_ROOM8
+    defw str_el_ROOM9
+    defw str_el_ROOM10
 
 str_en_TITLE1
     defb 9
@@ -100,9 +124,33 @@ str_en_WELLDONE
     defb 10
     defb 23,5,12,12,0,4,15,14,5,49
 str_en_ROOM1
+    defb 8
+    defb 2,1,19,5,13,5,14,20
+str_en_ROOM2
+    defb 6
+    defb 7,1,18,1,7,5
+str_en_ROOM3
+    defb 6
+    defb 7,1,18,4,5,14
+str_en_ROOM4
+    defb 7
+    defb 8,1,12,12,23,1,25
+str_en_ROOM5
+    defb 7
+    defb 2,5,4,18,15,15,13
+str_en_ROOM6
+    defb 8
+    defb 23,1,18,4,18,15,2,5
+str_en_ROOM7
+    defb 8
+    defb 2,1,20,8,18,15,15,13
+str_en_ROOM8
+    defb 5
+    defb 19,20,21,4,25
+str_en_ROOM9
     defb 6
     defb 12,15,21,14,7,5
-str_en_ROOM2
+str_en_ROOM10
     defb 7
     defb 11,9,20,3,8,5,14
 
@@ -146,8 +194,32 @@ str_el_WELLDONE
     defb 7
     defb 13,32,16,1,2,15,49
 str_el_ROOM1
+    defb 7
+    defb 25,32,15,27,5,9,15
+str_el_ROOM2
+    defb 6
+    defb 27,11,1,16,1,26
+str_el_ROOM3
+    defb 5
+    defb 11,8,32,15,33
+str_el_ROOM4
+    defb 7
+    defb 5,9,33,15,28,15,33
+str_el_ROOM5
+    defb 11
+    defb 25,32,14,15,28,36,13,1,20,9,15
+str_el_ROOM6
+    defb 8
+    defb 14,20,15,25,30,1,32,1
+str_el_ROOM7
+    defb 6
+    defb 13,32,1,14,9,15
+str_el_ROOM8
+    defb 7
+    defb 27,16,1,34,5,9,15
+str_el_ROOM9
     defb 6
     defb 33,1,30,15,14,9
-str_el_ROOM2
+str_el_ROOM10
     defb 7
     defb 11,15,25,26,9,14,1

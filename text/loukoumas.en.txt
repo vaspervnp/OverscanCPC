@@ -3,6 +3,7 @@
 # Only characters the font has are allowed - tools/mktext.py checks.
 # TITLE1, WELLDONE and GAMEOVER are drawn large: 12 characters at most,
 # or they will not fit across 384 pixels.
+# ROOM1..ROOM10 go in the HUD, which has room for 12 characters.
 
 TITLE1    = LOUKOUMAS
 TITLE2    = THE GREAT FRIDGE RAID
@@ -17,5 +18,13 @@ PAUSED    = PAUSED
 GAMEOVER  = GAME OVER
 WELLDONE  = WELL DONE!
 
-ROOM1     = LOUNGE
-ROOM2     = KITCHEN
+ROOM1     = BASEMENT
+ROOM2     = GARAGE
+ROOM3     = GARDEN
+ROOM4     = HALLWAY
+ROOM5     = BEDROOM
+ROOM6     = WARDROBE
+ROOM7     = BATHROOM
+ROOM8     = STUDY
+ROOM9     = LOUNGE
+ROOM10    = KITCHEN

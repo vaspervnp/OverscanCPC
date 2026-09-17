@@ -87,3 +87,12 @@ GLYPH_MAX_BYTES EQU 16                  ; widest expanded row: 8 px * 2 bytes
 CENTRE_HALF     EQU BYTES_PER_LINE/2    ; 48
 
 STACK_TOP       EQU #7FFE   ; safely below the screen at #8000
+
+;; ---------------------------------------------------------------------------
+;; Which room the game starts in. Always 0 in a build anyone plays; make check
+;; passes -DSTARTROOM=n so a scripted run can be aimed at one room without
+;; having to play through the nine in front of it.
+;; ---------------------------------------------------------------------------
+IFNDEF STARTROOM
+STARTROOM   EQU 0
+ENDIF

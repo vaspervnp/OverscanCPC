@@ -39,11 +39,11 @@ HUD_Y           EQU 2
 HUD_H           EQU 8
 SCORE_LABEL_X   EQU 2
 SCORE_X         EQU 14
-SAUS_LABEL_X    EQU 34
-SAUS_COUNT_X    EQU 54
-LIVES_LABEL_X   EQU 66
-LIVES_X         EQU 78
-ROOM_NAME_X     EQU 82
+SAUS_LABEL_X    EQU 28
+SAUS_COUNT_X    EQU 48
+LIVES_LABEL_X   EQU 56
+LIVES_X         EQU 68
+ROOM_NAME_X     EQU 72
 
 SCORE_BYTES     EQU 3           ; six BCD digits
 SAUSAGE_POINTS  EQU #01         ; BCD, added to the hundreds digit
@@ -59,13 +59,14 @@ INVUL_FRAMES    EQU 100         ; two seconds of grace after a respawn
 ;; ---------------------------------------------------------------------------
 play_screen
     xor a
-    ld (cur_room),a
     ld (score),a
     ld (score+1),a
     ld (score+2),a
     ld (game_over),a
     ld a,LIVES_START
     ld (cat_lives),a
+    ld a,STARTROOM              ; 0 in a real build; the tests start elsewhere
+    ld (cur_room),a
 
 play_room
     call room_load
