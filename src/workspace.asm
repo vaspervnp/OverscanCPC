@@ -1,6 +1,10 @@
 ;; ===========================================================================
 ;; workspace.asm - RAM the engine builds at run time.
 ;;
+;; Engine variables only. Anything that needs a game's own constants - the
+;; cat's background buffer needs SPR_MAX_BYTES - belongs to that game, past
+;; its own include of this file.
+;;
 ;; Included past the end of the code so none of it lands in the disc image.
 ;; Nothing here is initialised; anything that needs a starting value is set
 ;; by the program before first use.
@@ -32,5 +36,17 @@ ctl_pressed defs 1              ; controls that went down this frame
 
 ;; title screen
 press_state defs 1              ; blink phase of the "press fire" line
+
+
+
+;; keys.asm
+key_rows    defs 10             ; the matrix as it was read this frame
+
+;; sprite.asm
+spr_x       defs 1              ; x of the sprite being worked on, in bytes
+spr_w       defs 1
+spr_h       defs 1
+
+
 
 workspace_end

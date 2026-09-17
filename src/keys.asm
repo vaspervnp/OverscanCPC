@@ -11,15 +11,13 @@
 ;; 11 select. Bits 0-3 are the keyboard line.
 ;; ===========================================================================
 
-KEY_L_LINE      EQU 4
-KEY_L_BIT       EQU 4
-KEY_SPACE_LINE  EQU 5
-KEY_SPACE_BIT   EQU 7
-KEY_FIRE_LINE   EQU 9
-KEY_FIRE_BIT    EQU 4
-
 CTL_FIRE        EQU 0           ; bit numbers in ctl_now / ctl_pressed
 CTL_LANG        EQU 1
+CTL_UP          EQU 2
+CTL_DOWN        EQU 3
+CTL_LEFT        EQU 4
+CTL_RIGHT       EQU 5
+CTL_QUIT        EQU 6
 
 ;; ---------------------------------------------------------------------------
 ;; read_key_line - A = matrix line 0..9 -> A = that line's eight keys,
@@ -46,36 +44,78 @@ read_key_line
     ret
 
 ;; ---------------------------------------------------------------------------
-;; read_controls - collapse the keys this game uses into ctl_now (held) and
-;; ctl_pressed (went down this frame, so a menu key fires once per press).
+;; read_keyboard - cache all ten matrix lines in key_rows. Ten port sequences
+;; a frame, after which any key is a bit test on RAM.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+read_keyboard
+    ld hl,key_rows
+    xor a
+read_keyboard_loop
+    push af
+    push hl
+    call read_key_line
+    pop hl
+    ld (hl),a
+    inc hl
+    pop af
+    inc a
+    cp 10
+    jr nz,read_keyboard_loop
+    ret
+
+;; ---------------------------------------------------------------------------
+;; ctl_map - matrix line, key mask, control mask. Two entries for a control
+;; means either input works, which is how the cursor keys and the joystick
+;; both drive the same thing.
+;; ---------------------------------------------------------------------------
+ctl_map
+    defb 5,#80,1<<CTL_FIRE      ; Space
+    defb 9,#10,1<<CTL_FIRE      ; joystick fire 1
+    defb 4,#10,1<<CTL_LANG      ; L
+    defb 0,#01,1<<CTL_UP        ; cursor up
+    defb 9,#01,1<<CTL_UP        ; joystick up
+    defb 0,#02,1<<CTL_RIGHT     ; cursor right
+    defb 9,#08,1<<CTL_RIGHT     ; joystick right
+    defb 0,#04,1<<CTL_DOWN      ; cursor down
+    defb 9,#02,1<<CTL_DOWN      ; joystick down
+    defb 1,#01,1<<CTL_LEFT      ; cursor left
+    defb 9,#04,1<<CTL_LEFT      ; joystick left
+    defb 8,#04,1<<CTL_QUIT      ; Escape
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; read_controls - ctl_now (held) and ctl_pressed (went down this frame, so a
+;; menu key fires once per press).
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 read_controls
+    call read_keyboard
     xor a
     ld (ctl_now),a
-
-    ld a,KEY_SPACE_LINE
-    call read_key_line
-    bit KEY_SPACE_BIT,a
-    jr nz,read_controls_joy
-    ld hl,ctl_now
-    set CTL_FIRE,(hl)
-
-read_controls_joy
-    ld a,KEY_FIRE_LINE
-    call read_key_line
-    bit KEY_FIRE_BIT,a
-    jr nz,read_controls_lang
-    ld hl,ctl_now
-    set CTL_FIRE,(hl)
-
-read_controls_lang
-    ld a,KEY_L_LINE
-    call read_key_line
-    bit KEY_L_BIT,a
-    jr nz,read_controls_edges
-    ld hl,ctl_now
-    set CTL_LANG,(hl)
+    ld hl,ctl_map
+read_controls_loop
+    ld a,(hl)
+    inc a
+    jr z,read_controls_edges
+    dec a
+    push hl
+    ld e,a
+    ld d,0
+    ld hl,key_rows
+    add hl,de
+    ld a,(hl)                   ; that line as it was read this frame
+    pop hl
+    inc hl
+    and (hl)                    ; 0 means the key is down
+    inc hl
+    jr nz,read_controls_next
+    ld a,(ctl_now)
+    or (hl)
+    ld (ctl_now),a
+read_controls_next
+    inc hl
+    jr read_controls_loop
 
 read_controls_edges
     ld a,(ctl_now)

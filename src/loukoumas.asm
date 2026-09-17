@@ -6,7 +6,8 @@
 ;; through a message id, never a literal. LANG picks which table txt_lang
 ;; starts on, so switching language at run time is one byte.
 ;;
-;; L switches language while it runs, FIRE is read but does nothing yet.
+;; L switches language on the title screen, FIRE starts the play field,
+;; Escape comes back.
 ;;
 ;; Build with TARGET=1 snapshot, 2 DSK, 3 raw binary; LANG=0 English, 1 Greek.
 ;; ===========================================================================
@@ -52,19 +53,35 @@ loukoumas_start
     call draw_title_text
 
     call setup_crtc             ; now switch the display to overscan
-    ld hl,pal_loukoumas
+    ld hl,pal_title
     call set_pal
 
     call irq_init
 
 ;; ---------------------------------------------------------------------------
-;; One pass per 50 Hz frame.
+;; Title, then play, then back to the title. The screen is already drawn on
+;; the way in, so only the return trip has to repaint it.
+;; ---------------------------------------------------------------------------
+main_loop
+    call title_loop
+    call play_screen
+    ld hl,pal_title
+    call set_pal
+    call draw_title_background
+    call draw_title_text
+    jr main_loop
+
+;; ---------------------------------------------------------------------------
+;; title_loop - one pass per 50 Hz frame; returns when FIRE is pressed.
 ;; ---------------------------------------------------------------------------
 title_loop
     call wait_frame
     call read_controls
 
     ld a,(ctl_pressed)
+    bit CTL_FIRE,a
+    ret nz
+
     bit CTL_LANG,a
     jr z,title_no_lang
     ld a,(txt_lang)             ; L cycles to the next language
@@ -205,7 +222,7 @@ draw_title_text
 ;; &54 is hardware 20, black, not deep navy, and &5C is hardware 28, dark red,
 ;; not coral. These are the named colours.
 ;; ---------------------------------------------------------------------------
-pal_loukoumas
+pal_title
     defb 0,   #40+4             ; pen 0 - deep navy, background
     defb 1,   #40+10            ; pen 1 - butter yellow, text on the background
     defb 2,   #40+7             ; pen 2 - coral, the overscan bands
@@ -218,12 +235,30 @@ pal_loukoumas
     include "irq.asm"
     include "keys.asm"
     include "text.asm"
+    include "sprite.asm"
+    include "play.asm"
     include "font.asm"
     include "strings.asm"
+    include "sprites.asm"
 
 code_end
 
     include "workspace.asm"
+
+;; ---------------------------------------------------------------------------
+;; The cat's own workspace: sized from the sprite data, so it cannot live in
+;; the shared engine workspace.
+;; ---------------------------------------------------------------------------
+cat_x       defs 1              ; column, in bytes
+cat_y       defs 1              ; top scanline
+cat_ox      defs 1              ; where the saved background came from
+cat_oy      defs 1
+cat_ow      defs 1
+cat_oh      defs 1
+cat_spr     defs 2              ; sprite for this frame
+cat_drawn   defs 1              ; is there a background to put back?
+cat_anim    defs 1
+cat_buf     defs SPR_MAX_BYTES
 
     IF TARGET==1
 RUN loukoumas_start

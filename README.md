@@ -85,6 +85,10 @@ far, in Greek and English:
 ![Greek title screen](docs/loukoumas-title-el.png)
 ![English title screen](docs/loukoumas-title-en.png)
 
+FIRE starts the play field, Escape comes back, L switches language:
+
+![play field](docs/loukoumas-play.png)
+
 ```bash
 make loukoumas
 ```
@@ -107,6 +111,26 @@ character with no glyph is a build error naming the string it came from.
 `LANG=0/1` only picks which table `txt_lang` starts on. **L switches language while it
 runs** — only the text rows are repainted, so the change is immediate rather than a
 rebuild of the whole 26 KB screen.
+
+### Sprites
+
+There is no double buffer — a second 32 KB overscan screen plus code does not fit
+comfortably in 128 KB, and repainting 26 KB of background every frame is out of the
+question. So each sprite keeps the patch of background it covered, puts it back before
+it moves, and takes a fresh copy at the new position. Static scenery underneath survives
+being walked over for free, because it was part of what got saved — `make check` asserts
+exactly that, by walking the cat over a sausage and requiring all three to still be there.
+
+Drawing is `screen = (screen AND mask) OR data`, with mask and data interleaved so both
+come off one advancing pointer. `tools/mksprite.py` builds that from ASCII art in
+`assets/sprites.txt`, one character per pixel.
+
+Sprites are byte aligned, so they step 4 pixels at a time horizontally and one scanline
+vertically. Pixel-exact horizontal movement needs four pre-shifted copies of every frame;
+that is worth doing when it looks wrong, not before. Every routine walks `line_tab`, so
+the 2048-byte scanline stride and the jump from page 2 to page 3 at row 21 cost nothing.
+
+### Timing and input
 
 The title screen runs on a real 50 Hz loop. The Gate Array interrupts every 52 scanlines,
 which is *six* times per frame, so `src/irq.asm` installs a handler at `#0038` (plain RAM

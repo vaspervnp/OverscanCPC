@@ -217,7 +217,26 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Greek in a rasm label breaks the assembler - `mktext.py` spells the Greek-only glyph
   names out (`GL_SIGMA`, not `GL_Σ`).
 
-## 8. Working conventions
+## 8. Sprites
+
+- No double buffer. A second 32 KB screen plus code does not fit comfortably in 128 KB,
+  and repainting 26 KB a frame is impossible. Sprites save the background they cover and
+  put it back before moving - which also makes static scenery underneath survive.
+- Blit is `screen = (screen AND mask) OR data`, mask and data interleaved so one pointer
+  feeds both. Art is ASCII in `assets/sprites.txt`; `tools/mksprite.py` generates
+  `src/sprites.asm`.
+- Byte aligned: 4 pixels per horizontal step, one scanline vertically. Pixel-exact
+  horizontal movement needs four pre-shifted copies per frame. Do it when something
+  looks wrong, not before.
+- Everything walks `line_tab` rather than computing addresses, so the 2048-byte stride
+  and the page 2 to page 3 crossing at row 21 never come up in game code.
+- Order per frame is restore, move, save, draw. With more than one moving sprite that
+  has to become restore-all then save-and-draw-all, or they erase each other.
+- Drawing starts right at the frame tick, which is phase-locked to VSYNC, so there are
+  about 40 blanked scanlines before the raster reaches line 0. A big blit will still
+  tear; nothing has been measured on hardware yet.
+
+## 9. Working conventions
 
 - Comment every CRTC register write with the value **and the reason** — a bare
   `LD BC,&BC01 / OUT (C),C` is unreadable six months later.
@@ -231,7 +250,7 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Prefer small, individually runnable test programs over one growing demo. Each milestone
   should be its own binary that shows one thing.
 
-## 9. Confidence notes
+## 10. Confidence notes
 
 Solid and safe to build on: the address decoding in section 2, the 1024-character limit,
 the 312-line/64 us frame arithmetic, the 52-line interrupt cadence, the port numbers.

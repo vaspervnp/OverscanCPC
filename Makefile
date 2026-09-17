@@ -3,7 +3,7 @@
 #   make              everything
 #   make hello        the overscan proof of concept
 #   make loukoumas    ΛΟΥΚΟΥΜΑΣ title screen, English and Greek
-#   make assets       regenerate src/font.asm and src/strings.asm (needs python3)
+#   make assets       regenerate the font, strings and sprites (needs python3)
 #   make check        run each binary on a Z80 interpreter and decode the screen
 #   make clean
 #
@@ -24,10 +24,13 @@ all: hello loukoumas
 # ---------------------------------------------------------------------------
 TEXTSRC := assets/font8.txt text/loukoumas.en.txt text/loukoumas.el.txt tools/mktext.py
 
-assets: src/font.asm src/strings.asm
+assets: src/font.asm src/strings.asm src/sprites.asm
 
 src/font.asm src/strings.asm: $(TEXTSRC)
 	$(PYTHON) tools/mktext.py loukoumas
+
+src/sprites.asm: assets/sprites.txt tools/mksprite.py
+	$(PYTHON) tools/mksprite.py
 
 # ---------------------------------------------------------------------------
 # HELLO WORLD - the overscan proof of concept
@@ -85,6 +88,9 @@ check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 20 --ascii
 	@echo "=== loukoumas, Greek build with L held - must come out English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 24 --keys L --ascii | sed -n '1,2p;15,20p'
+	@echo "=== loukoumas, play field after walking right ==="
+	@echo "    all three sausages must survive the cat walking over one"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 60 --keys FIRE,RIGHT --ascii | sed -n '1,2p;33,38p'
 
 $(BUILD):
 	mkdir -p $(BUILD)
