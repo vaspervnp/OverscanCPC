@@ -773,8 +773,9 @@ def main():
                          "those frames only - e.g. FIRE@12-13,RIGHT@15")
     ap.add_argument("--sym", help="rasm symbol file (rasm -s -sl -os ...)")
     ap.add_argument("--watch", default="",
-                    help="comma separated symbols to print once per frame; "
-                         "suffix :w for a 16-bit value, :s for signed 16-bit")
+                    help="comma separated symbols to print once per frame, "
+                         "optionally with a byte offset (enemies+8); suffix "
+                         ":w for a 16-bit value, :s for signed 16-bit")
     ap.add_argument("--frames", type=int, default=0,
                     help="stop after this many virtual frames (0 = only on a "
                          "self-jump or HALT)")
@@ -818,9 +819,18 @@ def main():
         name, _, kind = item.partition(":")
         if not args.sym:
             sys.exit("z80check: --watch needs --sym")
-        if name.upper() not in symbols:
-            sys.exit("z80check: %r is not in %s" % (name, args.sym))
-        watch.append((name, symbols[name.upper()], kind or "b"))
+        base, offset = name, 0
+        for sep in ("+", "-"):
+            if sep in name:
+                base, _, off = name.partition(sep)
+                try:
+                    offset = int(off, 0) * (1 if sep == "+" else -1)
+                except ValueError:
+                    sys.exit("z80check: bad offset in %r" % name)
+                break
+        if base.upper() not in symbols:
+            sys.exit("z80check: %r is not in %s" % (base, args.sym))
+        watch.append((name, symbols[base.upper()] + offset, kind or "b"))
 
     org = int(args.org, 0)
     code = open(args.binary, "rb").read()

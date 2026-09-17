@@ -236,10 +236,16 @@ pal_title
     include "keys.asm"
     include "text.asm"
     include "sprite.asm"
+    include "enemy.asm"
     include "play.asm"
     include "font.asm"
     include "strings.asm"
     include "sprites.asm"
+
+;; ASSERT evaluates immediately, so this has to come after the generated
+;; sprite sizes exist.
+    ASSERT SPR_ROBOT_W*SPR_ROBOT_H <= ENEMY_BUF
+    ASSERT SPR_CANARY_W*SPR_CANARY_H <= ENEMY_BUF
 
 code_end
 
@@ -278,6 +284,17 @@ saus_x        defs 1                ; the sausage being tested
 saus_y        defs 1
 hud_dirty     defs 1
 level_done    defs 1
+cat_lives     defs 1
+cat_invul     defs 1                ; frames of grace after a respawn
+box_x         defs 1                ; the box cat_hits_box is testing against
+box_y         defs 1
+box_w         defs 1
+box_h         defs 1
+
+;; enemy.asm
+enemies       defs ENEMY_COUNT*E_SIZE
+enemy_bufs    defs ENEMY_COUNT*ENEMY_BUF
+e_bufp        defs 2                ; buffer cursor while walking the array
 
     IF TARGET==1
 RUN loukoumas_start

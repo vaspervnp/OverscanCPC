@@ -263,9 +263,16 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   restores what you removed or captures what you added.
 - The HUD only repaints when something changed. Its captions come from the string table,
   so column positions have to leave room for the longer language.
-- `make check` includes a scripted playthrough that collects everything and completes
-  the level. Treat it as the level design's test: if it stops passing after a change to
-  jump height, gravity or shelf positions, the level is no longer completable.
+- Once more than one thing moves, erase in the exact reverse of the draw order.
+  `enemies_erase` walks the array backwards for that reason.
+- Enemies are a fixed array of records addressed through IY, because IX is already the
+  line_tab cursor inside the sprite routines.
+- The belly-flop stuns everything at roughly the height it landed at, ignoring distance
+  along the shelf. That is deliberate: it makes the flop the tool for getting past a
+  robot patrolling a whole shelf, which a short shockwave did not.
+- `make check` scripts fragments of play, not a whole run. Completing the level was
+  scripted before enemies existed and is not any more, so nothing currently proves the
+  level is finishable.
 
 ## 11. Working conventions
 

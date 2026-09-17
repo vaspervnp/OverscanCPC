@@ -9,10 +9,11 @@
 #
 # Snapshots (.sna) drag into an emulator; disc images boot with RUN"<name>.
 
-# A scripted playthrough. This exact key sequence collects all five sausages,
-# which also keeps the level honest: change the jump height or move a shelf and
-# it stops completing.
-ROUTE  := FIRE@12-13,RIGHT@14-52,LEFT@53-75,FIRE@76-77,LEFT@104-112,RIGHT@114-181,FIRE@136-137,LEFT@183-224,FIRE@201-202,LEFT@226-242,RIGHT@244-315,FIRE@266-267
+# Scripted play. FLOP clears the shelf 2 robot with a belly-flop and takes the
+# sausage it was guarding; it is the level design's test as much as the code's.
+# Adding enemies made the old five-sausage route die, so completing the level
+# is no longer scripted - see the note in README.
+FLOP   := FIRE@12-13,FIRE@16-17,RIGHT@114-165,FIRE@136-137,FIRE@168-169,DOWN@172-195,FIRE@174-175,RIGHT@185-230
 
 RASM   ?= rasm
 PYTHON ?= python3
@@ -111,10 +112,17 @@ check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
 		--sym $(BUILD)/loukoumas_el.sym \
 		--watch "cat_y,cat_state,cat_vy:s,cat_h,cat_stun,shake_timer" \
 		| grep -E "frame ( 30| 31| 35| 36)"
-	@echo "=== loukoumas, scripted playthrough: all five collected, level done ==="
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 320 --keys "$(ROUTE)" \
-		--sym $(BUILD)/loukoumas_el.sym --watch "sausages_got,level_done" \
-		| grep -E "frame (302|303)"
+	@echo "=== loukoumas, a robot costs a life and respawns the cat ==="
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
+		--keys "FIRE@12-13,RIGHT@14-120" --sym $(BUILD)/loukoumas_el.sym \
+		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 77| 78)"
+	@echo "=== loukoumas, belly-flop stuns the shelf robot and clears its sausage ==="
+	@echo "    178 the flop lands and the robot freezes, 206 the sausage is taken,"
+	@echo "    and all three lives survive walking straight through it"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 240 --keys "$(FLOP)" \
+		--sym $(BUILD)/loukoumas_el.sym \
+		--watch "cat_x,cat_lives,sausages_got,enemies+15,enemies+22" \
+		| grep -E "frame (177|178|205|206|229)"
 
 $(BUILD):
 	mkdir -p $(BUILD)

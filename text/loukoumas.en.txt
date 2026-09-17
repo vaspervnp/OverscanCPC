@@ -1,6 +1,8 @@
 # English strings for LOUKOUMAS. "ID = text", UTF-8, one per line.
 # Every ID here must also exist in loukoumas.el.txt.
 # Only characters the font has are allowed - tools/mktext.py checks.
+# TITLE1, WELLDONE and GAMEOVER are drawn large: 12 characters at most,
+# or they will not fit across 384 pixels.
 
 TITLE1    = LOUKOUMAS
 TITLE2    = THE GREAT FRIDGE RAID

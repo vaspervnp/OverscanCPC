@@ -128,8 +128,8 @@ str_el_PAUSED
     defb 5
     defb 32,1,25,33,8
 str_el_GAMEOVER
-    defb 16
-    defb 20,5,30,15,33,0,32,1,9,24,14,9,28,9,15,25
+    defb 5
+    defb 20,5,30,15,33
 str_el_WELLDONE
     defb 7
     defb 13,32,16,1,2,15,49

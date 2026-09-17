@@ -42,13 +42,18 @@ HUD_Y           EQU 2
 HUD_H           EQU 8
 SCORE_LABEL_X   EQU 2
 SCORE_X         EQU 14
-SAUS_LABEL_X    EQU 40
-SAUS_COUNT_X    EQU 60
+SAUS_LABEL_X    EQU 34
+SAUS_COUNT_X    EQU 54
+LIVES_LABEL_X   EQU 66
+LIVES_X         EQU 78
 SCORE_BYTES     EQU 3            ; six BCD digits
 SAUSAGE_POINTS  EQU #01          ; BCD, added to the hundreds digit
 
 WELLDONE_Y      EQU 40
 WELLDONE_YS     EQU 3
+
+LIVES_START     EQU 3
+INVUL_FRAMES    EQU 100         ; two seconds of grace after a respawn
 
 ;; ---------------------------------------------------------------------------
 ;; play_screen - runs until Escape.
@@ -61,11 +66,19 @@ play_loop
     ld a,(ctl_pressed)
     bit CTL_QUIT,a
     jr nz,play_quit
-    call cat_erase
+    call cat_erase              ; unwind the scene in reverse draw order
+    call enemies_erase
+    ld a,(level_done)
+    or a
+    jr nz,play_draw
     call cat_update
+    call enemies_update
     call check_sausages         ; between erase and draw: the sausage has to
-    call update_hud             ; leave the background before it is saved again
-    call cat_draw
+    call check_enemies          ; leave the background before it is saved again
+play_draw
+    call update_hud
+    call enemies_draw
+    call cat_draw               ; last, so the cat is on top
     call shake_update
     jr play_loop
 play_quit
@@ -115,6 +128,11 @@ play_setup
     ld (sausages_got),a
     ld (level_done),a
     ld (hud_dirty),a
+    ld (cat_invul),a
+    ld a,LIVES_START
+    ld (cat_lives),a
+    call enemies_init
+    xor a
     ld hl,sausage_alive
     ld b,SAUSAGE_COUNT
     ld a,1
@@ -215,6 +233,14 @@ platforms
     defb 60, 90, SHELF4
     defb #FF
 
+;; type, x, y, dx, first column, last column, top of the canary's arc
+enemy_start
+    defb ET_ROBOT,  40, FLOOR_Y-SPR_ROBOT_H,  1,  0, BYTES_PER_LINE-SPR_ROBOT_W, 0
+    ;; the shelf 2 robot patrols only the right half, so there is always a
+    ;; safe place to land coming up from shelf 1
+    defb ET_ROBOT,  70, SHELF2-SPR_ROBOT_H,  -1, 64, 86-SPR_ROBOT_W+1,            0
+    defb ET_CANARY, 20, 44,                   1,  4, BYTES_PER_LINE-SPR_CANARY_W, 44
+
 SAUSAGE_COUNT   EQU 5
 sausages
     defb 46, FLOOR_Y-SPR_SAUSAGE_H
@@ -265,6 +291,16 @@ draw_hud
     ld a,GL_SLASH
     call print_glyph
     ld a,SAUSAGE_COUNT
+    call print_digit
+
+    ld a,LIVES_LABEL_X
+    ld (txt_x),a
+    ld a,MSG_LIVES
+    call msg_small
+
+    ld a,LIVES_X
+    ld (txt_x),a
+    ld a,(cat_lives)
     jp print_digit
 
 update_hud
@@ -317,9 +353,17 @@ check_sausages_loop
     ld a,(hl)
     ld (saus_y),a
     dec hl
+    ld a,SPR_SAUSAGE_W
+    ld (box_w),a
+    ld a,SPR_SAUSAGE_H
+    ld (box_h),a
+    ld a,(saus_x)
+    ld (box_x),a
+    ld a,(saus_y)
+    ld (box_y),a
     push hl
     push de
-    call cat_hits_sausage
+    call cat_hits_box
     pop de
     pop hl
     jr nc,check_sausages_next
@@ -361,12 +405,15 @@ check_sausages_next
     jp msg_big_centre
 
 ;; ---------------------------------------------------------------------------
-;; cat_hits_sausage - carry set if the two boxes overlap. saus_x / saus_y hold
-;; the one being tested.
+;; cat_hits_box - carry set if the cat overlaps the box in box_x / box_y /
+;; box_w / box_h. Sausages and enemies both come through here.
 ;; ---------------------------------------------------------------------------
-cat_hits_sausage
-    ld a,(saus_x)
-    add a,SPR_SAUSAGE_W-1
+cat_hits_box
+    ld a,(box_x)
+    ld b,a
+    ld a,(box_w)
+    add a,b
+    dec a                       ; rightmost column of the box
     ld c,a
     ld a,(cat_x)
     cp c
@@ -379,14 +426,17 @@ cat_hits_h2
     add a,b
     dec a                       ; rightmost column the cat covers
     ld b,a
-    ld a,(saus_x)
+    ld a,(box_x)
     cp b
     jr z,cat_hits_v
     jr nc,cat_hits_no
 
 cat_hits_v
-    ld a,(saus_y)
-    add a,SPR_SAUSAGE_H-1
+    ld a,(box_y)
+    ld b,a
+    ld a,(box_h)
+    add a,b
+    dec a
     ld c,a
     ld a,(cat_y)
     cp c
@@ -399,7 +449,7 @@ cat_hits_v2
     add a,b
     dec a
     ld b,a
-    ld a,(saus_y)
+    ld a,(box_y)
     cp b
     jr z,cat_hits_yes
     jr nc,cat_hits_no
@@ -409,6 +459,65 @@ cat_hits_yes
 cat_hits_no
     or a
     ret
+
+;; ---------------------------------------------------------------------------
+;; check_enemies - lose a life on contact, unless the grace period from the
+;; last one is still running.
+;; ---------------------------------------------------------------------------
+check_enemies
+    ld a,(cat_invul)
+    or a
+    jr z,check_enemies_scan
+    dec a
+    ld (cat_invul),a
+    ret
+check_enemies_scan
+    call enemies_hit_cat
+    ret nc
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; cat_dies - one life gone. Back to the start with a moment of grace, or the
+;; end of the game.
+;; ---------------------------------------------------------------------------
+cat_dies
+    ld a,(cat_lives)
+    dec a
+    ld (cat_lives),a
+    ld c,a
+    ld a,1
+    ld (hud_dirty),a
+    ld a,c
+    or a
+    jr z,cat_game_over
+
+    ld hl,spr_cat_stand         ; set the sprite first: cat_set_sprite shifts y
+    call cat_set_sprite         ; to keep the feet, which we are about to move
+    ld a,CAT_START_X
+    ld (cat_x),a
+    ld a,FLOOR_Y-SPR_CAT_STAND_H
+    ld (cat_y),a
+    xor a
+    ld (cat_yf),a
+    ld (cat_stun),a
+    ld (cat_state),a            ; ST_GROUND
+    ld hl,0
+    ld (cat_vy),hl
+    ld a,INVUL_FRAMES
+    ld (cat_invul),a
+    ret
+
+cat_game_over
+    ld a,1
+    ld (level_done),a
+    ld a,1
+    ld (txt_xs),a
+    ld a,WELLDONE_YS
+    ld (txt_ys),a
+    ld hl,line_tab+WELLDONE_Y*2
+    ld (txt_row),hl
+    ld a,MSG_GAMEOVER
+    jp msg_big_centre
 
 ;; ---------------------------------------------------------------------------
 ;; erase_sausage - paint over it. Sausages sit on the background above a
@@ -633,7 +742,7 @@ cat_air_land
     ld (cat_stun),a
     ld a,ST_GROUND
     ld (cat_state),a
-    ret
+    jp enemies_stun
 cat_air_upright
     ld a,ST_GROUND
     ld (cat_state),a

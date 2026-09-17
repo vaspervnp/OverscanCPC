@@ -87,10 +87,12 @@ far, in Greek and English:
 
 FIRE starts the play field, Escape comes back, L switches language. Cursor keys or
 joystick to walk, FIRE or up to jump, down to roll, down plus FIRE in mid-air to
-belly-flop. Collect all five sausages to finish the level:
+belly-flop. Collect all five sausages to finish the level — or lose three lives to the
+robot vacuums and the canary:
 
 ![play field](docs/loukoumas-play.png)
 ![level complete](docs/loukoumas-complete.png)
+![game over](docs/loukoumas-gameover.png)
 
 ```bash
 make loukoumas
@@ -160,17 +162,34 @@ display.
 `make check` asserts the numbers frame by frame: the jump apex, the landing on the shelf,
 the flop's terminal velocity and the shake and stun it sets.
 
+### Enemies
+
+Two Skoupo-Terminator robots patrol at half the cat's speed and the Tweety-Boxer canary
+crosses the room on a sine, from a 32-entry table of unsigned offsets so nothing has to
+be signed. Touching either costs a life; the cat respawns with two seconds of grace.
+
+The belly-flop is the answer to a robot that patrols a whole shelf. Landing on your belly
+stuns everything at roughly the height you landed at, however far along the shelf it is —
+the whole floor shook, not a patch of it — and a stunned enemy stops dead and is
+harmless. `make check` asserts exactly that: the flop freezes the shelf robot, the cat
+walks straight through it to take the sausage it was guarding, and loses no lives.
+
+Now that more than one thing moves, ordering matters: everything is erased in the exact
+reverse of the order it was drawn, so a sprite never restores background another sprite
+has since been drawn into. The cat is drawn last and erased first, which is also what
+puts it on top.
+
+**The level is no longer scripted to completion.** Adding enemies made the old
+five-sausage route die twice over, and re-scripting a clean run against moving enemies
+has not been done — so the earlier guarantee that the level can be finished no longer
+holds, and its difficulty is unvalidated.
+
 ### Score and collection
 
 The score is packed BCD, most significant byte first, so `DAA` does the arithmetic and
 printing needs no division — six digits straight out of two nibbles a byte. Collection
 happens between erasing the cat and redrawing it, which is the only window where a
 sausage can leave the background without the cat's save buffer putting it back.
-
-`make check` runs a **scripted playthrough**: a fixed key sequence that collects all five
-sausages and finishes the level. That is a regression test for the physics and a
-guarantee the level is completable — change the jump height or move a shelf and it stops
-passing.
 
 ### Timing and input
 
