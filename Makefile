@@ -15,7 +15,7 @@
 # at the near end of that same shelf, so it tests the extra life too. It is the
 # level design's own test - change a shelf, the jump height or an enemy's patrol
 # and it stops passing.
-LOUNGE_ROUTE := FIRE@12-13,RIGHT@18-56,LEFT@57-79,FIRE@80-81,LEFT@108-116,RIGHT@118-162,FIRE@133-134,FIRE@165-166,DOWN@169-194,FIRE@171-172,RIGHT@182-204,LEFT@207-266,FIRE@227-228,RIGHT@269-349,FIRE@293-294
+LOUNGE_ROUTE := FIRE@12-13,RIGHT@36-74,LEFT@75-97,FIRE@98-100,LEFT@126-134,RIGHT@136-180,FIRE@151-153,FIRE@183-185,DOWN@187-212,FIRE@189-191,RIGHT@200-222,LEFT@225-284,FIRE@245-247,RIGHT@287-367,FIRE@311-313
 
 RASM   ?= rasm
 PYTHON ?= python3
@@ -141,43 +141,55 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 24 --keys L --ascii | sed -n '1,2p;15,20p'
 	@echo "=== loukoumas, play field after walking right ==="
 	@echo "    every sausage must survive the cat walking over one"
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 60 --keys FIRE,RIGHT --ascii | sed -n '1,2p;33,38p'
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 80 --keys FIRE,RIGHT --ascii | sed -n '1,2p;33,38p'
 	@echo "=== loukoumas, physics: stand, jump, land on the shelf above ==="
-	@echo "    24 on the floor at 212, 25 leaves at -1152, 43 apex at 173,"
-	@echo "    50 landed on the rack's lower shelf at 180 and back in state 0"
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 55 \
-		--keys "FIRE@12-13,FIRE@24-25" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_y,cat_state,cat_vy:s" | grep -E "frame ( 24| 25| 43| 50)"
+	@echo "    41 on the floor at 212, 42 leaves at -1088, 58 apex at 173,"
+	@echo "    66 landed on the rack's lower shelf at 180 and back in state 0"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 70 \
+		--keys "FIRE@12-15,FIRE@40-43" --sym $(BUILD)/loukoumas_el.sym \
+		--watch "cat_y,cat_state,cat_vy:s" | grep -E "frame ( 41| 42| 58| 66)"
 	@echo "=== loukoumas, belly-flop: terminal velocity, screen shake, stun ==="
-	@echo "    35 commits at 1536, 39 lands flat and sets the shake and stun"
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 50 \
-		--keys "FIRE@12-13,FIRE@24-25,DOWN@29-50,FIRE@34-35" \
+	@echo "    54 commits at 1536 and curls up, 58 lands flat and sets the"
+	@echo "    shake and the stun"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 70 \
+		--keys "FIRE@12-15,FIRE@42-45,DOWN@47-90,FIRE@52-55" \
 		--sym $(BUILD)/loukoumas_el.sym \
 		--watch "cat_y,cat_state,cat_vy:s,cat_h,cat_stun,shake_timer" \
-		| grep -E "frame ( 34| 35| 39| 40)"
+		| grep -E "frame ( 52| 54| 58| 60)"
 	@echo "=== loukoumas, a robot costs a life and respawns the cat ==="
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
-		--keys "FIRE@12-13,RIGHT@14-120" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 88| 89)"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 180 \
+		--keys "FIRE@12-15,RIGHT@32-180" --sym $(BUILD)/loukoumas_el.sym \
+		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame (100|102)"
 	@echo "=== loukoumas, clean run of the lounge and out through the vent ==="
-	@echo "    a sausage at 55, 115, 200, 262 and 330, the saucer of milk at 162"
-	@echo "    for a fourth life, then cur_room 8 -> 9 at 332 into the vent"
-	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 350 --keys "$(LOUNGE_ROUTE)" \
+	@echo "    a sausage at 73, 135, 217, 283 and 347, the saucer of milk at 179"
+	@echo "    for a fourth life, then cur_room 8 -> 9 at 349 into the vent"
+	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 380 --keys "$(LOUNGE_ROUTE)" \
 		--sym $(BUILD)/loukoumas_lounge.sym \
 		--watch "cur_room,cat_lives,sausages_got,milk_alive,level_done" \
-		| grep -E "frame ( 55|115|162|200|262|330|332)"
+		| grep -E "frame ( 73|135|179|217|283|347|349)"
+	@echo "=== loukoumas, every sprite back on the screen before the beam ==="
+	@echo "    the cast is lifted off and put back once every two VSYNCs. A"
+	@echo "    sprite is missing from the moment its erase starts to the moment"
+	@echo "    its redraw ends, and if the beam crosses its own rows in that"
+	@echo "    window it draws a hole. That is what flicker is, and none of"
+	@echo "    them may be caught."
+	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 240 \
+		--keys FIRE@12-15 --sym $(BUILD)/loukoumas_lounge.sym \
+		--beam --beam-from 20 | tail -1 | tee $(BUILD)/beam.txt
+	@grep -q "^    0 of" $(BUILD)/beam.txt \
+		|| (echo "    the beam caught the sprites - that is flicker" && false)
 	@echo "=== loukoumas, a room is lit by one pen, and it is pen 0 ==="
 	@echo "    the back yard must report pen0=23, sky blue; the rooftops pen0=20,"
 	@echo "    black; every room in the flat is pen0=4, navy"
-	@./tools/z80check.py $(BUILD)/loukoumas_yard.bin --frames 40 --keys FIRE@12-13 \
+	@./tools/z80check.py $(BUILD)/loukoumas_yard.bin --frames 60 --keys FIRE@12-15 \
 		| grep -o "pen0=[0-9]* " | sed 's/^/    back yard  /'
-	@./tools/z80check.py $(BUILD)/loukoumas_roof.bin --frames 40 --keys FIRE@12-13 \
+	@./tools/z80check.py $(BUILD)/loukoumas_roof.bin --frames 60 --keys FIRE@12-15 \
 		| grep -o "pen0=[0-9]* " | sed 's/^/    rooftops   /'
 	@echo "=== loukoumas, the title picture unpacked onto the overscan screen ==="
 	@echo "    26,112 bytes of screen, packed to about seven and unpacked by the"
 	@echo "    Z80 itself. Every byte of it outside the two text panels has to"
 	@echo "    come back identical to the picture tools/mkscreen.py made."
-	@./tools/z80check.py $(BUILD)/loukoumas_title.bin --frames 95 \
+	@./tools/z80check.py $(BUILD)/loukoumas_title.bin --frames 200 \
 		--dump $(BUILD)/title-screen.bin | tail -1
 	@cmp -i 5184 -n 18240 $(BUILD)/title-screen.bin $(BUILD)/title.bin \
 		&& echo "    the picture came back byte for byte"

@@ -22,6 +22,9 @@ txt_ys      defs 1                  ; big text: scanlines per source row
 txt_big_pen defs 1                  ; big text: the byte a set pixel is drawn in
 txt_big_solid defs 1                ; big text: write where set, rather than OR
 
+pick_pend_n defs 1              ; pickups eaten and not yet rubbed out
+pick_pend   defs 4*4              ; x, scanline, and where its background went
+
 fill_x      defs 1
 fill_w      defs 2
 fill_b      defs 1
@@ -31,6 +34,7 @@ fill_b      defs 1
 ;; irq.asm
 irq_count   defs 1              ; 0..5 within the frame
 frame_count defs 1              ; bumped once per 50 Hz frame, wraps at 256
+render_tick defs 1              ; frame_count at the last rendered picture
 
 ;; keys.asm
 ctl_now     defs 1              ; controls held this frame

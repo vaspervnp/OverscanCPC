@@ -311,6 +311,34 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   text still wants ground cleared under it, which is why the title screen has two panels:
   pressing L has to repaint a line, and a line lying on a picture can only be repainted if
   something cleared the ground first.
+- **The game renders 25 times a second, on every second VSYNC, and thinks 50.**
+  `wait_render` counts two ticks; `play_loop` then takes FRAMES_PER_RENDER logic
+  steps inside one picture, so the jump arc, the patrol speed and every timer are
+  exactly what they were - only how often the screen is rebuilt changed. Lifting
+  this cast off a 32 KB overscan screen and putting it back is thirteen
+  milliseconds; a frame is twenty, of which two and a half are blanked. It does
+  not fit, it never fitted, and no choice of which interrupt starts the frame
+  makes it fit - that only moves which band of the screen flickers.
+- **The screen work comes first in the loop and the thinking comes after it.**
+  Everything the beam is about to draw has to be back before it arrives, and the
+  only currency is the microseconds after the tick. Six milliseconds of keys,
+  physics and collisions in front of the redraw pushed it a hundred scanlines
+  into the picture. Anything that only computes belongs after the draw, for the
+  next frame; the one thing that cannot is a change to the background, which has
+  to happen while the sprite over it is lifted off.
+- **Sprites are erased and redrawn one at a time, top of the screen first.**
+  Erase-all-then-draw-all leaves each sprite off the screen for the whole gap
+  between the two passes. One at a time closes that to the sprite's own work, and
+  top-down spends the head start on the sprite the beam reaches first - which is
+  earliest-deadline-first, and provably the right order. The cost is that two
+  overlapping sprites can bite into each other for a frame; in this game
+  overlapping means the cat has just been caught.
+- **`tools/z80check.py --beam` is the only thing that can tell you whether any of
+  this worked**, and `make check` fails if it reports a single sprite caught. The
+  simulator charges every instruction the CPC's own microseconds - a microsecond
+  per machine cycle, `US_EXTRA` for the rest - and its frame is 19968 us, not a
+  number of instructions. Before that it could not see beam timing at all, which
+  is why two attempts at this bug were guesses.
 - **Never pace anything in the game off `frame_count` parity.** It is a free-running
   interrupt counter, and a frame the loop overruns bumps it by two without changing the
   parity, so anything keyed on it either runs every update or none of them. The robots

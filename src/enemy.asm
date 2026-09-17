@@ -27,7 +27,14 @@ E_OY            EQU 10
 E_OW            EQU 11
 E_OH            EQU 12
 E_DRAWN         EQU 13
-E_SIZE          EQU 14
+E_ODIR          EQU 14          ; which way it was facing when it was drawn
+E_SIZE          EQU 15
+
+;; How much of a record a room actually supplies: type, x, y, dx, x0, x1,
+;; basey. The rest is run-time state and starts at zero. Both halves are
+;; derived from E_SIZE, because writing the two lengths out by hand is how a
+;; new field silently shifts every record after the first.
+E_FROM_ROOM     EQU 7
 
 SINE_LEN        EQU 32
 SINE_MASK       EQU SINE_LEN-1
@@ -49,10 +56,10 @@ enemies_init
     push bc
 enemies_init_loop
     push bc
-    ld bc,7                     ; type, x, y, dx, x0, x1, basey
+    ld bc,E_FROM_ROOM           ; type, x, y, dx, x0, x1, basey
     ldir
     xor a                       ; phase, stun, and the drawn-at record
-    ld b,7
+    ld b,E_SIZE-E_FROM_ROOM
 enemies_init_blank
     ld (de),a
     inc de
@@ -305,10 +312,41 @@ enemy_draw_one
     ld de,(e_bufp)
     pop hl                      ; the pixel data
     call spr_draw
+    ld a,(iy+E_DX)
+    ld (iy+E_ODIR),a            ; so a turn counts as a change even standing still
     ld a,1
     ld (iy+E_DRAWN),a
     ret
 
+;; ---------------------------------------------------------------------------
+;; enemy_moved - IY = an enemy -> NZ if it has to be lifted off and put back.
+;;
+;; A walking enemy steps on every second update, so on half the renders it is
+;; exactly where it already is and rebuilding it is three thousand
+;; microseconds spent to change nothing - and those microseconds are the ones
+;; the beam is waiting for.
+;; Destroys AF.
+;; ---------------------------------------------------------------------------
+enemy_moved
+    ld a,(iy+E_DRAWN)
+    or a
+    jr z,enemy_moved_yes
+    ld a,(iy+E_X)
+    cp (iy+E_OX)
+    jr nz,enemy_moved_yes
+    ld a,(iy+E_Y)
+    cp (iy+E_OY)
+    jr nz,enemy_moved_yes
+    ld a,(iy+E_DX)
+    xor (iy+E_ODIR)
+    and #80                     ; only the way it faces shows
+    ret
+enemy_moved_yes
+    ld a,1
+    or a                        ; NZ - ld a,n leaves the flags alone
+    ret
+
+;; ---------------------------------------------------------------------------
 enemy_erase_one
     ld a,(iy+E_OW)
     ld (spr_w),a

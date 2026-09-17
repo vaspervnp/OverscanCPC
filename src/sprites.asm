@@ -20,8 +20,10 @@ SPR_ROBOT_H      EQU 14
 SPR_CANARY_W     EQU 4
 SPR_CANARY_H     EQU 12
 
-;; Largest sprite, for sizing the background save buffers.
+;; Largest sprite, for sizing the background save buffers,
+;; and the widest, for the length of the unrolled blit.
 SPR_MAX_BYTES EQU 144
+SPR_MAX_W     EQU 6
 
 ;; CAT_STAND - 12 x 24 pixels
 spr_cat_stand

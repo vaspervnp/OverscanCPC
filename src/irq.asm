@@ -100,6 +100,28 @@ wait_frame_loop
     ret
 
 ;; ---------------------------------------------------------------------------
+;; wait_render - block until FRAMES_PER_RENDER ticks have gone by since the
+;; last one this returned on.
+;; Destroys AF, HL.
+;;
+;; Counted from the last render rather than waiting for two ticks in a row, so
+;; that a frame which overran does not push the next one a whole tick later
+;; and keep doing it. If the work ever takes longer than the two frames it is
+;; given, this returns straight away and the game drops a picture instead of
+;; drifting out of step with the beam.
+;; ---------------------------------------------------------------------------
+wait_render
+    ld hl,render_tick
+wait_render_loop
+    ld a,(frame_count)
+    sub (hl)
+    cp FRAMES_PER_RENDER
+    jr c,wait_render_loop
+    ld a,(frame_count)
+    ld (hl),a
+    ret
+
+;; ---------------------------------------------------------------------------
 ;; wait_vsync - return as VSYNC begins. PPI port B bit 0.
 ;; Destroys AF, BC.
 ;; ---------------------------------------------------------------------------

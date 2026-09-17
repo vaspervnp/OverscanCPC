@@ -93,6 +93,15 @@ SCREEN_PIXELS   EQU BYTES_PER_LINE*PIXELS_PER_BYTE
 ;; --- Level geometry --------------------------------------------------------
 ;; Shared by the room tables and the playing code, so it lives here rather
 ;; than in either of them.
+;; The game renders every second VSYNC - 25 pictures a second - and takes two
+;; 50 Hz logic steps inside each one, so nothing about the physics, the jump
+;; arc or any of the timers changes; only how often the screen is rebuilt.
+;; Lifting a whole cast off a 32 KB overscan screen and putting it back is
+;; about fourteen milliseconds of a twenty millisecond frame, and the beam
+;; catches it every time. At twice the budget it is finished long before the
+;; beam comes round again.
+FRAMES_PER_RENDER EQU 2
+
 PLAY_TOP        EQU 20                  ; below the two-row HUD strip
 FLOOR_Y         EQU 236
 FLOOR_H         EQU DISPLAY_LINES-FLOOR_Y
@@ -142,7 +151,7 @@ PAL_NIGHT       EQU 20      ; black - the rooftops, at the end of it all
 ;; game does after turning the ROMs off is move them. Nothing in the low block
 ;; is ever executed, only read, so it never has to be there before then.
 DATA_ORG        EQU #0100   ; clear of the #0038 interrupt jump
-DATA_STORE      EQU #7480   ; where the file carries it, until it is moved
+DATA_STORE      EQU #7580   ; where the file carries it, until it is moved
 
 ;; The title screen is a picture of the whole overscan window: 96 bytes by 272
 ;; scanlines, 26,112 of them, and there is nowhere in this machine to keep
@@ -150,7 +159,7 @@ DATA_STORE      EQU #7480   ; where the file carries it, until it is moved
 ;; stay where it is - the title is redrawn every time the player comes back to
 ;; it - so it sits between the workspace and the travelling copy of the tables
 ;; and is never moved. See tools/mkscreen.py and src/unpack.asm.
-PIC_STORE       EQU #5800
+PIC_STORE       EQU #5900
 
 ;; Where the pickups keep the background they are standing on. Low RAM, above
 ;; the tables the game moved down there and below #4000: it is uninitialised,

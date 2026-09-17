@@ -36,6 +36,33 @@ import sys
 PARITY = [bin(i).count("1") % 2 == 0 for i in range(256)]
 
 
+#: Microseconds an instruction costs beyond its memory accesses.
+#:
+#: On the CPC the Gate Array stretches every Z80 machine cycle to a whole
+#: microsecond, so an instruction costs one microsecond per memory access -
+#: opcode fetch, operand fetch, data read, data write - plus whatever internal
+#: cycles it has on top. Counting the accesses is free here, because every one
+#: of them already goes through rb/wb; this table is the rest. Conditional
+#: jumps are charged as if taken, which is right in a loop and one microsecond
+#: pessimistic on the way out of one.
+US_EXTRA = [0] * 256
+for _op in (0x03, 0x13, 0x23, 0x33, 0x0B, 0x1B, 0x2B, 0x3B):
+    US_EXTRA[_op] = 1                       # INC/DEC rr, 5-cycle M1
+for _op in (0x09, 0x19, 0x29, 0x39):
+    US_EXTRA[_op] = 2                       # ADD HL,rr
+for _op in (0x18, 0x20, 0x28, 0x30, 0x38):
+    US_EXTRA[_op] = 1                       # JR, taken
+US_EXTRA[0x10] = 2                          # DJNZ, taken
+for _op in (0xC5, 0xD5, 0xE5, 0xF5):
+    US_EXTRA[_op] = 1                       # PUSH
+for _op in range(0xC7, 0x100, 8):
+    US_EXTRA[_op] = 1                       # RST
+for _op in (0xC0, 0xC8, 0xD0, 0xD8, 0xE0, 0xE8, 0xF0, 0xF8):
+    US_EXTRA[_op] = 1                       # RET cc
+US_EXTRA[0xE3] = 1                          # EX (SP),HL
+US_EXTRA[0xF9] = 1                          # LD SP,HL
+
+
 #: An LDIR longer than this is reported. The game does one legitimate copy of
 #: about twelve kilobytes at startup - the level data moving down into the RAM
 #: under the lower ROM - so the threshold has to clear that while still
@@ -70,6 +97,7 @@ class Z80:
         self.iff = False
         self.imode = 0
         self.halted = False
+        self.us = 0                            # CPC microseconds, see US_EXTRA
 
     # -- memory / fetch -----------------------------------------------------
     trap = None
@@ -79,9 +107,11 @@ class Z80:
     big_ldir = None
 
     def rb(self, a):
+        self.us += 1
         return self.m[a & 0xFFFF]
 
     def wb(self, a, v):
+        self.us += 1
         a &= 0xFFFF
         if (a == self.trap and self.trap_hit is None
                 and (self.trap_value is None or (v & 0xFF) == self.trap_value)
@@ -301,6 +331,7 @@ class Z80:
     # -- one instruction ----------------------------------------------------
     def step(self):
         op = self.fetch()
+        self.us += US_EXTRA[op]
 
         if op == 0xCB:
             return self.op_cb()
@@ -397,7 +428,10 @@ class Z80:
         if lo == 1:
             if op & 8:
                 if op == 0xC9: self.pc = self.pop()
-                elif op == 0xD9: self.r, self.r2 = self.r2, self.r
+                elif op == 0xD9:
+                    # EXX is BC DE HL and nothing else - A has its own
+                    # ex af,af' - so only the first six of r may move.
+                    self.r[:6], self.r2[:6] = self.r2[:6], self.r[:6]
                 elif op == 0xE9: self.pc = self.hl
                 else: self.sp = self.hl
             else:
@@ -416,8 +450,12 @@ class Z80:
             return
         if lo == 3:
             if op == 0xC3: self.pc = self.fetchw()
-            elif op == 0xD3: self.io.out((self.r[7] << 8) | self.fetch(), self.r[7])
-            elif op == 0xDB: self.r[7] = self.io.inp((self.r[7] << 8) | self.fetch())
+            elif op == 0xD3:
+                self.us += 1
+                self.io.out((self.r[7] << 8) | self.fetch(), self.r[7])
+            elif op == 0xDB:
+                self.us += 1
+                self.r[7] = self.io.inp((self.r[7] << 8) | self.fetch())
             elif op == 0xE3:
                 t = self.rw(self.sp)
                 self.ww(self.sp, self.hl)
@@ -501,8 +539,13 @@ class Z80:
     # -- ED prefix ----------------------------------------------------------
     def op_ed(self):
         op = self.fetch()
+        if 0xB0 <= op <= 0xBB:
+            self.us += 2                       # LDIR and friends, per iteration
+        elif 0xA0 <= op <= 0xAB:
+            self.us += 1                       # LDI and friends, five in all
         mid = (op >> 3) & 7
         if op & 0xC7 == 0x40:                           # in r,(c)
+            self.us += 1
             v = self.io.inp(self.bc)
             if mid != 6:
                 self.r[mid] = v
@@ -511,6 +554,7 @@ class Z80:
             self._sz(v)
             return
         if op & 0xC7 == 0x41:                           # out (c),r
+            self.us += 1
             return self.io.out(self.bc, 0 if mid == 6 else self.r[mid])
         if op & 0xCF == 0x42:                           # sbc hl,rr
             return setattr(self, "hl", self.sbc16(self.hl, self.rr(mid >> 1)))
@@ -570,6 +614,7 @@ class Z80:
         name = "ix" if prefix == 0xDD else "iy"
         idx = getattr(self, name)
         op = self.fetch()
+        self.us += 1                           # the index add, on top of the fetch
 
         if op == 0x21:
             return setattr(self, name, self.fetchw())
@@ -658,6 +703,10 @@ KEY_MATRIX = {
 
 
 class CPCIO:
+    #: A CPC frame: 312 scanlines of 64 us. Nothing about it is negotiable.
+    FRAME_US = 19968
+    LINE_US = 64
+
     def __init__(self, keys=(), frame_instr=6000):
         self.crtc = [0] * 18
         self.crtc_sel = 0
@@ -676,11 +725,17 @@ class CPCIO:
         self.frame_instr = frame_instr
         self.key_reads = 0
 
+    def vsync_line(self):
+        """Scanline VSYNC starts on, from R7 - 34 until the program sets it."""
+        return (self.crtc[7] or 34) * ((self.crtc[9] or 7) + 1)
+
     def vsync(self):
-        return (self.clock % self.frame_instr) < self.frame_instr // 8
+        line = (self.clock % self.FRAME_US) // self.LINE_US
+        start = self.vsync_line()
+        return start <= line < start + 8
 
     def frame(self):
-        return self.clock // self.frame_instr
+        return self.clock // self.FRAME_US
 
     def matrix_row(self, line):
         """The keyboard line as it stands this frame. A pressed key reads 0."""
@@ -864,6 +919,13 @@ def main():
     ap.add_argument("--frame-instr", type=int, default=12000,
                     help="instructions per virtual frame (default 12000, roughly "
                          "what a 19968 us CPC frame gets through)")
+    ap.add_argument("--beam", action="store_true",
+                    help="where the beam is when each sprite is drawn (needs "
+                         "--sym). Every sprite has to be back on the screen "
+                         "before the beam reaches it, and this says whether "
+                         "it was")
+    ap.add_argument("--beam-from", type=int, default=40,
+                    help="first frame to report for --beam")
     ap.add_argument("--trap", help="symbol or address; report the first write "
                                    "to it and where it came from")
     ap.add_argument("--trap-value", help="only trap a write of this byte value")
@@ -938,15 +1000,19 @@ def main():
     cpu.pc = org
     cpu.sp = 0xC000
 
-    # Six interrupts to a frame, and the first of them inside the VSYNC pulse:
-    # on the real machine the Gate Array resets its own HSYNC counter two
-    # scanlines into VSYNC and issues an interrupt there, which is the one a
-    # program locks its frame to. Spacing them evenly from zero instead hides
-    # every phase bug there is.
-    irq_period = max(1, args.frame_instr // 6)
-    irq_first = max(1, args.frame_instr * 2 // 312)
-    budget = args.frames * args.frame_instr if args.frames else args.max_steps
-    limit = min(budget, args.max_steps)
+    # A frame is 19968 microseconds, not a number of instructions, because
+    # the only question worth asking about this program is where the beam is
+    # when it writes to the screen. Instructions are charged at the CPC's own
+    # rate - a microsecond per machine cycle - in Z80.us.
+    #
+    # Six interrupts to a frame, the first of them two scanlines into VSYNC
+    # where the Gate Array resets its HSYNC counter and issues one. That is
+    # the interrupt a program locks its frame to; spacing them evenly from
+    # zero instead hides every phase bug there is.
+    irq_period = 52 * CPCIO.LINE_US
+    irq_first = (io.vsync_line() + 2) * CPCIO.LINE_US
+    us_budget = args.frames * CPCIO.FRAME_US if args.frames else None
+    limit = args.max_steps
     next_irq = irq_first
     irqs = 0
     reason = "instruction budget"
@@ -960,17 +1026,46 @@ def main():
         prof_addr = sorted(set(symbols.values()))
         prof_name = {v: k for k, v in sorted(symbols.items(), reverse=True)}
         prof = dict.fromkeys(prof_addr, 0)
-        prof_start = args.profile_from * args.frame_instr
+        prof_start = args.profile_from * CPCIO.FRAME_US
+
+    beam = None
+    if args.beam:
+        if not symbols:
+            sys.exit("--beam needs --sym")
+        want = ("SPR_RESTORE", "SPR_DRAW", "SPRITES_UPDATE_NEXT", "LINE_TAB",
+                "SPR_H")
+        for w in want:
+            if w not in symbols:
+                sys.exit("--beam needs the symbol %s" % w)
+        beam = {"erase": symbols["SPR_RESTORE"], "draw": symbols["SPR_DRAW"],
+                "done": symbols["SPRITES_UPDATE_NEXT"],
+                "line_tab": symbols["LINE_TAB"], "spr_h": symbols["SPR_H"],
+                "open": None, "y": 0, "h": 0, "units": []}
 
     steps = 0
     while steps < limit:
-        io.clock = steps
-        if prof is not None and steps >= prof_start:
+        io.clock = cpu.us
+        if us_budget is not None and cpu.us >= us_budget:
+            reason = "frame budget"
+            break
+        if beam is not None:
+            if cpu.pc == beam["erase"]:
+                beam["open"] = cpu.us
+            elif cpu.pc == beam["draw"] and beam["open"] is not None:
+                beam["y"] = (cpu.ix - beam["line_tab"]) // 2
+                beam["h"] = mem[beam["spr_h"]]
+            elif cpu.pc == beam["done"] and beam["open"] is not None:
+                beam["units"].append((beam["y"], beam["h"],
+                                      beam["open"], cpu.us))
+                beam["open"] = None
+        prof_in = None
+        if prof is not None and cpu.us >= prof_start:
             i = bisect.bisect_right(prof_addr, cpu.pc) - 1
             if i >= 0:
-                prof[prof_addr[i]] += 1
+                prof_in = prof_addr[i]
+        us_before = cpu.us
         if watch:
-            f = steps // args.frame_instr
+            f = cpu.us // CPCIO.FRAME_US
             if f != last_frame:
                 last_frame = f
                 cells = []
@@ -983,11 +1078,10 @@ def main():
                             v -= 65536
                         cells.append("%s=%d" % (name, v))
                 trace.append("  frame %3d  %s" % (f, "  ".join(cells)))
-        if steps >= next_irq:
+        if cpu.us >= next_irq:
+            # 6 x 52 scanlines is 312, so the cadence divides the frame
+            # exactly and the phase never has to be nudged back
             next_irq += irq_period
-            if next_irq % args.frame_instr < irq_first:
-                next_irq = (next_irq // args.frame_instr) * args.frame_instr \
-                           + irq_first
             if cpu.iff and cpu.imode == 1:
                 # IM 1: the CPU stacks PC, jumps to #0038 and masks interrupts
                 # until the handler re-enables them.
@@ -1011,11 +1105,13 @@ def main():
             cpu.step()
         except Unsupported as e:
             sys.exit("z80check: %s - not implemented" % e)
+        if prof_in is not None:
+            prof[prof_in] += cpu.us - us_before
         steps += 1
     else:
         if not args.frames:
             sys.exit("z80check: still running after %d instructions" % limit)
-        reason = "frame budget"
+        reason = "instruction ceiling"
 
     if cpu.sp_hit:
         print("STACK SP reached #%04X on frame %d, at PC #%04X"
@@ -1047,7 +1143,7 @@ def main():
         else:
             held.append("%s@%d-%d" % (name, first, last))
     print("SIM   %d virtual frames, %d interrupts delivered, %d key matrix reads%s"
-          % (steps // args.frame_instr, irqs, io.key_reads,
+          % (cpu.us // CPCIO.FRAME_US, irqs, io.key_reads,
              ", holding " + " ".join(held) if held else ""))
     if io.rmr is None:
         sys.exit("z80check: the code never set a screen mode - nothing to render")
@@ -1066,19 +1162,58 @@ def main():
         " (%d wide on the tube)" % (len(rows[0]) * aspect) if aspect != 1 else "",
         io.crtc[1] * 2, ((io.crtc[12] & 0x3F) << 8) | io.crtc[13]))
 
+    if beam is not None:
+        lines = (io.crtc[4] + 1) * (io.crtc[9] + 1) + io.crtc[5]
+        print()
+        print("BEAM  a sprite is off the screen from the moment its erase "
+              "starts to the moment")
+        print("      its redraw finishes. The beam sweeps scanline y at "
+              "64y us into every")
+        print("      %d us frame. If it crosses the sprite's own rows inside "
+              "that window," % (lines * 64))
+        print("      it draws a hole, and that is what flicker is.")
+        bad = 0
+        shown = 0
+        for y, h, t0, t1 in beam["units"][args.beam_from:]:
+            hit = None
+            k = (t0 // (lines * 64)) * (lines * 64)
+            while k <= t1 + lines * 64:
+                for row in range(y, y + h):
+                    when = k + 64 * row
+                    if t0 <= when < t1:
+                        hit = row
+                        break
+                if hit is not None:
+                    break
+                k += lines * 64
+            if hit is not None:
+                bad += 1
+            if shown < 12:
+                shown += 1
+                print("      rows %3d-%-3d rebuilt over %6d us, beam at %3d "
+                      "when it started - %s"
+                      % (y, y + h - 1, t1 - t0,
+                         (t0 % (lines * 64)) // 64,
+                         "caught at row %d" % hit if hit is not None
+                         else "clear"))
+        total_units = len(beam["units"][args.beam_from:])
+        print("    %d of %d sprite rebuilds were caught by the beam" %
+              (bad, total_units))
+
     if prof is not None:
         total = sum(prof.values())
+        frames = max(1, cpu.us // CPCIO.FRAME_US - args.profile_from)
         print()
-        print("PROFILE  %d instructions from frame %d on. Counts, not "
-              "microseconds -" % (total, args.profile_from))
-        print("         but a CPC instruction is 1 to 6 us, and a tight loop "
-              "of them is flat,")
-        print("         so the shape of this is the shape of the frame.")
+        print("PROFILE  %d us of work over %d frames from frame %d on, which "
+              "is %d us" % (total, frames, args.profile_from, total // frames))
+        print("         a frame against the 19968 a CPC frame actually has. "
+              "One scanline is 64 us.")
         for addr, n in sorted(prof.items(), key=lambda kv: -kv[1])[:20]:
             if not n:
                 break
-            print("    %6d  %5.1f%%  %s" % (n, 100.0 * n / total,
-                                            prof_name.get(addr, "#%04X" % addr)))
+            print("    %8d us  %6d/frame  %5.1f lines  %5.1f%%  %s"
+                  % (n, n // frames, n / frames / 64.0, 100.0 * n / total,
+                     prof_name.get(addr, "#%04X" % addr)))
 
     if args.ascii:
         print()

@@ -31,6 +31,13 @@
 ;; copied out and the sprite dropped in on a single walk down the rows.
 ;; ===========================================================================
 
+;; How many bytes wide the unrolled blit in spr_draw is written out for. Every
+;; masked sprite the game moves has to fit; the furniture does not, because it
+;; goes down once through spr_blit and is never lifted off again.
+SPR_UNROLL_MAX  EQU 6
+    ASSERT SPR_MAX_W <= SPR_UNROLL_MAX
+    ASSERT ART_MAX_W <= SPR_UNROLL_MAX
+
 ;; ---------------------------------------------------------------------------
 ;; spr_size - HL = sprite -> spr_w and spr_h set, HL left at the pixel data.
 ;; ---------------------------------------------------------------------------
@@ -64,54 +71,75 @@ spr_row_addr
 ;; spr_draw - save the background and draw over it in one walk down the rows.
 ;;   HL = pixel data (past the header), IX = line_tab pointer for the top
 ;;   scanline, DE = where to save the background, spr_x / spr_w / spr_h set.
-;; Destroys AF, BC, DE, HL, IX.
+;; Destroys AF, BC, DE, HL, IX and the shadow set.
+;;
+;; Three pointers step on every byte - the sprite, the screen and the buffer -
+;; and the Z80 has exactly three pairs that can do it, so there is no register
+;; left to count the bytes with. So the byte is not counted: the blit is
+;; written out one copy per byte and entered w copies from the end. That also
+;; folds the background save into the same pass, which is what the LDIR used
+;; to do on its own: 18 us a byte now against 24, and no per-row setup for it.
+;;
+;; The row counter lives in the shadow set for the same reason. Nothing else
+;; in either game uses EXX.
 ;; ---------------------------------------------------------------------------
 spr_draw
-    ld (spr_src),hl
-    ld (spr_bufp),de
-    ld a,(spr_x)
-    ld c,a                      ; x stays in C for the whole sprite
+    ld a,(spr_w)                ; the entry point, worked out once per sprite
+    exx
+    ld l,a
+    ld h,0
+    add hl,hl
+    add hl,hl
+    add hl,hl                   ; 8w
+    ld e,a
+    ld d,0
+    add hl,de                   ; 9w, one copy of the blit being nine bytes
+    ex de,hl
+    ld hl,spr_blit_end
+    or a
+    sbc hl,de
+    ld (spr_draw_call+1),hl
     ld a,(spr_h)
-    ld b,a
+    ld b,a                      ; the rows, out of the way of the drawing
+    exx
+    ld c,e                      ; BC = the background buffer
+    ld b,d
+
 spr_draw_row
-    push bc
     ld e,(ix+0)                 ; the scanline, plus x
     ld d,(ix+1)
     inc ix
     inc ix
-    ld a,c
+    ld a,(spr_x)
     add a,e
     ld e,a
-    jr nc,spr_draw_row_set
+    jr nc,spr_draw_call
     inc d
-spr_draw_row_set
-    push de
+spr_draw_call
+    call 0                      ; patched above - w bytes back from the ret
+    exx
+    djnz spr_draw_more
+    exx
+    ret
+spr_draw_more
+    exx
+    jr spr_draw_row
 
-    ex de,hl                    ; HL = screen, DE = the save buffer
-    ld de,(spr_bufp)
-    ld a,(spr_w)
-    ld c,a
-    ld b,0
-    ldir
-    ld (spr_bufp),de
-
-    pop de                      ; back to the start of the row
-    ld hl,(spr_src)
-    ld a,(spr_w)
-    ld b,a
-spr_draw_col
+;; One byte: lift the background out, punch the sprite's hole in it, drop the
+;; sprite in. DE walks the screen, BC the buffer, HL the mask/data pairs.
+spr_blit_chain
+    REPEAT SPR_UNROLL_MAX
     ld a,(de)
-    and (hl)                    ; punch the sprite's hole in the background
+    ld (bc),a
+    inc bc
+    and (hl)
     inc hl
-    or (hl)                     ; drop the sprite into it
+    or (hl)
     inc hl
     ld (de),a
     inc de
-    djnz spr_draw_col
-    ld (spr_src),hl
-
-    pop bc
-    djnz spr_draw_row
+    REND
+spr_blit_end
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -158,31 +186,56 @@ spr_blit_col
 ;; ---------------------------------------------------------------------------
 ;; spr_restore - put a saved background back. HL = buffer, IX = line_tab
 ;; pointer, spr_x / spr_w / spr_h as they were when it was saved.
-;; Destroys AF, BC, DE, HL, IX.
+;; Destroys AF, BC, DE, HL, IX and the shadow set.
+;;
+;; Unrolled the same way, and for a sharper reason than speed alone. The erase
+;; pass has to be finished before the beam reaches the topmost sprite, and all
+;; it has to work with is the forty blanked scanlines between the frame tick
+;; and the top of the picture. LDIR costs six microseconds a byte and wants a
+;; counter set up every row; a run of LDIs costs five and wants nothing. BC is
+;; scratch here - LDI decrements it and nobody asks.
 ;; ---------------------------------------------------------------------------
 spr_restore
-    ld a,(spr_x)
-    ld c,a
+    ld a,(spr_w)
+    exx
+    ld l,a
+    ld h,0
+    add hl,hl                   ; 2w, one LDI being two bytes
+    ex de,hl
+    ld hl,spr_copy_end
+    or a
+    sbc hl,de
+    ld (spr_restore_call+1),hl
     ld a,(spr_h)
     ld b,a
+    exx
+
 spr_restore_row
-    push bc
     ld e,(ix+0)
     ld d,(ix+1)
     inc ix
     inc ix
-    ld a,c
+    ld a,(spr_x)
     add a,e
     ld e,a
-    jr nc,spr_restore_set
+    jr nc,spr_restore_call
     inc d
-spr_restore_set
-    ld a,(spr_w)
-    ld c,a
-    ld b,0
-    ldir                        ; buffer -> screen
-    pop bc
-    djnz spr_restore_row
+spr_restore_call
+    call 0                      ; patched above - w LDIs back from the ret
+    exx
+    djnz spr_restore_more
+    exx
+    ret
+spr_restore_more
+    exx
+    jr spr_restore_row
+
+;; Buffer to screen, one byte a copy.
+spr_copy_chain
+    REPEAT SPR_UNROLL_MAX
+    ldi
+    REND
+spr_copy_end
     ret
 
 ;; ---------------------------------------------------------------------------

@@ -257,6 +257,10 @@ def main():
         for name, w, h, rows in sprites:
             fh.write("SPR_%-12s EQU %d\n" % (name + "_W", w // PIXELS_PER_BYTE))
             fh.write("SPR_%-12s EQU %d\n" % (name + "_H", h))
+        fh.write(";; The widest of them, for the length of the unrolled blit.\n")
+        fh.write("ART_MAX_W        EQU %d\n"
+                 % max((w // PIXELS_PER_BYTE for _n, w, _h, _r in sprites),
+                       default=0))
         for name, w, h, rows in sprites:
             for suffix, art in (("", rows), ("_l", mirrored(rows))):
                 if suffix and art == rows:

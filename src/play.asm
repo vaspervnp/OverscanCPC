@@ -85,16 +85,38 @@ play_screen
 
 play_room
     call room_load
+    call sprites_order          ; a fresh room has nobody on the screen yet
 
-;; Everything that only thinks runs before a single pixel is disturbed, so the
-;; window where the sprites are missing from the screen holds nothing but the
-;; erase, the one background change that has to sit inside it, and the draw.
-;; The HUD goes first as well: it lives above the play area, where no sprite
-;; ever reaches, so repainting it there costs the sprites nothing - and it was
-;; the worst thing in the window, because it is two rows of text and it
-;; repaints on exactly the frame a sausage is collected.
+;; The screen work comes first and the thinking comes after it, which is the
+;; other way round from how it reads.
+;;
+;; wait_frame returns on the interrupt inside VSYNC, and there are forty
+;; blanked scanlines - two and a half milliseconds - between that and the top
+;; of the picture. Everything the beam is about to draw has to be back on the
+;; screen before it gets there, and the only thing that decides whether it is
+;; is what happens in those two and a half milliseconds and the microseconds
+;; after. The erase runs bottom to top and fits inside the border; the draw
+;; runs top to bottom from there and stays ahead of the beam all the way down.
+;; Six milliseconds of keys, physics and collisions in front of that pushed
+;; the whole thing a hundred scanlines into the picture, and the beam caught
+;; the draw somewhere in the middle of the screen every single frame.
+;;
+;; The cost is that a sprite is drawn where it was worked out to be one frame
+;; earlier. At fifty frames a second nobody can see that. The flicker it
+;; replaces was unmissable.
 play_loop
-    call wait_frame
+    call wait_render            ; two VSYNCs - the picture is rebuilt 25 times
+                                ; a second, the game still thinks 50
+
+    ld a,(game_over)
+    or a
+    jr nz,play_think            ; the cast has been lifted off the screen
+
+    call sprites_update
+
+;; The picture is on the screen and the beam is past it. Everything from here
+;; down is for the next one.
+play_think
     call read_controls
     ld a,(ctl_pressed)
     bit CTL_QUIT,a
@@ -102,17 +124,38 @@ play_loop
 
     ld a,(game_over)
     or a
-    jr nz,play_over             ; the cast has been lifted off the screen
+    jr nz,play_over
 
+    ld b,FRAMES_PER_RENDER
+play_step
+    push bc
     call cat_update
     call enemies_update
+    call check_sausages         ; what has been eaten is worked out here; the
+                                ; hole it leaves is filled in by sprites_update
     call check_enemies
+    call shake_update           ; both are 50 Hz timers, so they are stepped
+    call flash_update           ; with the logic and not with the picture
     ld a,(game_over)            ; a robot may just have ended it
     or a
-    jr nz,play_over
+    jr nz,play_step_over
     call check_exit
-    jr nc,play_draw
+    jr c,play_step_exit
+    xor a
+    ld (ctl_pressed),a          ; a key going down belongs to one step, not to
+    pop bc                      ; both of them
+    djnz play_step
 
+    call update_hud             ; above the play area, so it is never in the way
+    call sprites_order          ; who is where, before the clock starts running
+    jr play_loop
+
+play_step_over
+    pop bc
+    jr play_loop
+
+play_step_exit
+    pop bc
     ld a,(cur_room)             ; through the door
     inc a
     cp ROOM_COUNT
@@ -125,20 +168,7 @@ play_finished
     ld (game_over),a
     ld a,MSG_WELLDONE
     call big_banner
-    jr play_over
-
-play_draw
-    call update_hud             ; above the play area, so it is not in the way
-    call sprites_erase
-    call check_sausages         ; inside the window on purpose: a sausage has
-                                ; to leave the background after the sprites
-                                ; are lifted off it and before they are put
-                                ; back, or a save buffer either paints it
-                                ; again or never sees it go
-    call sprites_draw
 play_over
-    call shake_update
-    call flash_update
     jr play_loop
 
 play_quit
@@ -924,29 +954,102 @@ check_milk_score
 ;; ---------------------------------------------------------------------------
 ;; erase_sausage / erase_milk - put back what it was standing in front of.
 ;; ---------------------------------------------------------------------------
+;; A pickup is not rubbed out where it is found. Working out what the cat has
+;; eaten is a walk over every sausage in the room, and that walk has no
+;; business inside the handful of scanlines the sprites are racing the beam
+;; through - but the change to the background does, because it has to happen
+;; while the cat is off the screen. So the check leaves a note here and
+;; sprites_update acts on it.
+;;
+;; The saucer is the same four bytes by eight scanlines as a sausage, so one
+;; note fits both.
+    ASSERT SPR_MILK_W == SPR_SAUSAGE_W
+    ASSERT SPR_MILK_H == SPR_SAUSAGE_H
+PICK_PEND_MAX   EQU 4
+
 erase_sausage
     ld a,(saus_x)
-    ld (spr_x),a
+    ld b,a
+    ld a,(saus_y)
+    ld c,a
+    ld hl,(pick_bufp)
+    jr pick_defer
+
+erase_milk
+    ld a,(milk_x)
+    ld b,a
+    ld a,(milk_y)
+    ld c,a
+    ld hl,milk_buf
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; pick_defer - B = x, C = y, HL = its saved background. Note one down.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+pick_defer
+    push hl
+    ld hl,pick_pend_n
+    ld a,(hl)
+    cp PICK_PEND_MAX
+    jr nc,pick_defer_full
+    inc (hl)
+    add a,a
+    add a,a                     ; four bytes a note
+    ld e,a
+    ld d,0
+    ld hl,pick_pend
+    add hl,de
+    ld (hl),b
+    inc hl
+    ld (hl),c
+    inc hl
+    pop de
+    ld (hl),e
+    inc hl
+    ld (hl),d
+    ret
+pick_defer_full
+    pop hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; pickups_erase - act on the notes. Called with the cat off the screen.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+pickups_erase
+    ld a,(pick_pend_n)
+    or a
+    ret z
+    ld b,a
+    xor a
+    ld (pick_pend_n),a
     ld a,SPR_SAUSAGE_W
     ld (spr_w),a
     ld a,SPR_SAUSAGE_H
     ld (spr_h),a
-    ld a,(saus_y)
-    call spr_row_ptr
-    ld hl,(pick_bufp)
-    jp spr_restore
-
-erase_milk
-    ld a,(milk_x)
+    ld hl,pick_pend
+pickups_erase_loop
+    push bc
+    ld a,(hl)
     ld (spr_x),a
-    ld a,SPR_MILK_W
-    ld (spr_w),a
-    ld a,SPR_MILK_H
-    ld (spr_h),a
-    ld a,(milk_y)
+    inc hl
+    ld c,(hl)                   ; the scanline it sat on
+    inc hl
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    inc hl
+    push hl
+    push de                     ; spr_row_ptr is about to want DE and HL
+    ld a,c
     call spr_row_ptr
-    ld hl,milk_buf
-    jp spr_restore
+    pop hl
+    call spr_restore
+    pop hl
+    pop bc
+    djnz pickups_erase_loop
+    ret
 
 ;; ---------------------------------------------------------------------------
 ;; cat_hits_box - carry set if the cat overlaps the box in box_x / box_y /
@@ -1682,25 +1785,65 @@ sprites_erase_loop
     ret
 
 ;; ---------------------------------------------------------------------------
-;; sprites_draw - work the order out, then lay the picture down top first.
+;; sprites_update - lift each sprite off and put it straight back, one at a
+;; time, from the top of the screen down.
+;;
+;; The frame tick arrives thirty-eight scanlines before the picture does, and
+;; the beam reaches scanline y another 64y microseconds after that. Erasing
+;; everything and then drawing everything leaves every sprite off the screen
+;; for the whole gap between the two passes - with this cast the erase alone
+;; is seventy scanlines and the draw a hundred and forty - and the beam walks
+;; through the middle of that every single frame. Whichever interrupt the
+;; frame was started on only moved which part of the screen it happened to.
+;;
+;; Doing one sprite at a time closes the gap to that sprite's own erase and
+;; draw, and going from the top of the screen down spends the head start on
+;; the sprite that has the least of it: the beam gets to the top first.
+;; tools/z80check.py --beam is what says whether each one made it.
+;;
+;; The cost is that two sprites which overlap can take a bite out of each
+;; other for a frame - the lower one's erase puts back a background captured
+;; before the upper one was drawn. Overlapping in this game means the cat has
+;; just been caught, which costs a life and moves it anyway.
 ;; ---------------------------------------------------------------------------
-sprites_draw
-    call sprites_order
-    ld a,(ord_n)
-    ld (draw_n),a
+sprites_update
+    ld a,(ord_n)                ; sprites_order ran at the end of the thinking,
+    ld (draw_n),a               ; where it costs the beam nothing
     or a
     ret z
     ld b,a
     ld hl,draw_order
-sprites_draw_loop
+sprites_update_loop
     push bc
     push hl
     ld a,(hl)
-    call sprite_draw_id
+    or a
+    jr nz,sprites_update_enemy
+
+    call cat_erase
+    call pickups_erase          ; while the cat is off the screen and before it
+                                ; saves what it is standing on again: that is
+                                ; the only moment the background may change
+    call cat_draw
+    jr sprites_update_next
+
+sprites_update_enemy
+    dec a
+    call enemy_ptr              ; once, where it used to be worked out three
+    ld a,(iy+E_TYPE)            ; times over for the same enemy
+    or a
+    jr z,sprites_update_next
+    call enemy_moved
+    jr z,sprites_update_next    ; already where it belongs, facing the way it
+                                ; was facing - leave it alone
+    call enemy_erase_one
+    call enemy_draw_one
+
+sprites_update_next
     pop hl
     inc hl
     pop bc
-    djnz sprites_draw_loop
+    djnz sprites_update_loop
     ret
 
 ;; ---------------------------------------------------------------------------

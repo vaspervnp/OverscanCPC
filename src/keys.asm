@@ -20,13 +20,18 @@ CTL_RIGHT       EQU 5
 CTL_QUIT        EQU 6
 
 ;; ---------------------------------------------------------------------------
-;; read_key_line - A = matrix line 0..9 -> A = that line's eight keys,
-;; a 0 bit meaning pressed.
-;; Destroys AF, BC, DE.
+;; read_keyboard - cache all ten matrix lines in key_rows, after which any key
+;; is a bit test on RAM.
+;; Destroys AF, BC, HL, E.
+;;
+;; Selecting PSG register 14 and turning PPI port A round to input are part of
+;; setting the keyboard up, not part of reading a line, so they happen once a
+;; scan and not ten times. Only the line number going out on port C and the
+;; eight keys coming back on port A have to be repeated. Doing the whole
+;; eight-port sequence per line cost three quarters of a millisecond a frame -
+;; twelve scanlines out of the budget the sprites are fighting for.
 ;; ---------------------------------------------------------------------------
-read_key_line
-    or #40                      ; PSG function 01 = read register
-    ld e,a
+read_keyboard
     ld bc,#F40E                 ; PPI port A = PSG register 14, the matrix
     out (c),c
     ld bc,#F6C0                 ; port C: function 11, select that register
@@ -35,33 +40,23 @@ read_key_line
     out (c),c
     ld bc,#F792                 ; PPI control: turn port A round to input
     out (c),c
-    ld bc,#F600
-    out (c),e                   ; port C: read, with the line in bits 0-3
-    ld b,#F4
-    in a,(c)                    ; the eight keys
-    ld bc,#F782                 ; PPI control: port A back to output
-    out (c),c
-    ret
 
-;; ---------------------------------------------------------------------------
-;; read_keyboard - cache all ten matrix lines in key_rows. Ten port sequences
-;; a frame, after which any key is a bit test on RAM.
-;; Destroys AF, BC, DE, HL.
-;; ---------------------------------------------------------------------------
-read_keyboard
     ld hl,key_rows
-    xor a
+    ld e,#40                    ; port C: function 01 = read, matrix line 0
 read_keyboard_loop
-    push af
-    push hl
-    call read_key_line
-    pop hl
+    ld bc,#F600
+    out (c),e
+    ld b,#F4
+    in a,(c)                    ; the eight keys, a 0 bit meaning pressed
     ld (hl),a
     inc hl
-    pop af
-    inc a
-    cp 10
+    inc e
+    ld a,e
+    cp #4A                      ; ten lines
     jr nz,read_keyboard_loop
+
+    ld bc,#F782                 ; PPI control: port A back to output
+    out (c),c
     ret
 
 ;; ---------------------------------------------------------------------------

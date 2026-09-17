@@ -29,6 +29,8 @@ SPR_SYRINGE_W    EQU 5
 SPR_SYRINGE_H    EQU 6
 SPR_WASP_W       EQU 3
 SPR_WASP_H       EQU 8
+;; The widest of them, for the length of the unrolled blit.
+ART_MAX_W        EQU 6
 
 ;; BALL - 6 x 12 pixels
 spr_ball
