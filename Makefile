@@ -9,6 +9,11 @@
 #
 # Snapshots (.sna) drag into an emulator; disc images boot with RUN"<name>.
 
+# A scripted playthrough. This exact key sequence collects all five sausages,
+# which also keeps the level honest: change the jump height or move a shelf and
+# it stops completing.
+ROUTE  := FIRE@12-13,RIGHT@14-52,LEFT@53-75,FIRE@76-77,LEFT@104-112,RIGHT@114-181,FIRE@136-137,LEFT@183-224,FIRE@201-202,LEFT@226-242,RIGHT@244-315,FIRE@266-267
+
 RASM   ?= rasm
 PYTHON ?= python3
 BUILD  := build
@@ -106,6 +111,10 @@ check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
 		--sym $(BUILD)/loukoumas_el.sym \
 		--watch "cat_y,cat_state,cat_vy:s,cat_h,cat_stun,shake_timer" \
 		| grep -E "frame ( 30| 31| 35| 36)"
+	@echo "=== loukoumas, scripted playthrough: all five collected, level done ==="
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 320 --keys "$(ROUTE)" \
+		--sym $(BUILD)/loukoumas_el.sym --watch "sausages_got,level_done" \
+		| grep -E "frame (302|303)"
 
 $(BUILD):
 	mkdir -p $(BUILD)

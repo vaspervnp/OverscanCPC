@@ -270,6 +270,15 @@ cat_drawn   defs 1              ; is there a background to put back?
 cat_anim    defs 1
 cat_buf     defs SPR_MAX_BYTES
 
+;; play.asm - score and larder
+score         defs SCORE_BYTES      ; packed BCD, most significant byte first
+sausages_got  defs 1
+sausage_alive defs SAUSAGE_COUNT
+saus_x        defs 1                ; the sausage being tested
+saus_y        defs 1
+hud_dirty     defs 1
+level_done    defs 1
+
     IF TARGET==1
 RUN loukoumas_start
     ENDIF

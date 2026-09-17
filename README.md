@@ -87,9 +87,10 @@ far, in Greek and English:
 
 FIRE starts the play field, Escape comes back, L switches language. Cursor keys or
 joystick to walk, FIRE or up to jump, down to roll, down plus FIRE in mid-air to
-belly-flop:
+belly-flop. Collect all five sausages to finish the level:
 
 ![play field](docs/loukoumas-play.png)
+![level complete](docs/loukoumas-complete.png)
 
 ```bash
 make loukoumas
@@ -158,6 +159,18 @@ display.
 
 `make check` asserts the numbers frame by frame: the jump apex, the landing on the shelf,
 the flop's terminal velocity and the shake and stun it sets.
+
+### Score and collection
+
+The score is packed BCD, most significant byte first, so `DAA` does the arithmetic and
+printing needs no division — six digits straight out of two nibbles a byte. Collection
+happens between erasing the cat and redrawing it, which is the only window where a
+sausage can leave the background without the cat's save buffer putting it back.
+
+`make check` runs a **scripted playthrough**: a fixed key sequence that collects all five
+sausages and finishes the level. That is a regression test for the physics and a
+guarantee the level is completable — change the jump height or move a shelf and it stops
+passing.
 
 ### Timing and input
 

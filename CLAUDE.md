@@ -254,7 +254,20 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   scanlines, so shelves are 32 apart. The first version had them 48 apart and nothing
   above the floor was reachable.
 
-## 10. Working conventions
+## 10. Game state
+
+- Score is packed BCD, most significant byte first: `DAA` does the arithmetic and
+  printing is two nibbles a byte, no division.
+- Anything that changes the background - collecting a sausage, say - must happen between
+  the sprite erase and the sprite draw. Outside that window the cat's save buffer either
+  restores what you removed or captures what you added.
+- The HUD only repaints when something changed. Its captions come from the string table,
+  so column positions have to leave room for the longer language.
+- `make check` includes a scripted playthrough that collects everything and completes
+  the level. Treat it as the level design's test: if it stops passing after a change to
+  jump height, gravity or shelf positions, the level is no longer completable.
+
+## 11. Working conventions
 
 - Comment every CRTC register write with the value **and the reason** — a bare
   `LD BC,&BC01 / OUT (C),C` is unreadable six months later.
@@ -268,7 +281,7 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Prefer small, individually runnable test programs over one growing demo. Each milestone
   should be its own binary that shows one thing.
 
-## 11. Confidence notes
+## 12. Confidence notes
 
 Solid and safe to build on: the address decoding in section 2, the 1024-character limit,
 the 312-line/64 us frame arithmetic, the 52-line interrupt cadence, the port numbers.

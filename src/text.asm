@@ -152,6 +152,51 @@ draw_glyph_small_nc
     djnz draw_glyph_small_line
     ret
 
+;; ---------------------------------------------------------------------------
+;; print_glyph - A = glyph index. Draws it small at (txt_x),(txt_row) and
+;; advances txt_x by one cell.
+;; ---------------------------------------------------------------------------
+print_glyph
+    call glyph_addr
+    ld hl,(txt_row)
+    call draw_glyph_small
+    ld a,(txt_x)
+    add a,SMALL_W_BYTES
+    ld (txt_x),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; print_digit - A = a digit in the low nibble.
+;; ---------------------------------------------------------------------------
+print_digit
+    and #0F
+    add a,GL_0
+    jr print_glyph
+
+;; ---------------------------------------------------------------------------
+;; print_digits - HL = packed BCD, most significant byte first, B = how many
+;; bytes. Two digits per byte, which is why the score is kept in BCD: DAA
+;; makes the arithmetic free and printing needs no division.
+;; ---------------------------------------------------------------------------
+print_digits
+print_digits_loop
+    push bc
+    push hl
+    ld a,(hl)
+    push af
+    rrca
+    rrca
+    rrca
+    rrca
+    call print_digit
+    pop af
+    call print_digit
+    pop hl
+    inc hl
+    pop bc
+    djnz print_digits_loop
+    ret
+
 ;; ===========================================================================
 ;; Big text - (txt_xs) bytes per source pixel, (txt_ys) scanlines per row
 ;; ===========================================================================

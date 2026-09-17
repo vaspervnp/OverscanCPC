@@ -99,7 +99,7 @@ def read_strings(path):
 #: labels only, so the Greek-only capitals need spelling out.
 ASM_NAMES = {
     " ": "SPACE", ".": "DOT", ",": "COMMA", "!": "BANG", "?": "QUERY",
-    ":": "COLON", "-": "DASH", "'": "QUOTE",
+    ":": "COLON", "-": "DASH", "'": "QUOTE", "/": "SLASH",
     "Γ": "GAMMA", "Δ": "DELTA", "Θ": "THETA", "Λ": "LAMBDA", "Ξ": "XI",
     "Π": "PI", "Σ": "SIGMA", "Φ": "PHI", "Ψ": "PSI", "Ω": "OMEGA",
 }
@@ -174,7 +174,7 @@ def write_font(glyphs):
         fh.write("\n;; Greek-only glyphs are named in full because rasm labels are ASCII:\n")
         fh.write(";; %s\n" % ", ".join(
             "%s = GL_%s" % (n, ASM_NAMES[n]) for n, _ in glyphs if n in ASM_NAMES
-            and n not in " .,!?:-'"))
+            and n not in " .,!?:-'/"))
         fh.write("\nGLYPH_COUNT EQU %d\n\n" % len(glyphs))
         fh.write("font\n")
         for name, rows in glyphs:

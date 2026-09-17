@@ -35,6 +35,21 @@ ST_ROLL         EQU 3
 CAT_START_X     EQU 4
 SHAKE_LEN       EQU 6
 
+;; HUD, in the twelve scanlines above the play area. The captions are drawn
+;; from the string table, so their length changes with the language; the
+;; columns leave room for the longer of the two.
+HUD_Y           EQU 2
+HUD_H           EQU 8
+SCORE_LABEL_X   EQU 2
+SCORE_X         EQU 14
+SAUS_LABEL_X    EQU 40
+SAUS_COUNT_X    EQU 60
+SCORE_BYTES     EQU 3            ; six BCD digits
+SAUSAGE_POINTS  EQU #01          ; BCD, added to the hundreds digit
+
+WELLDONE_Y      EQU 40
+WELLDONE_YS     EQU 3
+
 ;; ---------------------------------------------------------------------------
 ;; play_screen - runs until Escape.
 ;; ---------------------------------------------------------------------------
@@ -48,6 +63,8 @@ play_loop
     jr nz,play_quit
     call cat_erase
     call cat_update
+    call check_sausages         ; between erase and draw: the sausage has to
+    call update_hud             ; leave the background before it is saved again
     call cat_draw
     call shake_update
     jr play_loop
@@ -91,13 +108,22 @@ play_setup
     ld a,PEN0_BYTE
     call clear_rows
 
-    ld a,2                      ; the caption sits on the background: a glyph
-    ld (txt_x),a                ; only sets pen bit 0, so it would be invisible
-    ld hl,line_tab+2*2          ; over pen 1 or pen 3
-    ld (txt_row),hl
-    ld a,MSG_SCORE
-    call msg_small
+    xor a                       ; a fresh score and a full larder
+    ld (score),a
+    ld (score+1),a
+    ld (score+2),a
+    ld (sausages_got),a
+    ld (level_done),a
+    ld (hud_dirty),a
+    ld hl,sausage_alive
+    ld b,SAUSAGE_COUNT
+    ld a,1
+play_setup_alive
+    ld (hl),a
+    inc hl
+    djnz play_setup_alive
 
+    call draw_hud
     call draw_platforms
     jp draw_sausages
 
@@ -196,6 +222,213 @@ sausages
     defb 78, SHELF2-SPR_SAUSAGE_H
     defb 20, SHELF3-SPR_SAUSAGE_H
     defb 84, SHELF4-SPR_SAUSAGE_H
+
+;; ---------------------------------------------------------------------------
+;; draw_hud - score and sausage count. The captions sit on the background
+;; rather than a coloured band: a glyph only sets pen bit 0, so text is
+;; invisible over pen 1 or pen 3.
+;; ---------------------------------------------------------------------------
+draw_hud
+    xor a
+    ld (fill_x),a
+    ld hl,BYTES_PER_LINE
+    ld (fill_w),hl
+    ld a,PEN0_BYTE
+    ld (fill_b),a
+    ld hl,line_tab+HUD_Y*2
+    ld de,HUD_H
+    call fill_rows
+
+    ld hl,line_tab+HUD_Y*2
+    ld (txt_row),hl
+
+    ld a,SCORE_LABEL_X
+    ld (txt_x),a
+    ld a,MSG_SCORE
+    call msg_small
+
+    ld a,SCORE_X
+    ld (txt_x),a
+    ld hl,score
+    ld b,SCORE_BYTES
+    call print_digits
+
+    ld a,SAUS_LABEL_X
+    ld (txt_x),a
+    ld a,MSG_SAUSAGES
+    call msg_small
+
+    ld a,SAUS_COUNT_X
+    ld (txt_x),a
+    ld a,(sausages_got)
+    call print_digit
+    ld a,GL_SLASH
+    call print_glyph
+    ld a,SAUSAGE_COUNT
+    jp print_digit
+
+update_hud
+    ld a,(hud_dirty)
+    or a
+    ret z
+    xor a
+    ld (hud_dirty),a
+    jp draw_hud
+
+;; ---------------------------------------------------------------------------
+;; score_add - A = a BCD byte added to the hundreds digit. The score is kept
+;; as packed BCD, most significant byte first, so DAA does the arithmetic and
+;; printing needs no division.
+;; ---------------------------------------------------------------------------
+score_add
+    ld hl,score+1
+    add a,(hl)
+    daa
+    ld (hl),a
+    dec hl
+    ld a,(hl)
+    adc a,0
+    daa
+    ld (hl),a
+    ret
+
+;; ===========================================================================
+;; Sausages
+;; ===========================================================================
+
+;; ---------------------------------------------------------------------------
+;; check_sausages - collect anything the cat is standing in.
+;; ---------------------------------------------------------------------------
+check_sausages
+    ld a,(level_done)
+    or a
+    ret nz
+    ld hl,sausages
+    ld de,sausage_alive
+    ld b,SAUSAGE_COUNT
+check_sausages_loop
+    push bc
+    ld a,(de)
+    or a
+    jr z,check_sausages_next
+    ld a,(hl)
+    ld (saus_x),a
+    inc hl
+    ld a,(hl)
+    ld (saus_y),a
+    dec hl
+    push hl
+    push de
+    call cat_hits_sausage
+    pop de
+    pop hl
+    jr nc,check_sausages_next
+
+    xor a
+    ld (de),a                   ; eaten
+    push hl
+    push de
+    call erase_sausage
+    ld a,(sausages_got)
+    inc a
+    ld (sausages_got),a
+    ld a,SAUSAGE_POINTS
+    call score_add
+    ld a,1
+    ld (hud_dirty),a
+    pop de
+    pop hl
+
+check_sausages_next
+    inc hl
+    inc hl
+    inc de
+    pop bc
+    djnz check_sausages_loop
+
+    ld a,(sausages_got)
+    cp SAUSAGE_COUNT
+    ret nz
+    ld a,1
+    ld (level_done),a
+    ld a,1
+    ld (txt_xs),a
+    ld a,WELLDONE_YS
+    ld (txt_ys),a
+    ld hl,line_tab+WELLDONE_Y*2
+    ld (txt_row),hl
+    ld a,MSG_WELLDONE
+    jp msg_big_centre
+
+;; ---------------------------------------------------------------------------
+;; cat_hits_sausage - carry set if the two boxes overlap. saus_x / saus_y hold
+;; the one being tested.
+;; ---------------------------------------------------------------------------
+cat_hits_sausage
+    ld a,(saus_x)
+    add a,SPR_SAUSAGE_W-1
+    ld c,a
+    ld a,(cat_x)
+    cp c
+    jr z,cat_hits_h2
+    jr nc,cat_hits_no           ; cat starts past the right of it
+cat_hits_h2
+    ld a,(cat_x)
+    ld b,a
+    ld a,(cat_w)
+    add a,b
+    dec a                       ; rightmost column the cat covers
+    ld b,a
+    ld a,(saus_x)
+    cp b
+    jr z,cat_hits_v
+    jr nc,cat_hits_no
+
+cat_hits_v
+    ld a,(saus_y)
+    add a,SPR_SAUSAGE_H-1
+    ld c,a
+    ld a,(cat_y)
+    cp c
+    jr z,cat_hits_v2
+    jr nc,cat_hits_no
+cat_hits_v2
+    ld a,(cat_y)
+    ld b,a
+    ld a,(cat_h)
+    add a,b
+    dec a
+    ld b,a
+    ld a,(saus_y)
+    cp b
+    jr z,cat_hits_yes
+    jr nc,cat_hits_no
+cat_hits_yes
+    scf
+    ret
+cat_hits_no
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; erase_sausage - paint over it. Sausages sit on the background above a
+;; platform, never on one, so plain pen 0 is the right thing to leave behind.
+;; ---------------------------------------------------------------------------
+erase_sausage
+    ld a,(saus_x)
+    ld (fill_x),a
+    ld hl,SPR_SAUSAGE_W
+    ld (fill_w),hl
+    ld a,PEN0_BYTE
+    ld (fill_b),a
+    ld a,(saus_y)
+    ld l,a
+    ld h,0
+    add hl,hl
+    ld de,line_tab
+    add hl,de
+    ld de,SPR_SAUSAGE_H
+    jp fill_rows
 
 ;; ===========================================================================
 ;; The cat

@@ -58,11 +58,12 @@ GL_QUERY  EQU 50
 GL_COLON  EQU 51
 GL_DASH   EQU 52
 GL_QUOTE  EQU 53
+GL_SLASH  EQU 54
 
 ;; Greek-only glyphs are named in full because rasm labels are ASCII:
 ;; Γ = GL_GAMMA, Δ = GL_DELTA, Θ = GL_THETA, Λ = GL_LAMBDA, Ξ = GL_XI, Π = GL_PI, Σ = GL_SIGMA, Φ = GL_PHI, Ψ = GL_PSI, Ω = GL_OMEGA
 
-GLYPH_COUNT EQU 54
+GLYPH_COUNT EQU 55
 
 font
     ;; SPACE
@@ -549,6 +550,15 @@ font
     defb %00000000
     defb %00000000
     defb %00000000
+    defb %00000000
+    defb %00000000
+    ;; SLASH
+    defb %00000100
+    defb %00001000
+    defb %00010000
+    defb %00100000
+    defb %01000000
+    defb %10000000
     defb %00000000
     defb %00000000
 font_end
