@@ -37,16 +37,52 @@ Target machine: **Amstrad CPC 6128** (128 KB, CRTC types 0/1/2 as shipped).
 
 ## Status
 
-Early. Nothing implemented yet — see [CLAUDE.md](CLAUDE.md) for the technical groundwork
-the implementation is built on.
+First milestone done: a 384x272 full-overscan screen with HELLO WORLD in 64x96-pixel
+letters. See [CLAUDE.md](CLAUDE.md) for the technical groundwork it is built on.
 
-## Proposed layout
+## Building
+
+Needs [rasm](https://github.com/EdouardBERGE/rasm) on your PATH. Then:
+
+```bash
+make
+```
+
+| Target | Output | How to run it |
+|--------|--------|---------------|
+| `make sna` | `build/hello.sna` | drop it on an emulator |
+| `make dsk` | `build/hello.dsk` | insert the disc, then `RUN"HELLO` |
+| `make bin` | `build/hello.bin` | raw code, loads and runs at `#4000` |
+
+## What the demo shows
+
+![expected screen](docs/expected-screen.png)
+
+Everything blue is picture where a stock CPC would be showing border. The black
+rectangle is exactly the area a normal 40x25 mode 1 screen covers, so the demo draws
+the letters straight across its edges — and because the glyphs are OR-ed onto the
+background, each letter changes from yellow to white at precisely the point where a
+normal screen would have clipped it.
+
+Under the hood:
+
+- 48x34 CRTC characters — 96 bytes by 272 scanlines, 26,112 bytes of video RAM.
+- A 32 KB screen spanning `#8000-#FFFF`, with **no rupture**: the display start address
+  is set to `#2C10` so that MA rolls from `#2FFF` to `#3000` after exactly 21 character
+  rows, flipping MA12 and carrying the fetch from page 2 into page 3 on a row boundary.
+  That sidesteps the 1024-character wrap described in CLAUDE.md section 2.
+- No firmware: ROMs off, interrupts off, own stack.
+- The frame stays 312 lines at 50 Hz — overscan grows the window, not the frame.
+
+The image above is a software render of screen RAM decoded through the CPC's CRTC
+addressing, not a capture from an emulator or real hardware.
+
+## Layout
 
 ```
-src/        Z80 sources (assembler TBD — rasm is the current front-runner)
-build/      assembled binaries and .dsk images
+src/        Z80 sources (rasm)
+build/      assembled binaries and .dsk images (not in git)
 docs/       notes, register tables, measurements from real hardware
-tools/      host-side helpers (image conversion, disk image building)
 ```
 
 ## Testing
