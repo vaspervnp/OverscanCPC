@@ -6,6 +6,8 @@
 ;; through a message id, never a literal. LANG picks which table txt_lang
 ;; starts on, so switching language at run time is one byte.
 ;;
+;; L switches language while it runs, FIRE is read but does nothing yet.
+;;
 ;; Build with TARGET=1 snapshot, 2 DSK, 3 raw binary; LANG=0 English, 1 Greek.
 ;; ===========================================================================
 
@@ -25,6 +27,10 @@ Y_SUBTITLE      EQU 120
 Y_PRESS         EQU 180
 Y_LANGHINT      EQU DISPLAY_LINES-BAND_H+2
 
+H_SMALL         EQU 8                   ; one small text row
+H_TITLE         EQU TITLE_YS*8
+BLINK_BIT       EQU #20                 ; frame_count bit: ~0.64 s each way
+
     ORG #4000
 
 ;; ---------------------------------------------------------------------------
@@ -42,53 +48,112 @@ loukoumas_start
     ld (txt_lang),a
 
     call build_line_tab
-    call draw_title
+    call draw_title_background
+    call draw_title_text
 
     call setup_crtc             ; now switch the display to overscan
     ld hl,pal_loukoumas
     call set_pal
 
-loukoumas_halt
-    jr loukoumas_halt
+    call irq_init
 
 ;; ---------------------------------------------------------------------------
-;; draw_title - navy background, a coral band across the top and bottom of the
-;; overscan area, and five lines of text.
+;; One pass per 50 Hz frame.
+;; ---------------------------------------------------------------------------
+title_loop
+    call wait_frame
+    call read_controls
+
+    ld a,(ctl_pressed)
+    bit CTL_LANG,a
+    jr z,title_no_lang
+    ld a,(txt_lang)             ; L cycles to the next language
+    inc a
+    cp LANG_COUNT
+    jr c,title_lang_store
+    xor a
+title_lang_store
+    ld (txt_lang),a
+    call draw_title_text
+
+title_no_lang
+    call blink_press
+    jr title_loop
+
+;; ---------------------------------------------------------------------------
+;; blink_press - flash the "press fire" line, and prove the heartbeat runs at
+;; the right rate while it is at it.
 ;;
-;; The bands sit at the very edges of the 384x272 window, well outside the
+;; This routine owns that row: draw_title_text only clears it and leaves
+;; press_state disagreeing with the current phase, so the next call repaints
+;; whichever state the blink is actually in. Having both routines draw there
+;; is what made the line vanish the frame after a language change.
+;; ---------------------------------------------------------------------------
+blink_press
+    ld a,(frame_count)
+    and BLINK_BIT
+    ld b,a
+    ld a,(press_state)
+    cp b
+    ret z
+    ld a,b
+    ld (press_state),a
+    or a
+    jr nz,blink_press_hide      ; visible for the first half of the cycle
+    ld hl,line_tab+Y_PRESS*2
+    ld (txt_row),hl
+    ld a,MSG_PRESS
+    jp msg_small_centre
+blink_press_hide
+    ld hl,line_tab+Y_PRESS*2
+    ld de,H_SMALL
+    ld a,PEN0_BYTE
+    jp clear_rows
+
+;; ---------------------------------------------------------------------------
+;; draw_title_background - navy everywhere, with a coral band across the top
+;; and bottom of the overscan window.
+;;
+;; The bands sit at the very edges of the 384x272 picture, well outside the
 ;; 320x200 a stock CPC would show, so they only exist because of the overscan.
 ;; Text crossing them comes out white rather than yellow for free - see the
 ;; note about OR blending at the top of text.asm.
 ;; ---------------------------------------------------------------------------
-draw_title
-    xor a
-    ld (fill_x),a
-    ld hl,BYTES_PER_LINE
-    ld (fill_w),hl
-
-    ld a,PEN0_BYTE
-    ld (fill_b),a
+draw_title_background
     ld hl,line_tab
     ld de,DISPLAY_LINES
-    call fill_rows
+    ld a,PEN0_BYTE
+    call clear_rows
 
-    ld a,PEN2_BYTE
-    ld (fill_b),a
     ld hl,line_tab
     ld de,BAND_H
-    call fill_rows
-
     ld a,PEN2_BYTE
-    ld (fill_b),a
+    call clear_rows
+
     ld hl,line_tab+(DISPLAY_LINES-BAND_H)*2
     ld de,BAND_H
-    call fill_rows
+    ld a,PEN2_BYTE
+    jp clear_rows
 
+;; ---------------------------------------------------------------------------
+;; draw_title_text - every line, in whichever language txt_lang is on.
+;; Each row is repainted first so this doubles as the language-change redraw
+;; without having to rebuild the whole screen.
+;; ---------------------------------------------------------------------------
+draw_title_text
+    ld hl,line_tab+Y_LANGNAME*2
+    ld de,H_SMALL
+    ld a,PEN2_BYTE
+    call clear_rows
     ld hl,line_tab+Y_LANGNAME*2
     ld (txt_row),hl
     ld a,MSG_LANGNAME
     call msg_small_centre
 
+    ld hl,line_tab+Y_TITLE*2
+    ld de,H_TITLE
+    ld a,PEN0_BYTE
+    call clear_rows
     ld a,1                      ; 1 byte per source pixel = 32 px per letter
     ld (txt_xs),a
     ld a,TITLE_YS
@@ -99,15 +164,29 @@ draw_title
     call msg_big_centre
 
     ld hl,line_tab+Y_SUBTITLE*2
+    ld de,H_SMALL
+    ld a,PEN0_BYTE
+    call clear_rows
+    ld hl,line_tab+Y_SUBTITLE*2
     ld (txt_row),hl
     ld a,MSG_TITLE2
     call msg_small_centre
 
+    ;; The "press fire" row belongs to blink_press. Clear it and leave
+    ;; press_state disagreeing with the current phase so it repaints next frame.
     ld hl,line_tab+Y_PRESS*2
-    ld (txt_row),hl
-    ld a,MSG_PRESS
-    call msg_small_centre
+    ld de,H_SMALL
+    ld a,PEN0_BYTE
+    call clear_rows
+    ld a,(frame_count)
+    and BLINK_BIT
+    xor BLINK_BIT
+    ld (press_state),a
 
+    ld hl,line_tab+Y_LANGHINT*2
+    ld de,H_SMALL
+    ld a,PEN2_BYTE
+    call clear_rows
     ld hl,line_tab+Y_LANGHINT*2
     ld (txt_row),hl
     ld a,MSG_LANGHINT
@@ -136,6 +215,8 @@ pal_loukoumas
 
     include "crtc.asm"
     include "video.asm"
+    include "irq.asm"
+    include "keys.asm"
     include "text.asm"
     include "font.asm"
     include "strings.asm"

@@ -104,8 +104,16 @@ the same as a Latin letter — Α Β Ε Ζ Η Ι Κ Μ Ν Ο Ρ Τ Υ Χ — reu
 leaves ten Greek-only shapes to draw, so the bilingual font is 54 glyphs, not 80. A
 character with no glyph is a build error naming the string it came from.
 
-`LANG=0/1` only picks which table `txt_lang` starts on, so switching language while the
-game runs is a single byte. The keyboard handler for that is not written yet.
+`LANG=0/1` only picks which table `txt_lang` starts on. **L switches language while it
+runs** — only the text rows are repainted, so the change is immediate rather than a
+rebuild of the whole 26 KB screen.
+
+The title screen runs on a real 50 Hz loop. The Gate Array interrupts every 52 scanlines,
+which is *six* times per frame, so `src/irq.asm` installs a handler at `#0038` (plain RAM
+once the ROMs are off), counts the six, and bumps a frame counter once per frame. The
+"press fire" line blinks off that counter — driving anything straight from `HALT` would
+run it six times too fast. `src/keys.asm` reads the key matrix through the PPI and the
+AY-3-8912, and reports both held keys and the ones that went down this frame.
 
 ## Tools
 
@@ -118,13 +126,18 @@ checked without an emulator:
 make check
 ```
 
-Add `--png out.png` for an image instead of the terminal preview (needs Pillow).
+Add `--png out.png` for an image instead of the terminal preview (needs Pillow),
+`--frames N` to run a game loop for a while instead of stopping at a self-jump, and
+`--keys L` or `--keys FIRE,RIGHT` to hold keys down. It models IM 1 interrupts six to the
+frame, the VSYNC bit on PPI port B, and the key matrix through the PPI, which is enough
+to prove a main loop turns over and reacts to input. `make check` uses that to assert the
+Greek build comes out in English when L is held.
 
-It models **no timing whatsoever** — no cycles, no interrupts, no ROMs, no banking, and
-one static frame decoded from the registers left set at the end of the run. It can tell
-you whether your addresses and fills are right. It can tell you nothing about rupture,
-raster splits or anything else that depends on *when* a write happens. It aborts on any
-opcode it does not implement rather than guessing.
+It has **no cycle timing**. A virtual frame is a fixed number of *instructions*, not
+19968 microseconds, so the six-interrupts-per-frame relationship is real but raster
+position and how long a routine takes are not. No ROMs, no banking, and the picture is
+one static frame taken at the end of the run — rupture and raster splits are invisible to
+it. It aborts on any opcode it does not implement rather than guessing.
 
 ## Layout
 

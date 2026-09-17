@@ -116,3 +116,20 @@ fill_screen
     ld hl,line_tab+INNER_Y0*2
     ld de,INNER_H
     jp fill_rows
+
+;; ---------------------------------------------------------------------------
+;; clear_rows - fill whole scanlines with one pen, the common case.
+;;   HL = pointer into line_tab for the first scanline
+;;   DE = number of scanlines
+;;   A  = byte value
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+clear_rows
+    ld (fill_b),a
+    xor a
+    ld (fill_x),a
+    push hl
+    ld hl,BYTES_PER_LINE
+    ld (fill_w),hl
+    pop hl
+    jp fill_rows

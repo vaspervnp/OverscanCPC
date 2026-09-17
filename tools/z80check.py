@@ -12,12 +12,15 @@ address, the line table and the fills agree, the picture comes out right.
 
 What it does NOT do, and what it therefore cannot tell you:
 
-  * No timing. Instructions take no cycles, so nothing about raster effects,
-    interrupt cadence or anything mid-frame can be tested here.
-  * No interrupts, no ROMs, no 128K banking - a flat 64K of RAM.
-  * One static frame, decoded from the CRTC registers left set at the end of
-    the run. Rupture (reprogramming R12/R13 mid-frame) is invisible to it.
-  * Reads from an I/O port return #FF.
+  * No cycle timing. A virtual frame is a fixed number of INSTRUCTIONS
+    (--frame-instr), not 19968 microseconds, and interrupts are spread six to
+    the frame inside that. So the six-to-one relationship the code depends on
+    is real, but nothing about raster position or how long a routine takes is.
+  * No ROMs, no 128K banking - a flat 64K of RAM.
+  * One static frame at the end of the run, decoded from the CRTC registers
+    left set then. Rupture (reprogramming R12/R13 mid-frame) is invisible.
+  * Only the PPI ports the keyboard and VSYNC need are modelled; every other
+    read returns #FF.
 
 It aborts on any opcode it does not implement rather than guessing, so a clean
 run means the code really did execute.
@@ -581,14 +584,43 @@ class Z80:
 # CPC I/O: just enough to capture what the display ends up doing
 # ---------------------------------------------------------------------------
 
+# CPC key matrix: name -> (line, bit). A pressed key reads as 0.
+KEY_MATRIX = {
+    "UP": (9, 0), "DOWN": (9, 1), "LEFT": (9, 2), "RIGHT": (9, 3),
+    "FIRE": (9, 4), "FIRE2": (9, 5), "DEL": (9, 7),
+    "SPACE": (5, 7), "ENTER": (0, 6), "ESC": (8, 2),
+    "A": (8, 5), "L": (4, 4), "M": (4, 6), "O": (4, 2), "P": (3, 3),
+    "Q": (8, 3), "S": (7, 4), "W": (7, 3), "Z": (8, 7),
+    "0": (4, 0), "1": (8, 0), "2": (8, 1), "3": (7, 1), "4": (7, 0),
+    "5": (6, 1), "6": (6, 0), "7": (5, 1), "8": (5, 0), "9": (4, 1),
+}
+
+
 class CPCIO:
-    def __init__(self):
+    def __init__(self, keys=(), frame_instr=6000):
         self.crtc = [0] * 18
         self.crtc_sel = 0
         self.pen = 0
         self.ink = {}
         self.rmr = None
         self.ram_cfg = None
+
+        # PPI / PSG state, enough for the keyboard and the VSYNC bit
+        self.ppi_a = 0
+        self.ppi_a_input = False
+        self.ppi_c = 0
+        self.psg_reg = 0
+        self.rows = [0xFF] * 10
+        for name in keys:
+            line, bit = KEY_MATRIX[name]
+            self.rows[line] &= ~(1 << bit) & 0xFF
+
+        self.clock = 0
+        self.frame_instr = frame_instr
+        self.key_reads = 0
+
+    def vsync(self):
+        return (self.clock % self.frame_instr) < self.frame_instr // 8
 
     def out(self, port, val):
         hi = port >> 8
@@ -597,6 +629,15 @@ class CPCIO:
         elif hi == 0xBD:
             if self.crtc_sel < 18:
                 self.crtc[self.crtc_sel] = val
+        elif hi == 0xF4:                        # PPI port A - PSG data
+            self.ppi_a = val
+        elif hi == 0xF6:                        # PPI port C - PSG function
+            self.ppi_c = val
+            if (val >> 6) == 3:                 # 11 = select register
+                self.psg_reg = self.ppi_a
+        elif hi == 0xF7:                        # PPI control
+            if val & 0x80:
+                self.ppi_a_input = bool(val & 0x10)
         elif not (hi & 0x80):                   # #7Fxx - Gate Array / PAL
             if val < 0x40:
                 self.pen = val
@@ -608,6 +649,16 @@ class CPCIO:
                 self.ram_cfg = val
 
     def inp(self, port):
+        hi = port >> 8
+        if hi == 0xF4:
+            if self.ppi_a_input and (self.ppi_c >> 6) == 1 and self.psg_reg == 14:
+                line = self.ppi_c & 0x0F
+                if line < 10:
+                    self.key_reads += 1
+                    return self.rows[line]
+            return 0xFF
+        if hi == 0xF5:                          # PPI port B, bit 0 = VSYNC
+            return 0x1E | (1 if self.vsync() else 0)
         return 0xFF
 
 
@@ -706,29 +757,63 @@ def main():
     ap.add_argument("--png", help="write the decoded screen here")
     ap.add_argument("--scale", type=int, default=2, help="PNG pixel scale (default 2)")
     ap.add_argument("--ascii", action="store_true", help="print a terminal preview")
+    ap.add_argument("--keys", default="",
+                    help="comma separated keys held down, e.g. L or FIRE,RIGHT")
+    ap.add_argument("--frames", type=int, default=0,
+                    help="stop after this many virtual frames (0 = only on a "
+                         "self-jump or HALT)")
+    ap.add_argument("--frame-instr", type=int, default=12000,
+                    help="instructions per virtual frame (default 12000, roughly "
+                         "what a 19968 us CPC frame gets through)")
     ap.add_argument("--max-steps", type=int, default=50_000_000)
     args = ap.parse_args()
+
+    keys = [k.strip().upper() for k in args.keys.split(",") if k.strip()]
+    for k in keys:
+        if k not in KEY_MATRIX:
+            sys.exit("z80check: no such key %r (have %s)"
+                     % (k, ", ".join(sorted(KEY_MATRIX))))
 
     org = int(args.org, 0)
     code = open(args.binary, "rb").read()
     mem = bytearray(0x10000)
     mem[org:org + len(code)] = code
 
-    io = CPCIO()
+    io = CPCIO(keys, args.frame_instr)
     cpu = Z80(mem, io)
     cpu.pc = org
     cpu.sp = 0xC000
 
+    irq_period = max(1, args.frame_instr // 6)
+    budget = args.frames * args.frame_instr if args.frames else args.max_steps
+    limit = min(budget, args.max_steps)
+    next_irq = irq_period
+    irqs = 0
+    reason = "instruction budget"
+
     steps = 0
-    while steps < args.max_steps:
-        # a self-jump (jr $ / jp $) or HALT is where these demos come to rest
-        if cpu.halted:
+    while steps < limit:
+        io.clock = steps
+        if steps >= next_irq:
+            next_irq += irq_period
+            if cpu.iff and cpu.imode == 1:
+                # IM 1: the CPU stacks PC, jumps to #0038 and masks interrupts
+                # until the handler re-enables them.
+                cpu.halted = False
+                cpu.iff = False
+                cpu.push(cpu.pc)
+                cpu.pc = 0x38
+                irqs += 1
+        if cpu.halted and not cpu.iff:
+            reason = "HALT with interrupts off"
             break
         op = mem[cpu.pc]
         if op == 0x18 and mem[(cpu.pc + 1) & 0xFFFF] == 0xFE:
+            reason = "self-jump"
             break
         if op == 0xC3 and (mem[(cpu.pc + 1) & 0xFFFF] |
                            mem[(cpu.pc + 2) & 0xFFFF] << 8) == cpu.pc:
+            reason = "self-jump"
             break
         try:
             cpu.step()
@@ -736,9 +821,14 @@ def main():
             sys.exit("z80check: %s - not implemented" % e)
         steps += 1
     else:
-        sys.exit("z80check: still running after %d instructions" % args.max_steps)
+        if not args.frames:
+            sys.exit("z80check: still running after %d instructions" % limit)
+        reason = "frame budget"
 
-    print("stopped at #%04X after %d instructions" % (cpu.pc, steps))
+    print("stopped at #%04X after %d instructions (%s)" % (cpu.pc, steps, reason))
+    print("SIM   %d virtual frames, %d interrupts delivered, %d key matrix reads%s"
+          % (steps // args.frame_instr, irqs, io.key_reads,
+             ", holding " + "+".join(keys) if keys else ""))
     if io.rmr is None:
         sys.exit("z80check: the code never set a screen mode - nothing to render")
     print("CRTC  " + " ".join("R%d=%d" % (i, io.crtc[i]) for i in range(14)))

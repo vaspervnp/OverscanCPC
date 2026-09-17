@@ -77,7 +77,14 @@ $(BUILD)/loukoumas_el.bin: $(DEPS) | $(BUILD)
 # at all; see the header of tools/z80check.py for the rest of the caveats.
 # ---------------------------------------------------------------------------
 check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
-	@for f in $^; do echo "=== $$f ==="; ./tools/z80check.py $$f --ascii; done
+	@echo "=== hello world ==="
+	@./tools/z80check.py $(BUILD)/hello.bin --ascii
+	@echo "=== loukoumas, English ==="
+	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 20 --ascii
+	@echo "=== loukoumas, Greek ==="
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 20 --ascii
+	@echo "=== loukoumas, Greek build with L held - must come out English ==="
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 24 --keys L --ascii | sed -n '1,2p;15,20p'
 
 $(BUILD):
 	mkdir -p $(BUILD)

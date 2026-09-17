@@ -135,6 +135,11 @@ falls off the screen.
 - Any rupture that changes R4 or R9 changes how many HSYNCs the frame contains. Get it
   wrong and the interrupt cadence, and the display, drift. Always verify the line count
   still totals 312.
+- `src/irq.asm` is the implementation: handler at `#0038`, phase-locked to VSYNC at
+  startup, counting six interrupts to a frame. Anything that must happen once per frame
+  hangs off `frame_count`, never off a bare `HALT`. With the ROMs disabled `#0038` is
+  plain RAM, so the jump there has to be written before `EI` - enabling interrupts
+  without it is an immediate crash, and it is a mistake both design documents make.
 
 ---
 

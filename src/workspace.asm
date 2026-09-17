@@ -19,4 +19,18 @@ fill_x      defs 1
 fill_w      defs 2
 fill_b      defs 1
 
+
+
+;; irq.asm
+irq_count   defs 1              ; 0..5 within the frame
+frame_count defs 1              ; bumped once per 50 Hz frame, wraps at 256
+
+;; keys.asm
+ctl_now     defs 1              ; controls held this frame
+ctl_last    defs 1
+ctl_pressed defs 1              ; controls that went down this frame
+
+;; title screen
+press_state defs 1              ; blink phase of the "press fire" line
+
 workspace_end
