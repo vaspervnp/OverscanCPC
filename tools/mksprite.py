@@ -14,6 +14,11 @@ Sprites are byte aligned: they move 2 pixels at a time horizontally, which on
 a mode 0 screen is the same 4/384ths of the width a mode 1 sprite moved. Moving
 a pixel at a time needs two pre-shifted copies of every frame, which is worth
 doing when something actually looks wrong, not before.
+
+A ":name" line ending in "flip" also gets a mirrored copy, as spr_<name>_l, so
+whatever it is can face the way it is going. Only the two enemies in this file
+ask for one: the cat is drawn front on and never turns round, and mirroring its
+five frames would cost a kilobyte and a half to no purpose.
 """
 
 import os
@@ -28,14 +33,17 @@ OUT = os.path.join(ROOT, "src", "sprites.asm")
 def read_art():
     sprites = []
     name = None
+    flip = False
     rows = []
     with open(ART, encoding="utf-8") as fh:
         for lineno, line in enumerate(fh, 1):
             line = line.rstrip("\n")
             if line.startswith(":"):
                 if name is not None:
-                    sprites.append((name, rows, lineno))
-                name = line[1:].strip()
+                    sprites.append((name, rows, lineno, flip))
+                word = line[1:].split()
+                name = word[0]
+                flip = "flip" in word[1:]
                 rows = []
                 continue
             stripped = line.strip()
@@ -49,9 +57,9 @@ def read_art():
                          "found %s" % (ART, lineno, name, "".join(sorted(bad))))
             rows.append(line)
     if name is not None:
-        sprites.append((name, rows, lineno))
+        sprites.append((name, rows, lineno, flip))
 
-    for name, rows, lineno in sprites:
+    for name, rows, lineno, _flip in sprites:
         if not rows:
             sys.exit("%s: sprite %s has no rows" % (ART, name))
         width = len(rows[0])
@@ -62,7 +70,7 @@ def read_art():
             if len(r) != width:
                 sys.exit("%s: sprite %s has rows of %d and %d pixels"
                          % (ART, name, width, len(r)))
-    return [(n, r) for n, r, _ in sprites]
+    return [(n, r, f) for n, r, _l, f in sprites]
 
 
 #: Where each of a pixel's four pen bits lives, left pixel then right.
@@ -97,24 +105,32 @@ def main():
         fh.write(";; Each sprite is width-in-bytes, height, then mask/data pairs.\n")
         fh.write(";; Blit is  screen = (screen AND mask) OR data.\n\n")
         body = []
-        for name, rows in sprites:
+        for name, rows, flip in sprites:
             wbytes = len(rows[0]) // PIXELS_PER_BYTE
             height = len(rows)
             biggest = max(biggest, wbytes * height)
             label = "spr_" + name.lower()
             fh.write("SPR_%-12s EQU %s\n" % (name + "_W", wbytes))
             fh.write("SPR_%-12s EQU %s\n" % (name + "_H", height))
-            body.append((name, label, wbytes, height, rows))
+            body.append((name, label, wbytes, height, rows, flip))
         fh.write("\n;; Largest sprite, for sizing the background save buffers.\n")
         fh.write("SPR_MAX_BYTES EQU %d\n" % biggest)
-        for name, label, wbytes, height, rows in body:
-            fh.write("\n;; %s - %d x %d pixels\n%s\n"
-                     % (name, wbytes * PIXELS_PER_BYTE, height, label))
-            fh.write("    defb %d,%d\n" % (wbytes, height))
-            for row in rows:
-                pairs = encode_row(row)
-                fh.write("    defb %-40s ; %s\n"
-                         % (",".join("#%02X,#%02X" % p for p in pairs), row))
+        for name, label, wbytes, height, rows, flip in body:
+            mirror = [r[::-1] for r in rows]
+            for suffix, art in (("", rows),) + ((("_l", mirror),) if flip else ()):
+                if suffix and art == rows:
+                    fh.write("\n%s_l EQU %s          ; the same either way\n"
+                             % (label, label))
+                    continue
+                fh.write("\n;; %s - %d x %d pixels%s\n%s%s\n"
+                         % (name, wbytes * PIXELS_PER_BYTE, height,
+                            ", facing the other way" if suffix else "",
+                            label, suffix))
+                fh.write("    defb %d,%d\n" % (wbytes, height))
+                for row in art:
+                    pairs = encode_row(row)
+                    fh.write("    defb %-40s ; %s\n"
+                             % (",".join("#%02X,#%02X" % p for p in pairs), row))
     print("mksprite: %d sprites, largest %d bytes of background to save"
           % (len(sprites), biggest))
 

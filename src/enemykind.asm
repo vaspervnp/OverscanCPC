@@ -10,6 +10,12 @@
 ;; three bytes here plus its picture.
 ;;
 ;; Data, not code: it lives in the low block with the rest of the tables.
+;;
+;; A creature that walks or flies is drawn facing the way it is going, which
+;; means a mirrored copy of its picture: flipping a mode 0 sprite at draw time
+;; means shuffling four pen bits per pixel and reversing the row, three times a
+;; frame, on a machine that has already spent its frame. The mirrors are made
+;; once, when the art is converted.
 ;; ===========================================================================
 
 EB_WALK         EQU 0           ; patrols a platform at half the cat's speed
@@ -34,30 +40,38 @@ ET_STRAY        EQU 12          ; the tom who thinks the roofs are his
 ET_COUNT        EQU 12
 
 enemy_kinds
-    ;; sprite, behaviour
-    defw spr_robot
+    ;; the sprite when it is going right, the sprite when it is going left,
+    ;; and which of the two behaviours drives it.
+    ;;
+    ;; Most of the art is drawn facing right, so the mirror is the left-hand
+    ;; one and the pair reads in that order. The canary and the stray tom are
+    ;; drawn facing left, so theirs is the other way round - which is the whole
+    ;; reason the table names both rather than assuming one and flipping.
+    ;; Something symmetric, like the robot vacuum or the bat, has the same
+    ;; label twice and costs nothing extra: see tools/mkart.py.
+    defw spr_robot,     spr_robot_l
     defb EB_WALK
-    defw spr_canary
+    defw spr_canary_l,  spr_canary     ; drawn facing left
     defb EB_FLY
-    defw spr_dog
+    defw spr_dog,       spr_dog_l
     defb EB_WALK
-    defw spr_pigeon
+    defw spr_pigeon,    spr_pigeon_l
     defb EB_FLY
-    defw spr_wasp
+    defw spr_wasp,      spr_wasp_l
     defb EB_FLY
-    defw spr_ball
+    defw spr_ball,      spr_ball_l
     defb EB_WALK
-    defw spr_plane
+    defw spr_plane,     spr_plane_l
     defb EB_FLY
-    defw spr_mop
+    defw spr_mop,       spr_mop_l
     defb EB_WALK
-    defw spr_blob
+    defw spr_blob,      spr_blob_l
     defb EB_WALK
-    defw spr_syringe
+    defw spr_syringe,   spr_syringe_l
     defb EB_FLY
-    defw spr_bat
+    defw spr_bat,       spr_bat_l
     defb EB_FLY
-    defw spr_stray
+    defw spr_stray_l,   spr_stray      ; drawn facing left
     defb EB_WALK
 
-EK_SIZE         EQU 3
+EK_SIZE         EQU 5

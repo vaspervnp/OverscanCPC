@@ -142,7 +142,7 @@ PAL_NIGHT       EQU 20      ; black - the rooftops, at the end of it all
 ;; game does after turning the ROMs off is move them. Nothing in the low block
 ;; is ever executed, only read, so it never has to be there before then.
 DATA_ORG        EQU #0100   ; clear of the #0038 interrupt jump
-DATA_STORE      EQU #7500   ; where the file carries it, until it is moved
+DATA_STORE      EQU #7480   ; where the file carries it, until it is moved
 
 ;; The title screen is a picture of the whole overscan window: 96 bytes by 272
 ;; scanlines, 26,112 of them, and there is nowhere in this machine to keep

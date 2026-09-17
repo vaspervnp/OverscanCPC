@@ -89,17 +89,24 @@ enemy_kind
     ld h,0
     ld d,h
     ld e,l
+    add hl,hl                   ; five bytes to the row
     add hl,hl
-    add hl,de                   ; three bytes to the row
+    add hl,de
     ld de,enemy_kinds
     add hl,de
     ret
 
 ;; ---------------------------------------------------------------------------
-;; enemy_sprite - HL = the sprite for the enemy IY points at.
+;; enemy_sprite - HL = the sprite for the enemy IY points at, facing whichever
+;; way it is going.
 ;; ---------------------------------------------------------------------------
 enemy_sprite
     call enemy_kind
+    bit 7,(iy+E_DX)             ; a negative step is leftwards
+    jr z,enemy_sprite_take
+    inc hl
+    inc hl
+enemy_sprite_take
     ld a,(hl)
     inc hl
     ld h,(hl)
@@ -132,8 +139,8 @@ enemy_update_one
     ret
 enemy_update_move
     call enemy_kind
-    inc hl
-    inc hl
+    ld de,4
+    add hl,de
     ld a,(hl)                   ; which of the two behaviours it is
     or a
     jr z,enemy_move_walk

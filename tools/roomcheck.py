@@ -265,7 +265,7 @@ def main():
                 continue
             row = enemy_kinds + (kind - 1) * b.c("EK_SIZE")
             spr = b.word(row)
-            w, h, walks = b[spr], b[spr + 1], b[row + 2] == b.c("EB_WALK")
+            w, h, walks = b[spr], b[spr + 1], b[row + 4] == b.c("EB_WALK")
             if x1p + w > line_w:
                 fail("enemy %d patrols to column %d, past the right edge"
                      % (ei + 1, x1p))

@@ -610,6 +610,31 @@ class Z80:
         if op >> 6 == 2 and (op & 7) == 6:                      # alu a,(ix+d)
             d = self.fetchd()
             return self.alu((op >> 3) & 7, self.rb(idx + d))
+        if op == 0xCB:                                  # DD CB d op
+            # The displacement comes before the opcode in this group, which is
+            # the only place in the instruction set where that happens.
+            d = self.fetchd()
+            sub = self.fetch()
+            addr = (idx + d) & 0xFFFF
+            hi, reg, bit = sub >> 6, sub & 7, (sub >> 3) & 7
+            v = self.rb(addr)
+            if hi == 1:                                 # bit n,(ix+d)
+                self.zf = not (v & (1 << bit))
+                self.pf = self.zf
+                self.sf = bit == 7 and not self.zf
+                self.hf = True
+                self.nf = False
+                return
+            if hi == 0:
+                v = self.rot(bit, v)
+            elif hi == 2:
+                v &= ~(1 << bit)
+            else:
+                v |= 1 << bit
+            self.wb(addr, v)
+            if reg != 6:
+                self.s8(reg, v)                         # the undocumented copy
+            return
         raise Unsupported("opcode #%02X%02X at #%04X" % (prefix, op, self.pc - 2))
 
 

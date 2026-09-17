@@ -9,6 +9,14 @@ while the game is running rather than how they are drawn:
                             routines as the hand-drawn cast, in the same format
                             tools/mksprite.py writes.
 
+                            Each one is also written out mirrored, as spr_<name>_l,
+                            so an enemy can face the way it is walking: flipping a
+                            mode 0 sprite means shuffling four pen bits per pixel
+                            and reversing the row, which is not something to do
+                            three times a frame. A sprite that is symmetric costs
+                            nothing - the mirror is the same bytes, and the label
+                            is an alias for the original.
+
   assets/art/decal/*.png    scenery. A tree, a cloud, a slide: painted once
                             into the background when the room loads and never
                             touched again. They are ORed down onto a screen
@@ -197,6 +205,11 @@ def picture(row):
     return "".join("." if p is None else "%X" % p for p in row)
 
 
+def mirrored(rows):
+    """The same picture facing the other way."""
+    return [list(reversed(r)) for r in rows]
+
+
 def load(kind):
     here = os.path.join(ART, kind)
     if not os.path.isdir(here):
@@ -245,14 +258,22 @@ def main():
             fh.write("SPR_%-12s EQU %d\n" % (name + "_W", w // PIXELS_PER_BYTE))
             fh.write("SPR_%-12s EQU %d\n" % (name + "_H", h))
         for name, w, h, rows in sprites:
-            fh.write("\n;; %s - %d x %d pixels\nspr_%s\n"
-                     % (name, w, h, name.lower()))
-            fh.write("    defb %d,%d\n" % (w // PIXELS_PER_BYTE, h))
-            for row in rows:
-                pairs = encode_masked(row)
-                fh.write("    defb %-40s ; %s\n"
-                         % (",".join("#%02X,#%02X" % p for p in pairs),
-                            picture(row)))
+            for suffix, art in (("", rows), ("_l", mirrored(rows))):
+                if suffix and art == rows:
+                    # symmetric: it looks the same going the other way, so both
+                    # directions can point at the one copy
+                    fh.write("\nspr_%s_l EQU spr_%s          ; the same either way\n"
+                             % (name.lower(), name.lower()))
+                    continue
+                fh.write("\n;; %s - %d x %d pixels%s\nspr_%s%s\n"
+                         % (name, w, h, ", facing the other way" if suffix else "",
+                            name.lower(), suffix))
+                fh.write("    defb %d,%d\n" % (w // PIXELS_PER_BYTE, h))
+                for row in art:
+                    pairs = encode_masked(row)
+                    fh.write("    defb %-40s ; %s\n"
+                             % (",".join("#%02X,#%02X" % p for p in pairs),
+                                picture(row)))
 
         fh.write("\n;; ---------------------------------------------------------"
                  "------------------\n")
@@ -279,7 +300,9 @@ def main():
                          % (",".join("#%02X" % b for b in encode_raw(row)),
                             picture(row)))
 
-    sbytes = sum(2 * (w // PIXELS_PER_BYTE) * h + 2 for _n, w, h, _r in sprites)
+    sbytes = sum((2 if mirrored(r) != r else 1)
+                 * (2 * (w // PIXELS_PER_BYTE) * h + 2)
+                 for _n, w, h, r in sprites)
     dbytes = sum((w // PIXELS_PER_BYTE) * h + 2 for _n, w, h, _r in decals)
     print("mkart: %d masked sprites (%d bytes), %d decals (%d bytes)"
           % (len(sprites), sbytes, len(decals), dbytes))

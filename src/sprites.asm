@@ -173,6 +173,8 @@ spr_robot
     defb #AA,#10,#55,#20,#FF,#00,#FF,#00,#AA,#10,#55,#20 ; .44......44.
     defb #AA,#10,#55,#20,#FF,#00,#FF,#00,#AA,#10,#55,#20 ; .44......44.
 
+spr_robot_l EQU spr_robot          ; the same either way
+
 ;; CANARY - 8 x 12 pixels
 spr_canary
     defb 4,12
@@ -185,6 +187,22 @@ spr_canary
     defb #AA,#55,#00,#EE,#00,#CC,#00,#DD          ; .FF3333F
     defb #AA,#55,#00,#FF,#00,#FF,#00,#FF          ; .FFFFFFF
     defb #FF,#00,#00,#FF,#00,#FF,#55,#AA          ; ..FFFFF.
+    defb #FF,#00,#00,#FF,#00,#FF,#FF,#00          ; ..FFFF..
+    defb #FF,#00,#AA,#40,#55,#80,#FF,#00          ; ...11...
+    defb #FF,#00,#55,#80,#AA,#40,#FF,#00          ; ..1..1..
+
+;; CANARY - 8 x 12 pixels, facing the other way
+spr_canary_l
+    defb 4,12
+    defb #FF,#00,#00,#FF,#00,#FF,#FF,#00          ; ..FFFF..
+    defb #AA,#55,#00,#FF,#00,#FF,#55,#AA          ; .FFFFFF.
+    defb #00,#FF,#00,#FF,#00,#BA,#00,#FF          ; FFFFF4FF
+    defb #00,#FF,#00,#FF,#00,#FF,#00,#EA          ; FFFFFFF1
+    defb #00,#FF,#00,#FF,#00,#FF,#00,#EA          ; FFFFFFF1
+    defb #00,#EE,#00,#CC,#00,#DD,#55,#AA          ; F3333FF.
+    defb #00,#EE,#00,#CC,#00,#DD,#55,#AA          ; F3333FF.
+    defb #00,#FF,#00,#FF,#00,#FF,#55,#AA          ; FFFFFFF.
+    defb #AA,#55,#00,#FF,#00,#FF,#FF,#00          ; .FFFFF..
     defb #FF,#00,#00,#FF,#00,#FF,#FF,#00          ; ..FFFF..
     defb #FF,#00,#AA,#40,#55,#80,#FF,#00          ; ...11...
     defb #FF,#00,#55,#80,#AA,#40,#FF,#00          ; ..1..1..
