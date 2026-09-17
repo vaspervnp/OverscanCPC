@@ -77,6 +77,36 @@ Under the hood:
 The image above is a software render of screen RAM decoded through the CPC's CRTC
 addressing, not a capture from an emulator or real hardware.
 
+## ΛΟΥΚΟΥΜΑΣ / LOUKOUMAS
+
+The first game built on the engine, from [loukoumas.md](loukoumas.md). Title screen so
+far, in Greek and English:
+
+![Greek title screen](docs/loukoumas-title-el.png)
+![English title screen](docs/loukoumas-title-en.png)
+
+```bash
+make loukoumas
+```
+
+Both languages are in the same binary. Every line of text goes through a message id, and
+`tools/mktext.py` builds one string table per language from UTF-8 files you can edit
+directly:
+
+```
+text/loukoumas.el.txt     TITLE2 = Η ΜΕΓΑΛΗ ΕΠΙΔΡΟΜΗ ΣΤΟ ΨΥΓΕΙΟ
+text/loukoumas.en.txt     TITLE2 = THE GREAT FRIDGE RAID
+```
+
+Greek is folded onto the font rather than doubling it: accents are dropped (all-caps
+Greek is written unaccented), lowercase is raised, and the fourteen Greek capitals drawn
+the same as a Latin letter — Α Β Ε Ζ Η Ι Κ Μ Ν Ο Ρ Τ Υ Χ — reuse the Latin glyph. That
+leaves ten Greek-only shapes to draw, so the bilingual font is 54 glyphs, not 80. A
+character with no glyph is a build error naming the string it came from.
+
+`LANG=0/1` only picks which table `txt_lang` starts on, so switching language while the
+game runs is a single byte. The keyboard handler for that is not written yet.
+
 ## Tools
 
 `tools/z80check.py` runs the assembled code on a small Z80 interpreter, watches the CRTC

@@ -63,17 +63,19 @@ PEN1_BYTE       EQU #F0
 PEN2_BYTE       EQU #0F
 PEN3_BYTE       EQU #FF
 
-;; --- Text layout -----------------------------------------------------------
-;; 8x8 glyphs blown up 8x horizontally (1 source pixel = 2 bytes) and 12x
-;; vertically, so each letter is 64x96 pixels.
-SCALE_Y         EQU 12
-GLYPH_W_BYTES   EQU 16                          ; 8 source px * 8 = 64 px
-GLYPH_GAP       EQU 2                           ; 8 px between letters
-GLYPH_ADV       EQU GLYPH_W_BYTES+GLYPH_GAP     ; 18 bytes = 72 px
+;; --- Text ------------------------------------------------------------------
+;; Glyphs are 8x8 cells drawn 6 wide and 7 tall, so the spare column and row
+;; are the letter spacing and text advances a whole cell.
+;;
+;; Small text is 1:1 - one cell is 8 pixels, which in mode 1 is 2 bytes, so it
+;; stays byte aligned and needs no shifting. Big text scales a source pixel to
+;; (txt_xs) whole bytes across and (txt_ys) scanlines down:
+;;   txt_xs = 1 -> 32 px per letter,  txt_xs = 2 -> 64 px per letter.
+SMALL_W_BYTES   EQU 2                   ; 8 px
+GLYPH_MAX_BYTES EQU 16                  ; widest expanded row: 8 px * 2 bytes
 
-;; 5 letters = 4*18+16 = 88 bytes, centred in 96 -> 4 bytes (16 px) each side.
-TEXT_X          EQU 4
-TEXT1_Y         EQU 8       ; HELLO: 24 lines above the normal screen top
-TEXT2_Y         EQU 168     ; WORLD: ends 32 lines below the normal screen bottom
+;; Centring: x = (BYTES_PER_LINE - len*width) / 2, which for these two widths
+;; is 48 - len and 48 - len*4.
+CENTRE_HALF     EQU BYTES_PER_LINE/2    ; 48
 
 STACK_TOP       EQU #7FFE   ; safely below the screen at #8000

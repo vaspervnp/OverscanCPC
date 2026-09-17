@@ -1,1 +1,4 @@
 build/
+
+# Windows alternate data streams on downloaded files
+*:Zone.Identifier

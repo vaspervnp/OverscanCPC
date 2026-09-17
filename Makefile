@@ -1,48 +1,86 @@
 # OverscanCPC - build with rasm (https://github.com/EdouardBERGE/rasm)
 #
-#   make          snapshot + disc image
-#   make sna      build/hello.sna   - drag into an emulator
-#   make dsk      build/hello.dsk   - then RUN"HELLO
-#   make bin      build/hello.bin   - raw binary, loads at #4000
-#   make check    run it on a Z80 interpreter and decode the screen
+#   make              everything
+#   make hello        the overscan proof of concept
+#   make loukoumas    ΛΟΥΚΟΥΜΑΣ title screen, English and Greek
+#   make assets       regenerate src/font.asm and src/strings.asm (needs python3)
+#   make check        run each binary on a Z80 interpreter and decode the screen
 #   make clean
+#
+# Snapshots (.sna) drag into an emulator; disc images boot with RUN"<name>.
 
-RASM  ?= rasm
-SRC   := src/main.asm
-DEPS  := $(wildcard src/*.asm)
-BUILD := build
+RASM   ?= rasm
+PYTHON ?= python3
+BUILD  := build
+DEPS   := $(wildcard src/*.asm)
 
-.PHONY: all sna dsk bin check clean
+.PHONY: all hello loukoumas assets check clean
 
-all: sna dsk
+all: hello loukoumas
 
-sna: $(BUILD)/hello.sna
-dsk: $(BUILD)/hello.dsk
-bin: $(BUILD)/hello.bin
+# ---------------------------------------------------------------------------
+# Generated sources. Committed, so building needs only rasm; python3 is needed
+# when the font art or the string files change.
+# ---------------------------------------------------------------------------
+TEXTSRC := assets/font8.txt text/loukoumas.en.txt text/loukoumas.el.txt tools/mktext.py
 
-# TARGET=1 wraps the code in a 128K snapshot with PC at the entry point.
+assets: src/font.asm src/strings.asm
+
+src/font.asm src/strings.asm: $(TEXTSRC)
+	$(PYTHON) tools/mktext.py loukoumas
+
+# ---------------------------------------------------------------------------
+# HELLO WORLD - the overscan proof of concept
+# ---------------------------------------------------------------------------
+hello: $(BUILD)/hello.sna $(BUILD)/hello.dsk
+
 $(BUILD)/hello.sna: $(DEPS) | $(BUILD)
-	$(RASM) $(SRC) -DTARGET=1 -oi $@
+	$(RASM) src/main.asm -DTARGET=1 -oi $@
 
-# TARGET=2 emits an AMSDOS binary inside a DATA-format disc image.
-# The image path lives in the SAVE directive at the end of src/main.asm, so
-# this has to run from the project root.
 $(BUILD)/hello.dsk: $(DEPS) | $(BUILD)
 	rm -f $@
-	$(RASM) $(SRC) -DTARGET=2 -eo
+	$(RASM) src/main.asm -DTARGET=2 -eo
 
-# TARGET=3 is a headerless dump of the assembled code, handy for tooling.
 $(BUILD)/hello.bin: $(DEPS) | $(BUILD)
-	$(RASM) $(SRC) -DTARGET=3 -ob $@
+	$(RASM) src/main.asm -DTARGET=3 -ob $@
 
-# Executes the code on a Z80 interpreter and decodes screen RAM through the
-# CRTC addressing - checks the layout without an emulator. It models no timing
+# ---------------------------------------------------------------------------
+# ΛΟΥΚΟΥΜΑΣ - one binary holds both string tables; LANG only picks the one
+# txt_lang starts on, so a run-time language switch is a single byte.
+# ---------------------------------------------------------------------------
+loukoumas: $(BUILD)/loukoumas_en.sna $(BUILD)/loukoumas_el.sna \
+           $(BUILD)/loukoumas_en.dsk $(BUILD)/loukoumas_el.dsk
+
+$(BUILD)/loukoumas_en.sna: $(DEPS) | $(BUILD)
+	$(RASM) src/loukoumas.asm -DTARGET=1 -DLANG=0 -oi $@
+
+$(BUILD)/loukoumas_el.sna: $(DEPS) | $(BUILD)
+	$(RASM) src/loukoumas.asm -DTARGET=1 -DLANG=1 -oi $@
+
+$(BUILD)/loukoumas_en.dsk: $(DEPS) | $(BUILD)
+	rm -f $@
+	$(RASM) src/loukoumas.asm -DTARGET=2 -DLANG=0 -eo
+
+$(BUILD)/loukoumas_el.dsk: $(DEPS) | $(BUILD)
+	rm -f $@
+	$(RASM) src/loukoumas.asm -DTARGET=2 -DLANG=1 -eo
+
+$(BUILD)/loukoumas_en.bin: $(DEPS) | $(BUILD)
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=0 -ob $@
+
+$(BUILD)/loukoumas_el.bin: $(DEPS) | $(BUILD)
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -ob $@
+
+# ---------------------------------------------------------------------------
+# Executes each build on a Z80 interpreter and decodes screen RAM through the
+# CRTC addressing - a layout check that needs no emulator. It models no timing
 # at all; see the header of tools/z80check.py for the rest of the caveats.
-check: $(BUILD)/hello.bin
-	./tools/z80check.py $< --ascii
+# ---------------------------------------------------------------------------
+check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
+	@for f in $^; do echo "=== $$f ==="; ./tools/z80check.py $$f --ascii; done
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
 clean:
-	rm -f $(BUILD)/hello.sna $(BUILD)/hello.dsk $(BUILD)/hello.bin
+	rm -f $(BUILD)/*.sna $(BUILD)/*.dsk $(BUILD)/*.bin

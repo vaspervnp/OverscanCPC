@@ -1,0 +1,295 @@
+# ΛΟΥΚΟΥΜΑΣ: Η ΜΕΓΑΛΗ ΕΠΙΔΡΟΜΗ ΣΤΟ ΨΥΓΕΙΟ
+### (Loukoumas: The Great Fridge Raid)
+**Πλατφόρμα:** Amstrad CPC 6128 (128 KB RAM)  
+**Γραφικά:** Mode 1 (4 Χρώματα), Πλήρες Overscan 384x272 pixels  
+**Ήχος:** Arkos Tracker 3 (AKG Player, 50Hz Interrupt, AY-3-8912 PSG)  
+**Εργαλεία Ανάπτυξης:** RASM, iDSK, Aseprite (με MCP Server Integration)  
+
+---
+
+## 1. Σύνοψη & Ταυτότητα του Παιχνιδιού
+
+* **Τίτλος:** *ΛΟΥΚΟΥΜΑΣ: Η Μεγάλη Επιδρομή στο Ψυγείο*
+* **Είδος:** Arcade / Single-Screen Platform Puzzle
+* **Ύφος:** Κωμικό, χαριτωμένο, slapstick καρτούν με εξαιρετικά γρήγορο ρυθμό.
+* **Οπτικό Στυλ:** Chibi / Kawaii pixel art με καθαρά περιγράμματα (Mode 1), εκμεταλλευόμενο κάθε χιλιοστό της οθόνης CRT χωρίς ίχνος μαύρου περιθωρίου (border).
+* **Κοινό:** Retro gamers, λάτρεις του Amstrad CPC και του demoscene retro-engineering.
+
+---
+
+## 2. Η Ιστορία (Lore & Σενάριο)
+
+Είναι 3:15 τα ξημερώματα στο διαμέρισμα της κυρά-Ευδοκίας στην Κυψέλη.  
+Όλοι κοιμούνται. Εκτός από έναν.  
+
+Ο **Λουκουμάς**, ένας αφράτος, υπέρβαρος γάτος ράτσας European Shorthair με κοντά ποδαράκια, τεράστια μάτια και μια ακόρεστη αγάπη για τα αλλαντικά, ξυπνάει από έναν εκκωφαντικό γουργουρητό στο στομάχι του.  
+Η κυρά-Ευδοκία όμως τον έβαλε σε αυστηρή δίαιτα και έλαβε δρακόντεια μέτρα:
+1. Κλείδωσε το δίπορτο vintage ψυγείο *Pitsos* με 4 ψηφιακά λουκέτα.
+2. Εξόπλισε το σπίτι με αυτόνομες σκούπες-ρομπότ ("Σκουπο-Τέρμινατορ 3000").
+3. Άφησε ελεύθερο το νευρωτικό καναρίνι της, τον "Τουίτι-Μπόξερ", που κάνει νυχτερινές περιπολίες πετώντας παγάκια και τσόφλια.
+4. Στα ψηλά ράφια, τα ξεχασμένα "Παγωμένα Μπιφτέκια του 2019" έχουν αποκτήσει νοημοσύνη και δεν θέλουν να φαγωθούν!
+
+Ο Λουκουμάς έχει έναν και μόνο σκοπό: να διασχίσει τα δωμάτια του σπιτιού, να μαζέψει τα 4 "Χρυσά Λουκάνικα" που ανοίγουν τα κλειδιά της κάθε οθόνης, να εξουδετερώσει τους κινδύνους με το βάρος του (κάνοντας "Belly-Flop"), και να φτάσει στον υπέρτατο θησαυρό: **Τον Μυθικό Καπνιστό Σολομό Νορβηγίας** στο βαθύ ράφι της κατάψυξης!
+
+---
+
+## 3. Μηχανισμοί Gameplay (Core Mechanics)
+
+### 3.1. Χειρισμός (Joystick / Πληκτρολόγιο)
+* **Αριστερά / Δεξιά:** Βάδισμα με κωμικό τρέμουλο κοιλιάς.
+* **Πάνω / Fire:** Άλμα (χαμηλό, λόγω... βάρους).
+* **Κάτω + Fire στον αέρα (Belly-Flop):** Ο Λουκουμάς προσγειώνεται με την κοιλιά, προκαλώντας σεισμό στην οθόνη (screenshake), ζαλίζοντας τους εχθρούς και σπάζοντας εύθραυστα ράφια.
+* **Κάτω (Roll):** Μαζεύεται σε μπάλα και κυλάει γρήγορα μέσα από στενά περάσματα και κάτω από καναπέδες.
+
+### 3.2. Στοιχεία Οθόνης & Αντικείμενα
+* **Χρυσά Λουκάνικα (Key Items):** 4 ανά πίστα. Όταν μαζευτούν όλα, η πόρτα ή ο εξαερισμός ανοίγει.
+* **Μπολ με Γάλα (Power-up):** Δίνει "Sugar Rush" ταχύτητα για 6 δευτερόλεπτα.
+* **Catnip (Μαγιοβότανο):** Αντιστρέφει τη βαρύτητα ή κάνει τον Λουκουμά να πετάει με μικρά αέρια (slapstick humor).
+* **Σκουπο-ρομπότ:** Περιπολούν στο πάτωμα. Αν αγγίξουν τον Λουκουμά, του ρουφάνε την ουρά και χάνει ζωή. Εξουδετερώνονται αν τους ρίξει κανείς βάζο από ψηλά.
+* **Τουίτι-Μπόξερ:** Πετάει σε ημιτονοειδή τροχιά και ρίχνει παγάκια.
+
+---
+
+## 4. Οπτικός & Ακουστικός Σχεδιασμός
+
+### 4.1. Παλέτα Χρωμάτων Mode 1 (4 Χρώματα)
+Το CPC Mode 1 προσφέρει 4 ταυτόχρονα χρώματα από την παλέτα των 27 χρωμάτων του Gate Array. Επιλέγουμε μια ζεστή, cartoonish παλέτα:
+
+| Ink Index | Όνομα Χρώματος | Hardware Color No. | Gate Array Value | Ρόλος στο Παιχνίδι |
+|:---:|:---:|:---:|:---:|:---|
+| **Ink 0** | Deep Navy / Midnight Blue | 02 | `&54` | Φόντο, σκιές, σκοτεινός νυχτερινός ουρανός / δωμάτιο |
+| **Ink 1** | Warm Salmon / Coral Pink | 12 | `&5C` | Χρώμα δέρματος, πατουσίτσες, λουκάνικα, σολομός |
+| **Ink 2** | Bright Butter Yellow | 24 | `&4A` | Γούνα Λουκουμά, μάτια, τυρί, φωτισμός |
+| **Ink 3** | Crisp Pure White | 26 | `&4B` | Περιγράμματα (highlights), δόντια, γάλα, κείμενο UI |
+
+> **Σημείωση Dithering:** Με διασταυρούμενο dithering (checkerboard) μεταξύ Yellow και Salmon Pink δημιουργείται ένας επιπλέον πορτοκαλί τόνος για τα ράφια και τα ξύλινα έπιπλα.
+
+### 4.2. Ήχος & Μουσική (Arkos Tracker 3)
+* **Μουσική Εισαγωγής & Πίστας:** Γρήγορο, ρυθμικό electro-swing / chiptune ragtime στα 140 BPM.
+* **Χρήση Καναλιών AY-3-8912:**
+  * **Κανάλι A:** Lead μελωδία (ευχάριστο vibrato, arpeggios).
+  * **Κανάλι B:** Slap bassline (bouncy square waves).
+  * **Κανάλι C:** Noise percussion (snare, hi-hats) συνδυασμένο με SFX προτεραιότητας.
+* **Ηχητικά Εφέ (SFX):**
+  * *Belly-Flop:* Βαρύ pitch-drop με white noise burst.
+  * *Νιαούρισμα / Ζημιά:* Υψίσυχνο glide με αστείο portamento.
+  * *Μάζεμα Λουκάνικου:* Κλασικό ανοδικό chime arpeggio (C-E-G-C).
+
+---
+
+## 5. Τεχνική Ανάλυση: Overscan 384x272 στο CPC 6128
+
+### 5.1. Υπολογισμός Διαστάσεων & Μνήμης
+* **Οριζόντια:** 384 pixels σε Mode 1. Επειδή 1 byte = 4 pixels στο Mode 1, η γραμμή απαιτεί:  
+  $$\frac{384}{4} = 96\text{ bytes/scanline}$$  
+  Στον CRTC 6845, 1 οριζόντιος χαρακτήρας = 2 bytes (16 pixels σε Mode 1). Επομένως:  
+  $$\text{Horizontal Displayed (R1)} = 48\text{ χαρακτήρες} \quad (48 \times 2 = 96\text{ bytes})$$
+* **Κατακόρυφα:** 272 scanlines. Με 8 scanlines ανά χαρακτήρα (R9 = 7):  
+  $$\text{Vertical Displayed (R6)} = 34\text{ σειρές χαρακτήρων} \quad (34 \times 8 = 272\text{ γραμμές})$$
+* **Συνολικό Μέγεθος Οθόνης:**  
+  $$96 \times 272 = 26.112\text{ bytes} \approx 25,5\text{ KB}$$
+
+### 5.2. Η Πρόκληση των 26 KB (CRTC 16KB Wrap-Around)
+Η τυπική μνήμη οθόνης του Amstrad CPC είναι 16 KB (`&4000` bytes). Όταν ο CRTC προσπεράσει τα 16 KB, ο μετρητής διευθύνσεων κάνει αναδίπλωση (wrap-around):
+* Γραμμές 0 έως 169 καταλαμβάνουν ~16.320 bytes (πρώτη σελίδα VRAM).
+* Γραμμές 170 έως 271 συνεχίζουν στη δεύτερη σελίδα VRAM.
+Στον **Amstrad CPC 6128 (128 KB)**, χρησιμοποιούμε τη διευρυμένη μνήμη (Extended RAM Banks μέσω Gate Array `&7Fxx` π.χ. διαμόρφωση `&C4` - `&C7`) ώστε να έχουμε δύο πλήρεις overscan buffers για flicker-free double buffering, ή χρησιμοποιούμε CRTC split interrupt (Rupture) στον 50Hz VBLANK.
+
+### 5.3. Πίνακας Τιμών Καταχωρητών CRTC 6845 για 384x272 Overscan
+
+| Καταχωρητής CRTC | Περιγραφή | Standard Τιμή | Overscan Τιμή (384x272) | Επεξήγηση |
+|:---|:---|:---:|:---:|:---|
+| **R0** | Horizontal Total | 63 | **64** | Συνολικός οριζόντιος χρόνος |
+| **R1** | Horizontal Displayed | 40 | **48** | 48 chars = 96 bytes = 384 pixels |
+| **R2** | Horizontal Sync Position | 46 | **50** | Κεντράρισμα εικόνας στον άξονα Χ |
+| **R3** | H-Sync / V-Sync Width | &8E | **&8E** | Πλάτος συγχρονισμού |
+| **R4** | Vertical Total | 38 | **38** | Συνολικός κατακόρυφος χρόνος |
+| **R5** | Vertical Total Adjust | 0 | **0** | Μικρο-ρύθμιση ράστερ γραμμών |
+| **R6** | Vertical Displayed | 25 | **34** | 34 rows * 8 lines = 272 scanlines |
+| **R7** | Vertical Sync Position | 30 | **35** | Κεντράρισμα εικόνας στον άξονα Υ |
+| **R8** | Interlace Mode | 0 | **0** | Non-interlaced |
+| **R9** | Max Raster Address | 7 | **7** | 8 scanlines ανά χαρακτήρα |
+| **R12/R13** | Screen Start Address | &30 / &00 | **&10 / &00** | Αφετηρία VRAM pointer (`&4000` / `&8000`) |
+
+---
+
+## 6. Οδηγίες Ανάπτυξης & Toolchain Workflow
+
+### 6.1. Aseprite & MCP Server Pipeline
+1. **Ρύθμιση Canvas στο Aseprite:**
+   * Ανάλυση: `384 x 272` (για background screens) και πολλαπλάσια των `16 x 16` ή `24 x 24` για sprites.
+   * Color Mode: Indexed (4 χρώματα ακριβώς, αντιστοιχισμένα στα Gate Array Inks).
+   * Pixel Aspect Ratio: `1:1` (στο Mode 1 τα pixels είναι σχεδόν τετράγωνα).
+2. **Αυτοματισμός μέσω MCP Server:**
+   * Ο MCP Server συνδέεται με το Aseprite CLI / Lua API.
+   * Μέσω του MCP agent εκτελείται script εξαγωγής:
+     * Μετατροπή των pixels σε Amstrad CPC Mode 1 interleaved byte format:
+       * Στο Mode 1, κάθε byte περιέχει 4 pixels:
+         * Pixel 0: Bits [7, 3]
+         * Pixel 1: Bits [6, 2]
+         * Pixel 2: Bits [5, 1]
+         * Pixel 3: Bits [4, 0]
+     * Υπολογισμός CPC Memory Interleave: Κάθε διαδοχική σάρωση απέχει `&800` bytes (scanline 0: `base+0`, scanline 1: `base+&800`, ..., scanline 7: `base+&3800`, scanline 8: `base+96`).
+   * Εξαγωγή απευθείας σε `sprites.bin` και `screen_data.bin`.
+
+### 6.2. Ήχος με Arkos Tracker 3 (AT3)
+1. Σύνθεση κομματιού στο AT3 με target **Amstrad CPC (AY-3-8912, 1 Mhz)**.
+2. Ρύθμιση Player: Επιλογή **AKG (Generic Player)** για ισορροπία μεγέθους και ταχύτητας.
+3. Export:
+   * Επιλογή: *Export to AKG Assembly source (`music.asm`)* ή binary (`music.bin`).
+   * Εξαγωγή SFX sound bank σε `sfx.asm`.
+4. Οδήγηση από Interrupt: Κλήση της ρουτίνας `PLY_AKG_Play` σε κάθε 50Hz VBLANK.
+
+### 6.3. Μεταγλώττιση με RASM
+* Το **RASM** αποτελεί το de-facto assembler για CPC. Υποστηρίζει:
+  * Άμεση εισαγωγή binaries (`INCBIN`).
+  * Υπολογισμό labels, breakpoints, bank switches.
+  * Δημιουργία `.sna` snapshot για άμεσο debugging ή `.bin` για floppy disk.
+
+### 6.4. Δημιουργία Δισκέτας με iDSK
+* Δημιουργία αρχείου DSK: `idsk loukoumas.dsk -n`
+* Εισαγωγή bootloader (Basic file): `idsk loukoumas.dsk -i disc.bas -t 0`
+* Εισαγωγή δυαδικού παιχνιδιού: `idsk loukoumas.dsk -i game.bin -t 1 -e 4000 -c 4000`
+
+---
+
+## 7. Παράδειγμα Κώδικα Z80 (RASM)
+
+### 7.1. Αρχικοποίηση CRTC για Overscan 384x272 (`crtc_init.asm`)
+
+```z80
+;; =========================================================================
+;; LOUKOUMAS: OVERVIEW 384x272 CRTC INITIALIZATION (MODE 1)
+;; =========================================================================
+    ORG &4000
+
+Start:
+    di                      ; Απενεργοποίηση διακοπών κατά τη ρύθμιση
+    ld sp, &3FFF            ; Τοποθέτηση Stack Pointer κάτω από τη VRAM
+
+    ;; 1. Ρύθμιση Mode 1 και Χρωμάτων (Gate Array)
+    ld bc, &7F8D            ; Gate Array: Mode 1 (&8C=Mode 0, &8D=Mode 1, &8E=Mode 2)
+    out (c), c
+
+    ;; Ρύθμιση Inks
+    ld hl, PaletteData
+    ld d, 4                 ; 4 χρώματα για το Mode 1
+SetPalette:
+    ld a, (hl)
+    inc hl
+    ld b, &7F
+    out (c), a              ; Επιλογή Ink index
+    ld a, (hl)
+    inc hl
+    out (c), a              ; Ανάθεση Hardware Color
+    dec d
+    jr nz, SetPalette
+
+    ;; 2. Αποστολή Τιμών στον CRTC 6845
+    ld hl, CRTC_Overscan_Table
+    ld d, 16                ; 16 καταχωρητές προς εγγραφή
+    ld e, 0                 ; Ξεκινάμε από τον Register 0
+SetCRTC:
+    ld b, &BC               ; Port επιλογής CRTC Register
+    out (c), e
+    ld b, &BD               ; Port εγγραφής δεδομένων CRTC
+    ld a, (hl)
+    out (c), a
+    inc hl
+    inc e
+    dec d
+    jr nz, SetCRTC
+
+    ;; 3. Ενεργοποίηση 50Hz Interrupt για Μουσική & SFX
+    ei
+MainLoop:
+    halt                    ; Αναμονή για 50Hz VBLANK
+    call PLY_AKG_Play       ; Arkos Tracker 3 Music Play Routine
+    call UpdateGamePhysics  ; Κίνηση Λουκουμά & Εχθρών
+    call RenderSprites      ; Σχεδίαση Sprites
+    jr MainLoop
+
+;; -------------------------------------------------------------------------
+;; Πίνακας Τιμών CRTC για 384x272
+;; -------------------------------------------------------------------------
+CRTC_Overscan_Table:
+    db 64                   ; R0: Horizontal Total
+    db 48                   ; R1: Horizontal Displayed (48 chars = 96 bytes)
+    db 50                   ; R2: Horizontal Sync Position
+    db &8E                  ; R3: H-Sync & V-Sync Widths
+    db 38                   ; R4: Vertical Total
+    db 0                    ; R5: Vertical Total Adjust
+    db 34                   ; R6: Vertical Displayed (34 * 8 = 272 lines)
+    db 35                   ; R7: Vertical Sync Position
+    db 0                    ; R8: Interlace
+    db 7                    ; R9: Max Raster (8 scanlines ανά character)
+    db 0, 0                 ; R10, R11: Cursor (αχρησιμοποίητο)
+    db &10                  ; R12: Screen Start Address High (π.χ. &4000/&8000)
+    db &00                  ; R13: Screen Start Address Low
+    db 0, 0                 ; R14, R15: Cursor Low/High
+
+;; -------------------------------------------------------------------------
+;; Χρωματική Παλέτα
+;; -------------------------------------------------------------------------
+PaletteData:
+    db &00, &54             ; Ink 0 = Deep Navy (&54)
+    db &01, &5C             ; Ink 1 = Salmon Pink (&5C)
+    db &02, &4A             ; Ink 2 = Butter Yellow (&4A)
+    db &03, &4B             ; Ink 3 = Pure White (&4B)
+
+UpdateGamePhysics:
+    ret                     ; Placeholder για τη λογική του παιχνιδιού
+
+RenderSprites:
+    ret                     ; Placeholder για sprite blitting
+
+PLY_AKG_Play:
+    ret                     ; Placeholder για την κλήση του Arkos Tracker
+```
+
+---
+
+## 8. Αυτοματοποιημένο Build Script (`build.sh`)
+
+Το παρακάτω script εκτελεί όλη τη διαδικασία μετατροπής γραφικών, μουσικής, assembly compilation και παραγωγής της τελικής δισκέτας:
+
+```bash
+#!/usr/bin/env bash
+set -e
+
+echo "=== [1/4] Εξαγωγή Γραφικών μέσω Aseprite / MCP Server ==="
+# Χρήση Aseprite CLI / MCP converter για μετατροπή του sprite sheet
+aseprite -b assets/loukoumas_sprites.aseprite \
+         --palette assets/cpc_mode1_palette.gpl \
+         --save-as build/sprites.png
+python3 tools/png2cpc.py build/sprites.png build/sprites.bin --mode 1
+
+echo "=== [2/4] Εξαγωγή Μουσικής Arkos Tracker 3 ==="
+# Μετατροπή .aks αρχείου σε AKG assembler source
+ArkosTracker3 -export akp audio/fridge_raid.aks -o build/music.asm
+
+echo "=== [3/4] Μεταγλώττιση με RASM ==="
+rasm src/main.asm -o build/game -bin
+
+echo "=== [4/4] Δημιουργία DSK Image με iDSK ==="
+rm -f build/loukoumas.dsk
+idsk build/loukoumas.dsk -n
+# Εισαγωγή του Basic Loader (DISC.BAS)
+idsk build/loukoumas.dsk -i assets/disc.bas -t 0
+# Εισαγωγή του εκτελέσιμου δυαδικού
+idsk build/loukoumas.dsk -i build/game.bin -t 1 -e 4000 -c 4000
+
+echo "✅ Το build ολοκληρώθηκε επιτυχώς: build/loukoumas.dsk"
+echo "Έτοιμο για δοκιμή σε Retro Virtual Machine ή πραγματικό CPC 6128!"
+```
+
+---
+
+## 9. Μελλοντικές Επεκτάσεις (Milestones)
+
+1. **Boss Fights:** 
+   * Μεγάλο Boss: Ο "Καταψύκτης του Τρόμου" με παγοκρυστάλλους που πέφτουν.
+2. **Easter Eggs:**
+   * Αν ο παίκτης πατήσει `Ctrl + Shift + L`, ο Λουκουμάς φοράει γυαλιά ηλίου Thug Life και τρώει πίτσα.
+3. **Hardware Acceleration:**
+   * Υποστήριξη PlayCity dual AY soundboard για 6-κάναλη στερεοφωνική μουσική!

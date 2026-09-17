@@ -191,7 +191,28 @@ assume an effect that works in one emulator works on another type.
 
 ---
 
-## 7. Working conventions
+## 7. Text and languages
+
+Both games ship in Greek and English. The rules that keeps that from rotting:
+
+- **No literal text in the Z80 sources.** Every user-visible string is a message id
+  resolved through `txt_lang` at draw time. A string that only exists in one language is
+  a build error.
+- Text lives in `text/<game>.<lang>.txt` as UTF-8 `ID = text`, edited directly.
+  `tools/mktext.py` generates `src/strings.asm` and `src/font.asm`; both are committed so
+  a build needs only rasm.
+- The font is one 8x8 set covering both scripts. Greek folds onto it: accents dropped,
+  lowercase raised, and the fourteen Greek capitals that share a Latin shape reuse the
+  Latin glyph. Only Γ Δ Θ Λ Ξ Π Σ Φ Ψ Ω are drawn separately.
+- All-caps in both languages. Unaccented capitals are correct Greek typography, not a
+  shortcut, and it halves the font.
+- Glyph cells are 8x8 drawn 6 wide and 7 tall, so the spare column and row are the letter
+  spacing. That keeps every character 2 bytes wide in mode 1 and means no text routine
+  ever has to shift a byte.
+- Greek in a rasm label breaks the assembler - `mktext.py` spells the Greek-only glyph
+  names out (`GL_SIGMA`, not `GL_Σ`).
+
+## 8. Working conventions
 
 - Comment every CRTC register write with the value **and the reason** — a bare
   `LD BC,&BC01 / OUT (C),C` is unreadable six months later.
@@ -205,12 +226,14 @@ assume an effect that works in one emulator works on another type.
 - Prefer small, individually runnable test programs over one growing demo. Each milestone
   should be its own binary that shows one thing.
 
-## 8. Confidence notes
+## 9. Confidence notes
 
 Solid and safe to build on: the address decoding in section 2, the 1024-character limit,
 the 312-line/64 us frame arithmetic, the 52-line interrupt cadence, the port numbers.
+The screen layout in src/ is checked end to end by `make check`.
 
 Needs verification on hardware or an accurate emulator before being treated as fact:
 the specific overscan register values in section 3 (particularly R2 and R7 centring, which
 vary by monitor), the exact VSYNC-width behaviour per CRTC type, and every per-type
-difference listed in section 5. Measure, then update this file with what was found.
+difference listed in section 5. Nothing in this repository has yet run on an emulator
+or on real hardware. Measure, then update this file with what was found.

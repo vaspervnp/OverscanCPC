@@ -1,0 +1,16 @@
+# English strings for LOUKOUMAS. "ID = text", UTF-8, one per line.
+# Every ID here must also exist in loukoumas.el.txt.
+# Only characters the font has are allowed - tools/mktext.py checks.
+
+TITLE1    = LOUKOUMAS
+TITLE2    = THE GREAT FRIDGE RAID
+PRESS     = PRESS FIRE TO START
+LANGNAME  = ENGLISH
+LANGHINT  = PRESS L FOR GREEK
+SCORE     = SCORE
+LIVES     = LIVES
+SAUSAGES  = SAUSAGES
+LEVEL     = LEVEL
+PAUSED    = PAUSED
+GAMEOVER  = GAME OVER
+WELLDONE  = WELL DONE!

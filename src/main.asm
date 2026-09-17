@@ -17,6 +17,11 @@ BUILDSNA
 BANKSET 0
     ENDIF
 
+HELLO_XS        EQU 2       ; 2 bytes per source pixel = 64 px per letter
+HELLO_YS        EQU 12      ; 8 source rows * 12 = 96 px tall
+TEXT1_Y         EQU 8       ; HELLO!: starts 24 lines above the normal screen
+TEXT2_Y         EQU 168     ; WORLD!: ends 32 lines below it
+
     ORG #4000               ; RAM whatever the ROM configuration is, and clear
                             ; of the screen at #8000
 
@@ -44,24 +49,39 @@ main_start
 main_halt
     jr main_halt            ; interrupts are off; nothing else to do
 
+;; ---------------------------------------------------------------------------
+;; Six cells at 64 px each is exactly 384, so these two lines span the whole
+;; overscan window and cross the left and right edges of the normal screen as
+;; well as the top and bottom.
+;; ---------------------------------------------------------------------------
+draw_all_text
+    ld a,HELLO_XS
+    ld (txt_xs),a
+    ld a,HELLO_YS
+    ld (txt_ys),a
+
+    ld hl,line_tab+TEXT1_Y*2
+    ld (txt_row),hl
+    ld hl,txt_hello
+    call big_centre
+
+    ld hl,line_tab+TEXT2_Y*2
+    ld (txt_row),hl
+    ld hl,txt_world
+    jp big_centre
+
+txt_hello   defb 6,GL_H,GL_E,GL_L,GL_L,GL_O,GL_BANG
+txt_world   defb 6,GL_W,GL_O,GL_R,GL_L,GL_D,GL_BANG
+
     include "crtc.asm"
     include "video.asm"
     include "text.asm"
     include "font.asm"
+    include "strings.asm"
 
 code_end
 
-;; ---------------------------------------------------------------------------
-;; Workspace. Built at run time, so it lives past code_end and is not saved.
-;; ---------------------------------------------------------------------------
-line_tab    defs DISPLAY_LINES*2    ; 272 scanline addresses
-dg_pat      defs GLYPH_W_BYTES      ; one expanded glyph row
-dg_x        defs 1                  ; current x, in bytes
-dg_row      defs 2                  ; line_tab pointer for the current text row
-fill_x      defs 1
-fill_w      defs 2
-fill_b      defs 1
-workspace_end
+    include "workspace.asm"
 
     IF TARGET==1
 RUN main_start
