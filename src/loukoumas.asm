@@ -19,17 +19,32 @@ BUILDSNA
 BANKSET 0
     ENDIF
 
-TITLE_YS        EQU 6           ; big text: 8 source rows * 6 = 48 px tall
-BAND_H          EQU 12          ; the coral bands top and bottom
+;; The title screen is a picture now, so the text goes on top of it rather than
+;; instead of it. The name is drawn twice - black one byte right and two
+;; scanlines down, then yellow - which puts a shadow under it and lets it sit
+;; straight on the wall with no panel round it.
+;;
+;; The panels the rest of the text does get are there for a different reason:
+;; pressing L has to repaint a line, and the only way to repaint a line lying
+;; on a picture is to have cleared the ground under it first. Unpacking the
+;; whole screen again would take well over a second.
+TITLE_XS        EQU 1           ; 1 byte per source pixel = 24 px per letter
+TITLE_YS        EQU 4           ; 8 source rows * 4 = 32 px tall
 
-Y_LANGNAME      EQU 2           ; inside the top band
-Y_TITLE         EQU 60
-Y_SUBTITLE      EQU 120
-Y_PRESS         EQU 180
-Y_LANGHINT      EQU DISPLAY_LINES-BAND_H+2
+X_TITLE         EQU 2
+Y_TITLE         EQU 10
+Y_SUBTITLE      EQU 46
+Y_PRESS         EQU 248
+Y_LANGHINT      EQU 260
+
+PANEL_X         EQU 0           ; the top-left panel, clear of the wall clock
+PANEL_W         EQU 78
+PANEL_Y         EQU 6
+PANEL_H         EQU 48
+FOOT_Y          EQU 244         ; and the strip along the bottom
+FOOT_H          EQU 26
 
 H_SMALL         EQU 8                   ; one small text row
-H_TITLE         EQU TITLE_YS*8
 BLINK_BIT       EQU #20                 ; frame_count bit: ~0.64 s each way
 
 ;; ---------------------------------------------------------------------------
@@ -51,6 +66,14 @@ data_start
     include "rooms.asm"
 data_end
 DATA_LEN        EQU data_end-data_start
+
+;; ---------------------------------------------------------------------------
+;; The title screen, packed. Unlike the tables it does not travel anywhere: it
+;; is wanted again every time the player comes back to the title, so it simply
+;; sits here, between the workspace and the file's copy of the low block.
+;; ---------------------------------------------------------------------------
+    ORG PIC_STORE
+    include "titlepic.asm"
 
     ORG #4000
 
@@ -74,13 +97,16 @@ loukoumas_start
     ld (txt_lang),a
     xor a
     ld (txt_solid),a            ; small text blends until the HUD asks for more
+    ld (txt_big_solid),a        ; and big text blends until the title asks
+    ld a,PEN1_BYTE
+    ld (txt_big_pen),a
 
     call build_line_tab
     call draw_title_background
     call draw_title_text
 
     call setup_crtc             ; now switch the display to overscan
-    ld hl,pal_title
+    ld hl,pal_play              ; the picture is drawn in the game's own pens
     call set_pal
 
     call irq_init
@@ -92,7 +118,7 @@ loukoumas_start
 main_loop
     call title_loop
     call play_screen
-    ld hl,pal_title
+    ld hl,pal_play
     call set_pal
     call draw_title_background
     call draw_title_text
@@ -164,20 +190,15 @@ blink_press_hide
 ;; note about OR blending at the top of text.asm.
 ;; ---------------------------------------------------------------------------
 draw_title_background
-    ld hl,line_tab
+    IF TITLEPIC
+    ld hl,title_packed
+    jp unpack_pic
+    ELSE
+    ld hl,line_tab              ; see TITLEPIC in config.asm
     ld de,DISPLAY_LINES
     ld a,PEN0_BYTE
-    call clear_rows
-
-    ld hl,line_tab
-    ld de,BAND_H
-    ld a,PEN2_BYTE
-    call clear_rows
-
-    ld hl,line_tab+(DISPLAY_LINES-BAND_H)*2
-    ld de,BAND_H
-    ld a,PEN2_BYTE
     jp clear_rows
+    ENDIF
 
 ;; ---------------------------------------------------------------------------
 ;; draw_title_text - every line, in whichever language txt_lang is on.
@@ -185,52 +206,73 @@ draw_title_background
 ;; without having to rebuild the whole screen.
 ;; ---------------------------------------------------------------------------
 draw_title_text
-    ld hl,line_tab+Y_LANGNAME*2
-    ld de,H_SMALL
-    ld a,PEN2_BYTE
-    call clear_rows
-    ld hl,line_tab+Y_LANGNAME*2
-    ld (txt_row),hl
-    ld a,MSG_LANGNAME
-    call msg_small_centre
-
-    ld hl,line_tab+Y_TITLE*2
-    ld de,H_TITLE
+    ;; the panel the name and the subtitle stand on
+    ld a,PANEL_X
+    ld (fill_x),a
+    ld hl,PANEL_W
+    ld (fill_w),hl
     ld a,PEN0_BYTE
-    call clear_rows
-    ld a,1                      ; 1 byte per source pixel = 24 px per letter
+    ld (fill_b),a
+    ld hl,line_tab+PANEL_Y*2
+    ld de,PANEL_H
+    call fill_rows
+
+    ld a,TITLE_XS
     ld (txt_xs),a
     ld a,TITLE_YS
     ld (txt_ys),a
+    ld a,1
+    ld (txt_big_solid),a        ; written where the letter is, not blended
+
+    ld a,PEN4_BYTE              ; the shadow, down and to the right
+    ld (txt_big_pen),a
+    ld a,X_TITLE+1
+    ld (txt_x),a
+    ld hl,line_tab+(Y_TITLE+2)*2
+    ld (txt_row),hl
+    ld a,MSG_TITLE1
+    call msg_big
+
+    ld a,PEN2_BYTE              ; then the name itself, on top of it
+    ld (txt_big_pen),a
+    ld a,X_TITLE
+    ld (txt_x),a
     ld hl,line_tab+Y_TITLE*2
     ld (txt_row),hl
     ld a,MSG_TITLE1
-    call msg_big_centre
+    call msg_big
 
-    ld hl,line_tab+Y_SUBTITLE*2
-    ld de,H_SMALL
-    ld a,PEN0_BYTE
-    call clear_rows
+    xor a                       ; leave big text as the banners expect it
+    ld (txt_big_solid),a
+    ld a,PEN1_BYTE
+    ld (txt_big_pen),a
+
     ld hl,line_tab+Y_SUBTITLE*2
     ld (txt_row),hl
+    ld a,X_TITLE
+    ld (txt_x),a
     ld a,MSG_TITLE2
-    call msg_small_centre
+    call msg_small
 
-    ;; The "press fire" row belongs to blink_press. Clear it and leave
-    ;; press_state disagreeing with the current phase so it repaints next frame.
-    ld hl,line_tab+Y_PRESS*2
-    ld de,H_SMALL
+    ;; and the strip along the bottom, over the floorboards
+    ld a,PANEL_X
+    ld (fill_x),a
+    ld hl,BYTES_PER_LINE
+    ld (fill_w),hl
     ld a,PEN0_BYTE
-    call clear_rows
+    ld (fill_b),a
+    ld hl,line_tab+FOOT_Y*2
+    ld de,FOOT_H
+    call fill_rows
+
+    ;; The "press fire" row belongs to blink_press. Clearing it above is
+    ;; enough: leave press_state disagreeing with the current phase and the
+    ;; next frame repaints whichever state the blink is actually in.
     ld a,(frame_count)
     and BLINK_BIT
     xor BLINK_BIT
     ld (press_state),a
 
-    ld hl,line_tab+Y_LANGHINT*2
-    ld de,H_SMALL
-    ld a,PEN2_BYTE
-    call clear_rows
     ld hl,line_tab+Y_LANGHINT*2
     ld (txt_row),hl
     ld a,MSG_LANGHINT
@@ -274,6 +316,7 @@ pal_title
     include "irq.asm"
     include "keys.asm"
     include "text.asm"
+    include "unpack.asm"
     include "sprite.asm"
     include "enemy.asm"
     include "play.asm"
@@ -382,10 +425,15 @@ ord_y         defs SPRITE_MAX
 draw_order    defs SPRITE_MAX       ; ids: 0 is the cat, an enemy is index+1
 draw_n        defs 1                ; how many of them were drawn last frame
 
+;; The real end of everything at #4000: workspace.asm's label only marks the
+;; end of the engine's own variables, and the game's are declared after it.
+game_end
+
 ;; The workspace is uninitialised RAM, but it is still addresses: it must stop
 ;; before the file's copy of the low block, or it would be built on top of the
 ;; tables before they are moved down.
-    ASSERT workspace_end <= DATA_STORE
+    ASSERT game_end <= PIC_STORE
+    ASSERT PIC_STORE+TITLE_PACKED_LEN <= DATA_STORE
     ASSERT DATA_ORG+DATA_LEN <= #4000
 
 ;; What the file has to hold: the code, the gap the workspace will use, and

@@ -264,6 +264,13 @@ print_digits_loop
 ;; ===========================================================================
 
 ;; ---------------------------------------------------------------------------
+;; msg_big - A = message id, drawn big at (txt_x) as it stands.
+;; ---------------------------------------------------------------------------
+msg_big
+    call get_msg
+    jp print_big
+
+;; ---------------------------------------------------------------------------
 ;; msg_big_centre - A = message id, centred for the current txt_xs.
 ;; x = 48 - length*txt_xs*3
 ;; ---------------------------------------------------------------------------
@@ -375,11 +382,12 @@ dg_expand
     ld b,6
 dg_expand_loop
     rlca
-    ld c,0
+    push af                     ; A is the source pixels and must survive; the
+    ld c,0                      ; carry from the rotate survives the push too
     jr nc,dg_expand_store
-    ld c,PEN1_BYTE
+    ld a,(txt_big_pen)
+    ld c,a
 dg_expand_store
-    push af
     ld a,(txt_xs)
 dg_expand_rep
     ld (hl),c
@@ -402,6 +410,9 @@ dg_blit
     add a,b
     add a,a                         ; 6 source pixels * txt_xs
     ld b,a
+    ld a,(txt_big_solid)
+    or a
+    jr nz,dg_blit_over
 dg_blit_loop
     ld a,(de)
     or (hl)
@@ -409,4 +420,20 @@ dg_blit_loop
     inc hl
     inc de
     djnz dg_blit_loop
+    ret
+
+;; Writing rather than blending, but only where the letter is: an unset pixel
+;; expands to zero and is skipped rather than written, so the picture behind
+;; shows through and the letter does not sit in a box. That is what lets the
+;; title be drawn twice - once in black, one byte and two scanlines down, then
+;; again in yellow - and come out with a shadow on top of a full screen of art.
+dg_blit_over
+    ld a,(hl)
+    or a
+    jr z,dg_blit_over_skip
+    ld (de),a
+dg_blit_over_skip
+    inc hl
+    inc de
+    djnz dg_blit_over
     ret

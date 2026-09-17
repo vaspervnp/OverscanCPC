@@ -32,13 +32,25 @@ all: hello loukoumas
 # ---------------------------------------------------------------------------
 TEXTSRC := assets/font.txt text/loukoumas.en.txt text/loukoumas.el.txt tools/mktext.py
 
-assets: src/font.asm src/strings.asm src/sprites.asm
+assets: src/font.asm src/strings.asm src/sprites.asm src/artwork.asm \
+        src/titlepic.asm
 
 src/font.asm src/strings.asm: $(TEXTSRC)
 	$(PYTHON) tools/mktext.py loukoumas
 
 src/sprites.asm: assets/sprites.txt tools/mksprite.py
 	$(PYTHON) tools/mksprite.py
+
+# The Aseprite artwork: enemies and the scenery that is not a rectangle.
+src/artwork.asm: $(wildcard assets/art/sprite/*.png) $(wildcard assets/art/decal/*.png) tools/mkart.py
+	$(PYTHON) tools/mkart.py
+
+# The title screen: a whole overscan screen, quantised to the sixteen pens and
+# packed to about seven kilobytes. Also writes build/title.bin, the same
+# picture raw - 96 bytes by 272 scanlines - for anything that wants to load it
+# straight into a screen. Needs Pillow, which is why the .asm is committed.
+src/titlepic.asm build/title.bin: assets/art/title.jpg tools/mkscreen.py
+	$(PYTHON) tools/mkscreen.py assets/art/title.jpg title
 
 # ---------------------------------------------------------------------------
 # HELLO WORLD - the overscan proof of concept
@@ -80,25 +92,29 @@ $(BUILD)/loukoumas_el.dsk: $(DEPS) | $(BUILD)
 # named variables frame by frame - and, with -sa, lets roomcheck read the EQUs
 # the room tables are built out of.
 $(BUILD)/loukoumas_en.bin: $(DEPS) | $(BUILD)
-	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=0 -ob $@ -s -sa -os $(BUILD)/loukoumas_en.sym
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DTITLEPIC=0 -DLANG=0 -ob $@ -s -sa -os $(BUILD)/loukoumas_en.sym
 
 $(BUILD)/loukoumas_el.bin: $(DEPS) | $(BUILD)
-	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -ob $@ -s -sa -os $(BUILD)/loukoumas_el.sym
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DTITLEPIC=0 -DLANG=1 -ob $@ -s -sa -os $(BUILD)/loukoumas_el.sym
 
 # The living room is room 9 of 29, so the scripted run that tests it would
 # otherwise have to play the eight rooms in front of it first. The back yard
 # and the rooftops are there to prove a room is lit by its own palette: the
 # first daylight room in the game and the first night one.
 $(BUILD)/loukoumas_lounge.bin: $(DEPS) | $(BUILD)
-	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -DSTARTROOM=8 -ob $@ \
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DTITLEPIC=0 -DLANG=1 -DSTARTROOM=8 -ob $@ \
 		-s -sa -os $(BUILD)/loukoumas_lounge.sym
 
 $(BUILD)/loukoumas_yard.bin: $(DEPS) | $(BUILD)
-	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -DSTARTROOM=10 -ob $@ \
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DTITLEPIC=0 -DLANG=1 -DSTARTROOM=10 -ob $@ \
 		-s -sa -os $(BUILD)/loukoumas_yard.sym
 
+# The one build that keeps the title picture, so the picture gets checked too.
+$(BUILD)/loukoumas_title.bin: $(DEPS) | $(BUILD)
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -ob $@
+
 $(BUILD)/loukoumas_roof.bin: $(DEPS) | $(BUILD)
-	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -DSTARTROOM=27 -ob $@ \
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DTITLEPIC=0 -DLANG=1 -DSTARTROOM=27 -ob $@ \
 		-s -sa -os $(BUILD)/loukoumas_roof.sym
 
 # ---------------------------------------------------------------------------
@@ -111,7 +127,8 @@ $(BUILD)/loukoumas_roof.bin: $(DEPS) | $(BUILD)
 # sources while check goes on passing against freshly built .bin files.
 check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
        $(BUILD)/loukoumas_lounge.bin $(BUILD)/loukoumas_yard.bin \
-       $(BUILD)/loukoumas_roof.bin
+       $(BUILD)/loukoumas_roof.bin $(BUILD)/loukoumas_title.bin \
+       $(BUILD)/title.bin
 	@echo "=== every room climbable, every sausage and every saucer reachable ==="
 	@./tools/roomcheck.py $(BUILD)/loukoumas_el.bin $(BUILD)/loukoumas_el.sym
 	@echo "=== hello world ==="
@@ -156,6 +173,14 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		| grep -o "pen0=[0-9]* " | sed 's/^/    back yard  /'
 	@./tools/z80check.py $(BUILD)/loukoumas_roof.bin --frames 40 --keys FIRE@12-13 \
 		| grep -o "pen0=[0-9]* " | sed 's/^/    rooftops   /'
+	@echo "=== loukoumas, the title picture unpacked onto the overscan screen ==="
+	@echo "    26,112 bytes of screen, packed to about seven and unpacked by the"
+	@echo "    Z80 itself. Every byte of it outside the two text panels has to"
+	@echo "    come back identical to the picture tools/mkscreen.py made."
+	@./tools/z80check.py $(BUILD)/loukoumas_title.bin --frames 95 \
+		--dump $(BUILD)/title-screen.bin | tail -1
+	@cmp -i 5184 -n 18240 $(BUILD)/title-screen.bin $(BUILD)/title.bin \
+		&& echo "    the picture came back byte for byte"
 	@echo "=== what you can actually run ==="
 	@ls -l $(BUILD)/*.sna $(BUILD)/*.dsk | awk '{printf "    %-28s %8s bytes  %s %s %s\n", $$9, $$5, $$6, $$7, $$8}'
 

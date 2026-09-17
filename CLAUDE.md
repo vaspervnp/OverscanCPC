@@ -281,6 +281,25 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   above was found rather than guessed. Its virtual frame is a fixed instruction budget,
   so when the game stops overrunning it the scripted routes shift and have to be
   re-derived - which is itself the signal that the frame got faster.
+- **A full-screen picture is 26,112 bytes and there is nowhere to keep it.** The screen
+  is half the machine; the code and the tables are most of the rest. The title screen is
+  LZSS-packed to about seven kilobytes by `tools/mkscreen.py` and unpacked straight onto
+  the screen by `src/unpack.asm`.
+- That decompressor keeps **no window**. A back reference is at most 2047 bytes, which is
+  at most twenty-two rows up, and line_tab already knows where every row is - so the
+  screen is its own window and a match is two cursors walking the picture, one behind the
+  other. It costs eleven bytes of state and no buffer at all, which is the only reason a
+  full-screen picture fits in this game.
+- It takes about a second and a half. That is fine for a curtain and impossible for
+  anything else, so the scripted runs in `make check` are built with `-DTITLEPIC=0`: every
+  frame number they pin would otherwise be eighty frames later than it is. One build keeps
+  the picture, and the screen it unpacks is compared byte for byte with `build/title.bin`.
+- **Text over a picture cannot blend.** `txt_big_solid` writes the pen where the letter is
+  and skips where it is not, so the name is drawn twice - black one byte right and two
+  scanlines down, then yellow - and comes out with a shadow instead of in a box. Small
+  text still wants ground cleared under it, which is why the title screen has two panels:
+  pressing L has to repaint a line, and a line lying on a picture can only be repainted if
+  something cleared the ground first.
 - **Never pace anything in the game off `frame_count` parity.** It is a free-running
   interrupt counter, and a frame the loop overruns bumps it by two without changing the
   parity, so anything keyed on it either runs every update or none of them. The robots

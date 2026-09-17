@@ -812,6 +812,9 @@ def main():
     ap.add_argument("--png", help="write the decoded screen here")
     ap.add_argument("--scale", type=int, default=2, help="PNG pixel scale (default 2)")
     ap.add_argument("--ascii", action="store_true", help="print a terminal preview")
+    ap.add_argument("--dump", help="write the decoded screen here as raw mode 0 "
+                    "bytes - one line after another, the same shape a picture "
+                    "out of tools/mkscreen.py has, so the two can be compared")
     ap.add_argument("--keys", default="",
                     help="keys held down, comma separated. NAME is held the "
                          "whole run, NAME@12 from frame 12 on, NAME@12-14 for "
@@ -1046,6 +1049,21 @@ def main():
     if args.png:
         size = write_png(rows, io, args.png, args.scale, aspect)
         print("wrote %s (%dx%d)" % (args.png, size[0], size[1]))
+    if args.dump:
+        if per_byte != 2:
+            sys.exit("z80check: --dump is mode 0 only")
+        bits = ((7, 3, 5, 1), (6, 2, 4, 0))
+        out = bytearray()
+        for row in rows:
+            for i in range(0, len(row), 2):
+                byte = 0
+                for j, pen in enumerate(row[i:i + 2]):
+                    for k, b in enumerate(bits[j]):
+                        if pen & (1 << k):
+                            byte |= 1 << b
+                out.append(byte)
+        open(args.dump, "wb").write(bytes(out))
+        print("wrote %s (%d bytes of screen)" % (args.dump, len(out)))
 
 
 if __name__ == "__main__":

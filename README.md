@@ -82,7 +82,7 @@ addressing, not a capture from an emulator or real hardware.
 The first game built on the engine, from [loukoumas.md](loukoumas.md). Twenty-nine rooms
 in three acts: the flat at a quarter past three in the morning, the neighbourhood and the
 school in daylight, and the vet's and the rooftops home. Title screen, in Greek and
-English:
+English - one picture, and the name drawn over it in whichever language you are in:
 
 ![Greek title screen](docs/loukoumas-title-el.png)
 ![English title screen](docs/loukoumas-title-en.png)
@@ -137,6 +137,29 @@ points it at, which is what lets a new room be added without touching the playin
 
 ```bash
 make loukoumas
+```
+
+### The title screen
+
+A picture of the whole overscan window is 96 bytes by 272 scanlines: **26,112 bytes**,
+and there is nowhere in a 128K machine to keep that once the screen has taken 32 KB and
+the game has taken its sixteen. `tools/mkscreen.py` quantises any image to the sixteen
+pens, writes it raw as `build/title.bin` — 96 bytes a line, top to bottom, the plain form
+anything can load into an overscan screen — and packs it with LZSS to about seven
+kilobytes for the binary.
+
+`src/unpack.asm` unpacks it straight onto the screen, and it keeps **no window**. A back
+reference is at most 2047 bytes, which is at most twenty-two rows up, and `line_tab`
+already knows where every row is: the screen is its own window, so a match is two cursors
+walking the picture one behind the other. Eleven bytes of state, no buffer.
+
+The name goes on top of it, not instead of it. `txt_big_solid` writes the pen where the
+letter is and skips where it is not, so the title is drawn twice — black one byte right
+and two scanlines down, then yellow — and lands on the wall with a shadow rather than in
+a box.
+
+```bash
+make assets     # rebuild build/title.bin and src/titlepic.asm from the artwork
 ```
 
 Both languages are in the same binary. Every line of text goes through a message id, and

@@ -142,7 +142,15 @@ PAL_NIGHT       EQU 20      ; black - the rooftops, at the end of it all
 ;; game does after turning the ROMs off is move them. Nothing in the low block
 ;; is ever executed, only read, so it never has to be there before then.
 DATA_ORG        EQU #0100   ; clear of the #0038 interrupt jump
-DATA_STORE      EQU #6000   ; where the file carries it; past the workspace
+DATA_STORE      EQU #7500   ; where the file carries it, until it is moved
+
+;; The title screen is a picture of the whole overscan window: 96 bytes by 272
+;; scanlines, 26,112 of them, and there is nowhere in this machine to keep
+;; that. Packed it is about seven kilobytes, and unlike the tables it has to
+;; stay where it is - the title is redrawn every time the player comes back to
+;; it - so it sits between the workspace and the travelling copy of the tables
+;; and is never moved. See tools/mkscreen.py and src/unpack.asm.
+PIC_STORE       EQU #5800
 
 ;; ---------------------------------------------------------------------------
 ;; Which room the game starts in. Always 0 in a build anyone plays; make check
@@ -151,4 +159,15 @@ DATA_STORE      EQU #6000   ; where the file carries it; past the workspace
 ;; ---------------------------------------------------------------------------
 IFNDEF STARTROOM
 STARTROOM   EQU 0
+ENDIF
+
+;; ---------------------------------------------------------------------------
+;; Whether the title screen unpacks its picture. Always 1 in a build anyone
+;; plays. The scripted runs in make check pass -DTITLEPIC=0, because unpacking
+;; 26 KB takes about a second and a half and every frame number they pin would
+;; otherwise be eighty frames later than it is. They are testing the game, not
+;; the curtain; the curtain has a check of its own.
+;; ---------------------------------------------------------------------------
+IFNDEF TITLEPIC
+TITLEPIC    EQU 1
 ENDIF

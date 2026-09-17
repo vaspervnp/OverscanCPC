@@ -19,6 +19,8 @@ txt_x       defs 1                  ; current x, in bytes
 txt_row     defs 2                  ; line_tab pointer for the current text row
 txt_xs      defs 1                  ; big text: bytes per source pixel
 txt_ys      defs 1                  ; big text: scanlines per source row
+txt_big_pen defs 1                  ; big text: the byte a set pixel is drawn in
+txt_big_solid defs 1                ; big text: write where set, rather than OR
 
 fill_x      defs 1
 fill_w      defs 2
@@ -51,5 +53,16 @@ spr_w       defs 1
 spr_h       defs 1
 
 
+
+;; unpack.asm - two cursors through the picture, one behind the other
+unp_src     defs 2              ; the packed stream
+unp_dp      defs 2              ; where the next byte goes
+unp_dcol    defs 1              ; and which column that is
+unp_drow    defs 2              ; line_tab entry for that row
+unp_rows    defs 2              ; scanlines of picture still to come
+unp_sp      defs 2              ; where a match is copying from
+unp_scol    defs 1
+unp_srow    defs 2
+unp_len     defs 1
 
 workspace_end
