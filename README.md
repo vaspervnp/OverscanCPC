@@ -77,10 +77,30 @@ Under the hood:
 The image above is a software render of screen RAM decoded through the CPC's CRTC
 addressing, not a capture from an emulator or real hardware.
 
+## Tools
+
+`tools/z80check.py` runs the assembled code on a small Z80 interpreter, watches the CRTC
+and Gate Array writes it makes, and decodes screen RAM through the CPC's real MA/RA
+address wiring. It is how the picture above was produced, and how a screen layout gets
+checked without an emulator:
+
+```bash
+make check
+```
+
+Add `--png out.png` for an image instead of the terminal preview (needs Pillow).
+
+It models **no timing whatsoever** — no cycles, no interrupts, no ROMs, no banking, and
+one static frame decoded from the registers left set at the end of the run. It can tell
+you whether your addresses and fills are right. It can tell you nothing about rupture,
+raster splits or anything else that depends on *when* a write happens. It aborts on any
+opcode it does not implement rather than guessing.
+
 ## Layout
 
 ```
 src/        Z80 sources (rasm)
+tools/      host-side helpers
 build/      assembled binaries and .dsk images (not in git)
 docs/       notes, register tables, measurements from real hardware
 ```
