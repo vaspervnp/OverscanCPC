@@ -254,7 +254,21 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   scanlines, so shelves are 32 apart. The first version had them 48 apart and nothing
   above the floor was reachable.
 
-## 10. Game state
+## 10. Rooms
+
+- Rooms are composed from tables in `src/rooms.asm`, never painted. One 384x272 mode 1
+  background is 26 KB; a flat's worth of bitmap art does not exist in this machine.
+- A room record names its platforms, sausages, enemies, props, start position and exit.
+  `play.asm` knows none of that - it walks whatever `room_load` points it at, so adding
+  a room means adding a record, not editing the playing code.
+- Furniture is masked sprites blitted once into the background. Outlined in white, not
+  solid: solid white means a platform, outlined means scenery. That distinction is the
+  level's visual grammar, so keep it.
+- Props are shared across rooms, so a new room is usually free.
+- Room 1's geometry is frozen - the scripted run in `make check` depends on every shelf,
+  sausage and patrol being exactly where it is. Decoration can move; collision cannot.
+
+## 11. Game state
 
 - Score is packed BCD, most significant byte first: `DAA` does the arithmetic and
   printing is two nibbles a byte, no division.
@@ -275,7 +289,7 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   as the level design's test - if it stops passing after a change to a shelf, the jump
   height or a patrol, the level is no longer completable the way it was.
 
-## 11. Working conventions
+## 12. Working conventions
 
 - Comment every CRTC register write with the value **and the reason** — a bare
   `LD BC,&BC01 / OUT (C),C` is unreadable six months later.
@@ -289,7 +303,7 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Prefer small, individually runnable test programs over one growing demo. Each milestone
   should be its own binary that shows one thing.
 
-## 12. Confidence notes
+## 13. Confidence notes
 
 Solid and safe to build on: the address decoding in section 2, the 1024-character limit,
 the 312-line/64 us frame arithmetic, the 52-line interrupt cadence, the port numbers.

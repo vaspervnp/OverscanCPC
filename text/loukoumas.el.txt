@@ -16,3 +16,6 @@ LEVEL     = ΠΙΣΤΑ
 PAUSED    = ΠΑΥΣΗ
 GAMEOVER  = ΤΕΛΟΣ
 WELLDONE  = ΜΠΡΑΒΟ!
+
+ROOM1     = ΣΑΛΟΝΙ
+ROOM2     = ΚΟΥΖΙΝΑ

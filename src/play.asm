@@ -1,23 +1,22 @@
 ;; ===========================================================================
-;; play.asm - the play field and Loukoumas' physics.
+;; play.asm - playing a room: physics, collection, damage, and the way out.
+;;
+;; Nothing here knows the flat's layout. Every table it walks comes from the
+;; room record loaded by room_load, which is what lets rooms.asm add a room
+;; without touching this file.
 ;;
 ;; Vertical position is 8.8 fixed point: a byte of scanline and a byte of
 ;; fraction, with velocity in the same units. Whole-pixel gravity on a 50 Hz
-;; machine either falls like a brick or floats, and neither suits a cat that
-;; the design document insists is overweight.
+;; machine either falls like a brick or floats, and neither suits a cat the
+;; design document insists is overweight.
 ;;
 ;; Platforms are one-way: you land on them coming down and pass through going
 ;; up, which is what a single-screen platform puzzle wants and costs one
 ;; comparison rather than a swept-box intersection.
 ;; ===========================================================================
 
-PLAY_TOP        EQU 12
-FLOOR_Y         EQU 236
-FLOOR_H         EQU DISPLAY_LINES-FLOOR_Y
-SHELF_H         EQU 4
-
 ;; 8.8 fixed point, so 256 is one pixel per frame.
-GRAVITY         EQU #0040       ; 0.25 px/frame - apex in 16 frames
+GRAVITY         EQU #0040       ; 0.25 px/frame - apex in 18 frames
 JUMP_V          EQU #FB80       ; -4.5 px/frame, about 40 px up: a low jump
 FLOP_V          EQU #0800       ; +8.0 px/frame once the belly commits
 MAX_FALL        EQU #0600       ; +6.0 px/frame terminal velocity
@@ -32,12 +31,10 @@ ST_AIR          EQU 1
 ST_FLOP         EQU 2
 ST_ROLL         EQU 3
 
-CAT_START_X     EQU 4
 SHAKE_LEN       EQU 6
 
-;; HUD, in the twelve scanlines above the play area. The captions are drawn
-;; from the string table, so their length changes with the language; the
-;; columns leave room for the longer of the two.
+;; HUD, in the twelve scanlines above the play area. The captions come from the
+;; string table, so the columns leave room for the longer language.
 HUD_Y           EQU 2
 HUD_H           EQU 8
 SCORE_LABEL_X   EQU 2
@@ -46,8 +43,10 @@ SAUS_LABEL_X    EQU 34
 SAUS_COUNT_X    EQU 54
 LIVES_LABEL_X   EQU 66
 LIVES_X         EQU 78
-SCORE_BYTES     EQU 3            ; six BCD digits
-SAUSAGE_POINTS  EQU #01          ; BCD, added to the hundreds digit
+ROOM_NAME_X     EQU 82
+
+SCORE_BYTES     EQU 3           ; six BCD digits
+SAUSAGE_POINTS  EQU #01         ; BCD, added to the hundreds digit
 
 WELLDONE_Y      EQU 40
 WELLDONE_YS     EQU 3
@@ -56,31 +55,68 @@ LIVES_START     EQU 3
 INVUL_FRAMES    EQU 100         ; two seconds of grace after a respawn
 
 ;; ---------------------------------------------------------------------------
-;; play_screen - runs until Escape.
+;; play_screen - walk the flat, one room at a time. Returns on Escape.
 ;; ---------------------------------------------------------------------------
 play_screen
-    call play_setup
+    xor a
+    ld (cur_room),a
+    ld (score),a
+    ld (score+1),a
+    ld (score+2),a
+    ld (game_over),a
+    ld a,LIVES_START
+    ld (cat_lives),a
+
+play_room
+    call room_load
+
 play_loop
     call wait_frame
     call read_controls
     ld a,(ctl_pressed)
     bit CTL_QUIT,a
     jr nz,play_quit
+
     call cat_erase              ; unwind the scene in reverse draw order
     call enemies_erase
-    ld a,(level_done)
+
+    ld a,(game_over)
     or a
     jr nz,play_draw
+
     call cat_update
     call enemies_update
-    call check_sausages         ; between erase and draw: the sausage has to
+    call check_sausages         ; between erase and draw: a sausage has to
     call check_enemies          ; leave the background before it is saved again
+    call check_exit
+    jr nc,play_draw
+
+    ld a,(cur_room)             ; through the door
+    inc a
+    cp ROOM_COUNT
+    jr nc,play_finished
+    ld (cur_room),a
+    jr play_room
+
+play_finished
+    ld a,1
+    ld (game_over),a
+    ld a,1
+    ld (txt_xs),a
+    ld a,WELLDONE_YS
+    ld (txt_ys),a
+    ld hl,line_tab+WELLDONE_Y*2
+    ld (txt_row),hl
+    ld a,MSG_WELLDONE
+    call msg_big_centre
+
 play_draw
     call update_hud
     call enemies_draw
     call cat_draw               ; last, so the cat is on top
     call shake_update
     jr play_loop
+
 play_quit
     xor a                       ; leave the screen centred again
     ld (shake_timer),a
@@ -88,65 +124,192 @@ play_quit
     ld a,7
     jp crtc_set
 
+;; ===========================================================================
+;; Loading a room
+;; ===========================================================================
+
 ;; ---------------------------------------------------------------------------
-;; play_setup
+;; room_load - pull cur_room's tables out of rooms.asm and paint it.
 ;; ---------------------------------------------------------------------------
-play_setup
-    ld hl,pal_play
-    call set_pal
+room_load
+    ld hl,rooms
+    ld a,(cur_room)
+    or a
+    jr z,room_load_found
+    ld b,a
+    ld de,R_SIZE
+room_load_step
+    add hl,de
+    djnz room_load_step
+room_load_found
+    push hl
+    pop iy
+
+    ld a,(iy+R_NAME)
+    ld (room_name),a
+    ld l,(iy+R_PLAT)
+    ld h,(iy+R_PLAT+1)
+    ld (cur_plat),hl
+    ld l,(iy+R_SAUS)
+    ld h,(iy+R_SAUS+1)
+    ld (cur_saus),hl
+    ld a,(iy+R_NSAUS)
+    ld (cur_nsaus),a
+    ld l,(iy+R_PROPS)
+    ld h,(iy+R_PROPS+1)
+    ld (cur_props),hl
+    ld a,(iy+R_EXITX)
+    ld (exit_x),a
+    ld a,(iy+R_EXITY)
+    ld (exit_y),a
+    ld a,(iy+R_EXITSHUT)
+    ld (exit_shut),a
+    ld a,(iy+R_EXITOPEN)
+    ld (exit_open),a
+
+    ld hl,spr_cat_stand         ; set the sprite first: cat_set_sprite shifts y
+    call cat_set_sprite         ; to keep the feet, and we are about to move it
+    ld a,(iy+R_STARTX)
+    ld (cat_x),a
+    ld (cat_startx),a
+    ld a,(iy+R_STARTY)
+    ld (cat_y),a
+    ld (cat_starty),a
 
     xor a
-    ld (cat_drawn),a
-    ld (cat_anim),a
     ld (cat_yf),a
     ld (cat_stun),a
+    ld (cat_state),a
+    ld (cat_drawn),a
+    ld (cat_anim),a
+    ld (cat_invul),a
+    ld (level_done),a
+    ld (sausages_got),a
     ld (shake_timer),a
-    ld (cat_state),a            ; ST_GROUND
+    ld (hud_dirty),a
     ld hl,0
     ld (cat_vy),hl
 
-    ld a,CAT_START_X
-    ld (cat_x),a
-    ld a,SPR_CAT_STAND_W
-    ld (cat_w),a
-    ld a,SPR_CAT_STAND_H
-    ld (cat_h),a
-    ld a,FLOOR_Y-SPR_CAT_STAND_H
-    ld (cat_y),a
-    ld hl,spr_cat_stand
-    ld (cat_spr),hl
+    ld hl,sausage_alive         ; a full larder
+    ld a,(cur_nsaus)
+    ld b,a
+    ld a,1
+room_load_alive
+    ld (hl),a
+    inc hl
+    djnz room_load_alive
+
+    ld l,(iy+R_ENEM)
+    ld h,(iy+R_ENEM+1)
+    ld a,(iy+R_NENEM)
+    ld b,a
+    call enemies_init
+
+    ld hl,pal_play
+    call set_pal
 
     ld hl,line_tab
     ld de,DISPLAY_LINES
     ld a,PEN0_BYTE
     call clear_rows
 
-    xor a                       ; a fresh score and a full larder
-    ld (score),a
-    ld (score+1),a
-    ld (score+2),a
-    ld (sausages_got),a
-    ld (level_done),a
-    ld (hud_dirty),a
-    ld (cat_invul),a
-    ld a,LIVES_START
-    ld (cat_lives),a
-    call enemies_init
-    xor a
-    ld hl,sausage_alive
-    ld b,SAUSAGE_COUNT
-    ld a,1
-play_setup_alive
-    ld (hl),a
-    inc hl
-    djnz play_setup_alive
-
-    call draw_hud
+    call draw_props             ; furniture first, everything else on top
     call draw_platforms
-    jp draw_sausages
+    call draw_exit
+    call draw_sausages
+    jp draw_hud
 
 ;; ---------------------------------------------------------------------------
-;; draw_platforms - the floor in white, the shelves in yellow.
+;; prop_sprite - A = prop id -> HL = its sprite. Preserves BC.
+;; ---------------------------------------------------------------------------
+prop_sprite
+    add a,a
+    ld l,a
+    ld h,0
+    ld de,prop_sprites
+    add hl,de
+    ld a,(hl)
+    inc hl
+    ld h,(hl)
+    ld l,a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; draw_props - the furniture, blitted once into the background.
+;; ---------------------------------------------------------------------------
+draw_props
+    ld hl,(cur_props)
+draw_props_loop
+    ld a,(hl)
+    inc a
+    ret z
+    dec a
+    inc hl
+    ld c,(hl)                   ; x
+    inc hl
+    ld b,(hl)                   ; y
+    inc hl
+    push hl                     ; the prop list
+    call prop_sprite
+    ld a,c
+    ld (spr_x),a
+    call spr_size
+    push hl                     ; the pixel data
+    ld a,b
+    call spr_row_ptr
+    pop hl
+    call spr_blit
+    pop hl
+    jr draw_props_loop
+
+;; ---------------------------------------------------------------------------
+;; draw_exit - the way out, shut or open. Solid white like a platform would be
+;; misleading, so it is outlined like the rest of the furniture and only the
+;; light behind it changes.
+;; ---------------------------------------------------------------------------
+draw_exit
+    ld a,(level_done)
+    or a
+    jr z,draw_exit_shut
+    ld a,(exit_open)
+    jr draw_exit_blit
+draw_exit_shut
+    ld a,(exit_shut)
+draw_exit_blit
+    call prop_sprite
+    ld a,(exit_x)
+    ld (spr_x),a
+    call spr_size
+    ld a,(spr_w)
+    ld (exit_w),a
+    ld a,(spr_h)
+    ld (exit_h),a
+    push hl
+    ld a,(exit_y)
+    call spr_row_ptr
+    pop hl
+    jp spr_blit
+
+;; ---------------------------------------------------------------------------
+;; check_exit - carry set once the cat has stepped into an open way out.
+;; ---------------------------------------------------------------------------
+check_exit
+    ld a,(level_done)
+    or a
+    ret z                       ; sausages still to find
+    ld a,(exit_x)
+    ld (box_x),a
+    ld a,(exit_y)
+    ld (box_y),a
+    ld a,(exit_w)
+    ld (box_w),a
+    ld a,(exit_h)
+    ld (box_h),a
+    jp cat_hits_box
+
+;; ---------------------------------------------------------------------------
+;; draw_platforms - the floor as a solid band, the rest as shelves. Every
+;; room's first platform is its floor.
 ;; ---------------------------------------------------------------------------
 draw_platforms
     ld hl,line_tab+FLOOR_Y*2
@@ -154,7 +317,10 @@ draw_platforms
     ld a,PEN3_BYTE
     call clear_rows
 
-    ld hl,platforms+3           ; skip the floor, it is already painted
+    ld hl,(cur_plat)
+    inc hl
+    inc hl
+    inc hl                      ; skip the floor, already painted
 draw_platforms_loop
     ld a,(hl)
     inc a
@@ -191,10 +357,11 @@ draw_platforms_loop
 ;; draw_sausages
 ;; ---------------------------------------------------------------------------
 draw_sausages
-    ld hl,sausages
-    ld b,SAUSAGE_COUNT
+    ld hl,(cur_saus)
+    ld a,(cur_nsaus)
+    ld b,a
 draw_sausages_loop
-    push bc                     ; loop counter
+    push bc
     ld a,(hl)
     ld (spr_x),a
     inc hl
@@ -214,45 +381,9 @@ draw_sausages_loop
     ret
 
 ;; ---------------------------------------------------------------------------
-;; Level layout. Platforms are first column, last column, top scanline; the
-;; floor has to come first because draw_platforms paints it separately.
-;; ---------------------------------------------------------------------------
-;; Shelves are 32 scanlines apart. The jump clears about 40, so every shelf is
-;; reachable from the one below with something in hand; much more spacing and
-;; the level is impossible, much less and the jump has no weight to it.
-SHELF1          EQU FLOOR_Y-32
-SHELF2          EQU FLOOR_Y-64
-SHELF3          EQU FLOOR_Y-96
-SHELF4          EQU FLOOR_Y-128
-
-platforms
-    defb 0,  95, FLOOR_Y
-    defb 4,  34, SHELF1
-    defb 54, 86, SHELF2
-    defb 14, 44, SHELF3
-    defb 60, 90, SHELF4
-    defb #FF
-
-;; type, x, y, dx, first column, last column, top of the canary's arc
-enemy_start
-    defb ET_ROBOT,  40, FLOOR_Y-SPR_ROBOT_H,  1,  0, BYTES_PER_LINE-SPR_ROBOT_W, 0
-    ;; the shelf 2 robot patrols only the right half, so there is always a
-    ;; safe place to land coming up from shelf 1
-    defb ET_ROBOT,  70, SHELF2-SPR_ROBOT_H,  -1, 64, 86-SPR_ROBOT_W+1,            0
-    defb ET_CANARY, 20, 44,                   1,  4, BYTES_PER_LINE-SPR_CANARY_W, 44
-
-SAUSAGE_COUNT   EQU 5
-sausages
-    defb 46, FLOOR_Y-SPR_SAUSAGE_H
-    defb 10, SHELF1-SPR_SAUSAGE_H
-    defb 78, SHELF2-SPR_SAUSAGE_H
-    defb 20, SHELF3-SPR_SAUSAGE_H
-    defb 84, SHELF4-SPR_SAUSAGE_H
-
-;; ---------------------------------------------------------------------------
-;; draw_hud - score and sausage count. The captions sit on the background
-;; rather than a coloured band: a glyph only sets pen bit 0, so text is
-;; invisible over pen 1 or pen 3.
+;; draw_hud - score, larder, lives and which room this is.
+;; The captions sit on the background rather than a coloured band: a glyph
+;; only sets pen bit 0, so text is invisible over pen 1 or pen 3.
 ;; ---------------------------------------------------------------------------
 draw_hud
     xor a
@@ -290,7 +421,7 @@ draw_hud
     call print_digit
     ld a,GL_SLASH
     call print_glyph
-    ld a,SAUSAGE_COUNT
+    ld a,(cur_nsaus)
     call print_digit
 
     ld a,LIVES_LABEL_X
@@ -301,7 +432,12 @@ draw_hud
     ld a,LIVES_X
     ld (txt_x),a
     ld a,(cat_lives)
-    jp print_digit
+    call print_digit
+
+    ld a,ROOM_NAME_X
+    ld (txt_x),a
+    ld a,(room_name)
+    jp msg_small
 
 update_hud
     ld a,(hud_dirty)
@@ -332,16 +468,14 @@ score_add
 ;; Sausages
 ;; ===========================================================================
 
-;; ---------------------------------------------------------------------------
-;; check_sausages - collect anything the cat is standing in.
-;; ---------------------------------------------------------------------------
 check_sausages
     ld a,(level_done)
     or a
     ret nz
-    ld hl,sausages
+    ld hl,(cur_saus)
     ld de,sausage_alive
-    ld b,SAUSAGE_COUNT
+    ld a,(cur_nsaus)
+    ld b,a
 check_sausages_loop
     push bc
     ld a,(de)
@@ -353,6 +487,7 @@ check_sausages_loop
     ld a,(hl)
     ld (saus_y),a
     dec hl
+
     ld a,SPR_SAUSAGE_W
     ld (box_w),a
     ld a,SPR_SAUSAGE_H
@@ -391,22 +526,36 @@ check_sausages_next
     djnz check_sausages_loop
 
     ld a,(sausages_got)
-    cp SAUSAGE_COUNT
+    ld hl,cur_nsaus
+    cp (hl)
     ret nz
     ld a,1
     ld (level_done),a
-    ld a,1
-    ld (txt_xs),a
-    ld a,WELLDONE_YS
-    ld (txt_ys),a
-    ld hl,line_tab+WELLDONE_Y*2
-    ld (txt_row),hl
-    ld a,MSG_WELLDONE
-    jp msg_big_centre
+    jp draw_exit                ; the way out opens
+
+;; ---------------------------------------------------------------------------
+;; erase_sausage - paint over it. Sausages sit on the background above a
+;; platform, never on one, so plain pen 0 is the right thing to leave behind.
+;; ---------------------------------------------------------------------------
+erase_sausage
+    ld a,(saus_x)
+    ld (fill_x),a
+    ld hl,SPR_SAUSAGE_W
+    ld (fill_w),hl
+    ld a,PEN0_BYTE
+    ld (fill_b),a
+    ld a,(saus_y)
+    ld l,a
+    ld h,0
+    add hl,hl
+    ld de,line_tab
+    add hl,de
+    ld de,SPR_SAUSAGE_H
+    jp fill_rows
 
 ;; ---------------------------------------------------------------------------
 ;; cat_hits_box - carry set if the cat overlaps the box in box_x / box_y /
-;; box_w / box_h. Sausages and enemies both come through here.
+;; box_w / box_h. Sausages, enemies and the exit all come through here.
 ;; ---------------------------------------------------------------------------
 cat_hits_box
     ld a,(box_x)
@@ -477,8 +626,8 @@ check_enemies_scan
     ;; fall through
 
 ;; ---------------------------------------------------------------------------
-;; cat_dies - one life gone. Back to the start with a moment of grace, or the
-;; end of the game.
+;; cat_dies - one life gone. Back to the start of the room with a moment of
+;; grace, or the end of the game.
 ;; ---------------------------------------------------------------------------
 cat_dies
     ld a,(cat_lives)
@@ -491,16 +640,16 @@ cat_dies
     or a
     jr z,cat_game_over
 
-    ld hl,spr_cat_stand         ; set the sprite first: cat_set_sprite shifts y
-    call cat_set_sprite         ; to keep the feet, which we are about to move
-    ld a,CAT_START_X
+    ld hl,spr_cat_stand
+    call cat_set_sprite
+    ld a,(cat_startx)
     ld (cat_x),a
-    ld a,FLOOR_Y-SPR_CAT_STAND_H
+    ld a,(cat_starty)
     ld (cat_y),a
     xor a
     ld (cat_yf),a
     ld (cat_stun),a
-    ld (cat_state),a            ; ST_GROUND
+    ld (cat_state),a
     ld hl,0
     ld (cat_vy),hl
     ld a,INVUL_FRAMES
@@ -509,7 +658,7 @@ cat_dies
 
 cat_game_over
     ld a,1
-    ld (level_done),a
+    ld (game_over),a
     ld a,1
     ld (txt_xs),a
     ld a,WELLDONE_YS
@@ -519,33 +668,10 @@ cat_game_over
     ld a,MSG_GAMEOVER
     jp msg_big_centre
 
-;; ---------------------------------------------------------------------------
-;; erase_sausage - paint over it. Sausages sit on the background above a
-;; platform, never on one, so plain pen 0 is the right thing to leave behind.
-;; ---------------------------------------------------------------------------
-erase_sausage
-    ld a,(saus_x)
-    ld (fill_x),a
-    ld hl,SPR_SAUSAGE_W
-    ld (fill_w),hl
-    ld a,PEN0_BYTE
-    ld (fill_b),a
-    ld a,(saus_y)
-    ld l,a
-    ld h,0
-    add hl,hl
-    ld de,line_tab
-    add hl,de
-    ld de,SPR_SAUSAGE_H
-    jp fill_rows
-
 ;; ===========================================================================
 ;; The cat
 ;; ===========================================================================
 
-;; ---------------------------------------------------------------------------
-;; cat_update - one frame of state machine and physics.
-;; ---------------------------------------------------------------------------
 cat_update
     ld a,(cat_stun)
     or a
@@ -834,7 +960,7 @@ cat_has_support
 ;; Carry set and A = its top scanline, or carry clear.
 ;; ---------------------------------------------------------------------------
 cat_find_landing
-    ld hl,platforms
+    ld hl,(cur_plat)
     ld c,#FF                    ; best so far
 cat_find_landing_loop
     ld a,(hl)
@@ -925,7 +1051,7 @@ cat_erase
 cat_draw
     ld hl,(cat_spr)
     call spr_size
-    push hl
+    push hl                     ; the pixel data
 
     ld a,(spr_w)
     ld (cat_ow),a
@@ -986,9 +1112,9 @@ shake_tab                       ; indexed by the timer counting down
 ;; against it, so pen 2 has to be the fur.
 ;; ---------------------------------------------------------------------------
 pal_play
-    defb 0,   #40+4             ; pen 0 - deep navy, the room
-    defb 1,   #40+7             ; pen 1 - coral: paws, nose, sausages, text
-    defb 2,   #40+10            ; pen 2 - butter yellow: fur and shelves
-    defb 3,   #40+11            ; pen 3 - white: eyes, belly, the floor
+    defb 0,   #40+4             ; pen 0 - deep navy: the wall, and inside furniture
+    defb 1,   #40+7             ; pen 1 - coral: paws, nose, sausages, robots, text
+    defb 2,   #40+10            ; pen 2 - butter yellow: fur, shelves, light
+    defb 3,   #40+11            ; pen 3 - white: eyes, the floor, furniture outlines
     defb #10, #40+4
     defb #FF

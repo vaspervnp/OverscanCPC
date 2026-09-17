@@ -41,33 +41,44 @@ FLOP_REACH_Y    EQU 40          ; scanlines above and below the landing
 ;; once the generated sprite data has been included.
 
 ;; ---------------------------------------------------------------------------
-;; enemies_init - copy the level's starting set into the live array.
+;; enemies_init - HL = a room's starting set, B = how many. Slots the room
+;; does not use are blanked, so a quiet room really is quiet.
 ;; ---------------------------------------------------------------------------
 enemies_init
-    ld hl,enemy_start
     ld de,enemies
-    ld b,ENEMY_COUNT
+    ld a,b
+    or a
+    jr z,enemies_init_spare
+    push bc
 enemies_init_loop
     push bc
     ld bc,7                     ; type, x, y, dx, x0, x1, basey
     ldir
-    xor a
-    ld (de),a                   ; phase
+    xor a                       ; phase, stun, and the drawn-at record
+    ld b,7
+enemies_init_blank
+    ld (de),a
     inc de
-    ld (de),a                   ; stun
-    inc de
-    ld (de),a                   ; ox
-    inc de
-    ld (de),a                   ; oy
-    inc de
-    ld (de),a                   ; ow
-    inc de
-    ld (de),a                   ; oh
-    inc de
-    ld (de),a                   ; drawn
-    inc de
+    djnz enemies_init_blank
     pop bc
     djnz enemies_init_loop
+    pop bc
+
+enemies_init_spare
+    ld a,ENEMY_COUNT
+    sub b
+    ret z
+    ld b,a
+enemies_init_empty
+    push bc
+    ld b,E_SIZE
+    xor a
+enemies_init_empty_loop
+    ld (de),a
+    inc de
+    djnz enemies_init_empty_loop
+    pop bc
+    djnz enemies_init_empty
     ret
 
 ;; ---------------------------------------------------------------------------

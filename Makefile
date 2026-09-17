@@ -14,7 +14,7 @@
 # tests that mechanic as well as the physics, and it is the level design's own
 # test - change a shelf, the jump height or an enemy's patrol and it stops
 # passing.
-ROUTE  := FIRE@12-13,RIGHT@14-52,LEFT@53-75,FIRE@76-77,LEFT@104-112,RIGHT@114-158,FIRE@129-130,FIRE@161-162,DOWN@165-190,FIRE@167-168,RIGHT@178-200,LEFT@203-262,FIRE@223-224,RIGHT@265-330,FIRE@285-286
+ROUTE  := FIRE@12-13,RIGHT@14-52,LEFT@53-75,FIRE@76-77,LEFT@104-112,RIGHT@114-158,FIRE@129-130,FIRE@161-162,DOWN@165-190,FIRE@167-168,RIGHT@178-200,LEFT@203-262,FIRE@223-224,RIGHT@265-345,FIRE@285-286
 
 RASM   ?= rasm
 PYTHON ?= python3
@@ -116,13 +116,14 @@ check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
 	@echo "=== loukoumas, a robot costs a life and respawns the cat ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
 		--keys "FIRE@12-13,RIGHT@14-120" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 77| 78)"
-	@echo "=== loukoumas, clean playthrough: 5/5, three lives left, level done ==="
-	@echo "    a sausage at 51, 110, 196, 257 and 326, cat_lives never below 3"
+		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 76| 77)"
+	@echo "=== loukoumas, clean run of the lounge and out through the vent ==="
+	@echo "    a sausage at 52, 109, 197, 256 and 327, never below three lives,"
+	@echo "    then cur_room 0 -> 1 at 330 as the cat steps into the vent"
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 340 --keys "$(ROUTE)" \
 		--sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_lives,sausages_got,enemies+22,level_done" \
-		| grep -E "frame ( 51|110|172|196|257|326)"
+		--watch "cur_room,cat_lives,sausages_got,level_done" \
+		| grep -E "frame ( 52|109|172|197|256|327|330)"
 
 $(BUILD):
 	mkdir -p $(BUILD)

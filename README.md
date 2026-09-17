@@ -85,14 +85,30 @@ far, in Greek and English:
 ![Greek title screen](docs/loukoumas-title-el.png)
 ![English title screen](docs/loukoumas-title-en.png)
 
-FIRE starts the play field, Escape comes back, L switches language. Cursor keys or
-joystick to walk, FIRE or up to jump, down to roll, down plus FIRE in mid-air to
-belly-flop. Collect all five sausages to finish the level — or lose three lives to the
-robot vacuums and the canary:
+FIRE starts the game, Escape comes back, L switches language. Cursor keys or joystick to
+walk, FIRE or up to jump, down to roll, down plus FIRE in mid-air to belly-flop. Clear a
+room's sausages and the way out opens — the vent at the top of the bookshelf, then the
+Pitsos itself:
 
-![play field](docs/loukoumas-play.png)
-![level complete](docs/loukoumas-complete.png)
+![the lounge](docs/loukoumas-lounge.png)
+![the kitchen](docs/loukoumas-kitchen.png)
 ![game over](docs/loukoumas-gameover.png)
+
+### Rooms
+
+Rooms are **composed, not painted**. A single 384x272 mode 1 background is 26 KB, so even
+two rooms of bitmap art would not fit, let alone a flat's worth. Each room in
+`src/rooms.asm` is a handful of tables — platforms, sausages, enemies, furniture, where
+the way out is — and costs a few dozen bytes plus whatever props it names. Props are
+shared between rooms, so the kitchen's window is the same bytes as the lounge's.
+
+Furniture is drawn as white outlines rather than solid shapes, which also makes the
+level readable: anything solid white is a platform you can stand on, anything outlined is
+scenery you cannot. It is blitted once into the background through the ordinary sprite
+path, so a sprite walking over it restores it for free.
+
+Nothing in `play.asm` knows the flat's layout — it walks whatever tables `room_load`
+points it at, which is what lets a new room be added without touching the playing code.
 
 ```bash
 make loukoumas
@@ -179,11 +195,12 @@ reverse of the order it was drawn, so a sprite never restores background another
 has since been drawn into. The cat is drawn last and erased first, which is also what
 puts it on top.
 
-`make check` runs a **clean playthrough with the enemies in place**: all five sausages,
-no lives lost. It has to belly-flop to get past the robot patrolling shelf 2, so that
-mechanic is not decoration — the route does not survive without it. This is the level
-design's own test as much as the code's: change a shelf, the jump height or a patrol and
-it stops passing.
+`make check` runs a **clean run of the lounge with the enemies in place**: all five
+sausages, no lives lost, then out through the vent into the kitchen. It has to belly-flop
+to get past the robot patrolling shelf 2, so that mechanic is not decoration — the route
+does not survive without it. This is the level design's own test as much as the code's:
+change a shelf, the jump height or a patrol and it stops passing. The kitchen is built
+but its route is not scripted.
 
 ### Score and collection
 

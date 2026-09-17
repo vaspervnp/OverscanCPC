@@ -235,12 +235,16 @@ pal_title
     include "irq.asm"
     include "keys.asm"
     include "text.asm"
+    ;; Data first: rooms.asm names sprites and messages in table entries, and
+    ;; play.asm indexes room records with IY, both of which rasm resolves as it
+    ;; reads them rather than on a later pass.
     include "sprite.asm"
-    include "enemy.asm"
-    include "play.asm"
     include "font.asm"
     include "strings.asm"
     include "sprites.asm"
+    include "enemy.asm"
+    include "rooms.asm"
+    include "play.asm"
 
 ;; ASSERT evaluates immediately, so this has to come after the generated
 ;; sprite sizes exist.
@@ -275,15 +279,32 @@ cat_spr     defs 2              ; sprite for this frame
 cat_drawn   defs 1              ; is there a background to put back?
 cat_anim    defs 1
 cat_buf     defs SPR_MAX_BYTES
+cat_startx  defs 1                  ; where this room puts the cat
+cat_starty  defs 1
+
+;; rooms.asm - whichever room is loaded
+cur_room    defs 1
+room_name   defs 1                  ; message id for the HUD
+cur_plat    defs 2
+cur_saus    defs 2
+cur_nsaus   defs 1
+cur_props   defs 2
+exit_x      defs 1
+exit_y      defs 1
+exit_w      defs 1
+exit_h      defs 1
+exit_shut   defs 1                  ; prop ids for the two states
+exit_open   defs 1
 
 ;; play.asm - score and larder
 score         defs SCORE_BYTES      ; packed BCD, most significant byte first
 sausages_got  defs 1
-sausage_alive defs SAUSAGE_COUNT
+sausage_alive defs SAUSAGE_MAX
 saus_x        defs 1                ; the sausage being tested
 saus_y        defs 1
 hud_dirty     defs 1
-level_done    defs 1
+level_done    defs 1                ; every sausage in this room found
+game_over     defs 1                ; out of lives, or the fridge is open
 cat_lives     defs 1
 cat_invul     defs 1                ; frames of grace after a respawn
 box_x         defs 1                ; the box cat_hits_box is testing against

@@ -63,6 +63,14 @@ PEN1_BYTE       EQU #F0
 PEN2_BYTE       EQU #0F
 PEN3_BYTE       EQU #FF
 
+;; --- Level geometry --------------------------------------------------------
+;; Shared by the room tables and the playing code, so it lives here rather
+;; than in either of them.
+PLAY_TOP        EQU 12                  ; below the HUD strip
+FLOOR_Y         EQU 236
+FLOOR_H         EQU DISPLAY_LINES-FLOOR_Y
+SHELF_H         EQU 4
+
 ;; --- Text ------------------------------------------------------------------
 ;; Glyphs are 8x8 cells drawn 6 wide and 7 tall, so the spare column and row
 ;; are the letter spacing and text advances a whole cell.

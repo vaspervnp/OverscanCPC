@@ -19,7 +19,9 @@ MSG_LEVEL      EQU 8
 MSG_PAUSED     EQU 9
 MSG_GAMEOVER   EQU 10
 MSG_WELLDONE   EQU 11
-MSG_COUNT EQU 12
+MSG_ROOM1      EQU 12
+MSG_ROOM2      EQU 13
+MSG_COUNT EQU 14
 
 ;; language -> table of message pointers
 lang_tables
@@ -39,6 +41,8 @@ msgtab_en
     defw str_en_PAUSED
     defw str_en_GAMEOVER
     defw str_en_WELLDONE
+    defw str_en_ROOM1
+    defw str_en_ROOM2
 
 msgtab_el
     defw str_el_TITLE1
@@ -53,6 +57,8 @@ msgtab_el
     defw str_el_PAUSED
     defw str_el_GAMEOVER
     defw str_el_WELLDONE
+    defw str_el_ROOM1
+    defw str_el_ROOM2
 
 str_en_TITLE1
     defb 9
@@ -93,6 +99,12 @@ str_en_GAMEOVER
 str_en_WELLDONE
     defb 10
     defb 23,5,12,12,0,4,15,14,5,49
+str_en_ROOM1
+    defb 6
+    defb 12,15,21,14,7,5
+str_en_ROOM2
+    defb 7
+    defb 11,9,20,3,8,5,14
 
 str_el_TITLE1
     defb 9
@@ -133,3 +145,9 @@ str_el_GAMEOVER
 str_el_WELLDONE
     defb 7
     defb 13,32,16,1,2,15,49
+str_el_ROOM1
+    defb 6
+    defb 33,1,30,15,14,9
+str_el_ROOM2
+    defb 7
+    defb 11,15,25,26,9,14,1
