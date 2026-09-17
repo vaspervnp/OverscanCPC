@@ -50,6 +50,11 @@ R_SIZE          EQU 25
 ROOM_COUNT      EQU 29
 SAUSAGE_MAX     EQU 6
 
+;; What a pickup keeps of the background it is standing in front of. The
+;; saucer is the same size as a sausage, so one number does for both.
+PICK_BUF        EQU SPR_SAUSAGE_W*SPR_SAUSAGE_H
+milk_buf        EQU PICK_BUFS+SAUSAGE_MAX*PICK_BUF
+
 ;; Every room is a jump apart top to bottom: the cat clears 32 scanlines, so
 ;; platforms sit on the 32-scanline grid below the floor and the furniture that
 ;; stands in for them - shelving, bookcase, the car - is drawn to match.

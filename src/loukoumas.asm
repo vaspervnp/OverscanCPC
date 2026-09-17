@@ -397,7 +397,7 @@ sausages_got  defs 1
 sausage_alive defs SAUSAGE_MAX
 saus_x        defs 1                ; the sausage being tested
 saus_y        defs 1
-pick_h        defs 1                ; height of the pickup being rubbed out
+pick_bufp     defs 2                ; which sausage's saved background
 milk_x        defs 1                ; the saucer, if this room has one
 milk_y        defs 1
 milk_alive    defs 1
@@ -432,6 +432,8 @@ game_end
 ;; The workspace is uninitialised RAM, but it is still addresses: it must stop
 ;; before the file's copy of the low block, or it would be built on top of the
 ;; tables before they are moved down.
+    ASSERT DATA_ORG+DATA_LEN <= PICK_BUFS
+    ASSERT PICK_BUFS+(SAUSAGE_MAX+1)*PICK_BUF <= #4000
     ASSERT game_end <= PIC_STORE
     ASSERT PIC_STORE+TITLE_PACKED_LEN <= DATA_STORE
     ASSERT DATA_ORG+DATA_LEN <= #4000

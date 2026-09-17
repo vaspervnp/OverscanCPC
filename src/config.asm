@@ -152,6 +152,12 @@ DATA_STORE      EQU #7480   ; where the file carries it, until it is moved
 ;; and is never moved. See tools/mkscreen.py and src/unpack.asm.
 PIC_STORE       EQU #5800
 
+;; Where the pickups keep the background they are standing on. Low RAM, above
+;; the tables the game moved down there and below #4000: it is uninitialised,
+;; so unlike anything declared in the #4000 block it costs nothing at all in
+;; the file. See draw_sausages.
+PICK_BUFS       EQU #3800
+
 ;; ---------------------------------------------------------------------------
 ;; Which room the game starts in. Always 0 in a build anyone plays; make check
 ;; passes -DSTARTROOM=n so a scripted run can be aimed at one room without

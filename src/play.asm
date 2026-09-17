@@ -589,9 +589,22 @@ draw_platforms_loop
     jr draw_platforms_loop
 
 ;; ---------------------------------------------------------------------------
-;; draw_sausages
+;; draw_sausages - and, more to the point, keep what is behind each of them.
+;;
+;; A sausage used to be blitted down and rubbed out with pen 0 when it was
+;; eaten, on the grounds that it stands on the background and never on a
+;; platform. That is true of the platform and untrue of everything else: a
+;; sausage on the crates, on the bus, up the tree or against a wall has
+;; furniture behind it, and pen 0 through the middle of that is a hole - navy
+;; indoors and sky blue out. So they save what they cover, exactly as the
+;; sprites do, and put it back when they go.
+;;
+;; Six of them at four bytes by eight scanlines is 192 bytes, and it lives in
+;; the low RAM above the tables where it costs nothing in the file.
 ;; ---------------------------------------------------------------------------
 draw_sausages
+    ld hl,PICK_BUFS
+    ld (pick_bufp),hl
     ld hl,(cur_saus)
     ld a,(cur_nsaus)
     ld b,a
@@ -609,7 +622,12 @@ draw_sausages_loop
     ld a,c
     call spr_row_ptr
     pop hl
-    call spr_blit
+    ld de,(pick_bufp)
+    call spr_draw               ; saves the background, then draws over it
+    ld hl,(pick_bufp)
+    ld de,PICK_BUF
+    add hl,de
+    ld (pick_bufp),hl
     pop hl
     pop bc
     djnz draw_sausages_loop
@@ -633,7 +651,8 @@ draw_milk
     ld a,c
     call spr_row_ptr
     pop hl
-    jp spr_blit
+    ld de,milk_buf              ; and what it is standing on, to put back
+    jp spr_draw
 
 ;; ---------------------------------------------------------------------------
 ;; flash_update - the border, for a moment, when a life comes back.
@@ -794,6 +813,8 @@ check_sausages
     ld a,(level_done)           ; there to be had after the last sausage
     or a
     ret nz
+    ld hl,PICK_BUFS
+    ld (pick_bufp),hl
     ld hl,(cur_saus)
     ld de,sausage_alive
     ld a,(cur_nsaus)
@@ -844,6 +865,14 @@ check_sausages_next
     inc hl
     inc hl
     inc de
+    push hl
+    ld hl,(pick_bufp)
+    push de
+    ld de,PICK_BUF
+    add hl,de
+    ld (pick_bufp),hl
+    pop de
+    pop hl
     pop bc
     djnz check_sausages_loop
 
@@ -891,49 +920,33 @@ check_milk_score
     ld (milk_flash),a
     ret
 
-erase_milk
-    ld a,(milk_x)
-    ld (fill_x),a
-    ld a,(milk_y)
-    ld c,a
-    ld b,SPR_MILK_W
-    ld a,SPR_MILK_H
-    jp erase_pickup
 
 ;; ---------------------------------------------------------------------------
-;; erase_sausage / erase_pickup - paint over it. Sausages and saucers sit on
-;; the background above a platform, never on one, so plain pen 0 is the right
-;; thing to leave behind.
-;;
-;; erase_pickup wants (fill_x) set, C = top scanline, B = width in bytes and
-;; A = height in scanlines.
+;; erase_sausage / erase_milk - put back what it was standing in front of.
 ;; ---------------------------------------------------------------------------
 erase_sausage
     ld a,(saus_x)
-    ld (fill_x),a
-    ld a,(saus_y)
-    ld c,a
-    ld b,SPR_SAUSAGE_W
+    ld (spr_x),a
+    ld a,SPR_SAUSAGE_W
+    ld (spr_w),a
     ld a,SPR_SAUSAGE_H
-    ;; fall through
+    ld (spr_h),a
+    ld a,(saus_y)
+    call spr_row_ptr
+    ld hl,(pick_bufp)
+    jp spr_restore
 
-erase_pickup
-    ld (pick_h),a
-    ld a,b
-    ld l,a
-    ld h,0
-    ld (fill_w),hl
-    ld a,PEN0_BYTE
-    ld (fill_b),a
-    ld l,c
-    ld h,0
-    add hl,hl
-    ld de,line_tab
-    add hl,de
-    ld a,(pick_h)
-    ld e,a
-    ld d,0
-    jp fill_rows
+erase_milk
+    ld a,(milk_x)
+    ld (spr_x),a
+    ld a,SPR_MILK_W
+    ld (spr_w),a
+    ld a,SPR_MILK_H
+    ld (spr_h),a
+    ld a,(milk_y)
+    call spr_row_ptr
+    ld hl,milk_buf
+    jp spr_restore
 
 ;; ---------------------------------------------------------------------------
 ;; cat_hits_box - carry set if the cat overlaps the box in box_x / box_y /
