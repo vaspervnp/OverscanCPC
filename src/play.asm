@@ -134,8 +134,9 @@ play_step
     call check_sausages         ; what has been eaten is worked out here; the
                                 ; hole it leaves is filled in by sprites_update
     call check_enemies
-    call shake_update           ; both are 50 Hz timers, so they are stepped
-    call flash_update           ; with the logic and not with the picture
+    call shake_update           ; all three are 50 Hz timers, so they are
+    call flash_update           ; stepped with the logic, not with the picture
+    call sfx_update
     ld a,(game_over)            ; a robot may just have ended it
     or a
     jr nz,play_step_over
@@ -880,6 +881,8 @@ check_sausages_loop
     ld (de),a                   ; eaten
     push hl
     push de
+    ld a,SFX_EAT
+    call sfx_play
     call erase_sausage
     ld a,(sausages_got)
     inc a
@@ -1128,6 +1131,8 @@ check_enemies_scan
 ;; grace, or the end of the game.
 ;; ---------------------------------------------------------------------------
 cat_dies
+    ld a,SFX_DIE
+    call sfx_play
     ld a,(cat_lives)
     dec a
     ld (cat_lives),a
@@ -1241,6 +1246,8 @@ cat_ground_jump
     bit CTL_UP,a
     jr z,cat_ground_support
 cat_ground_leap
+    ld a,SFX_JUMP
+    call sfx_play
     ld hl,JUMP_V
     ld (cat_vy),hl
     ld a,ST_AIR
@@ -1318,6 +1325,8 @@ cat_air
     ld a,(ctl_pressed)
     bit CTL_FIRE,a
     jr z,cat_air_gravity
+    ld a,SFX_FLOP
+    call sfx_play
     ld hl,FLOP_V
     ld (cat_vy),hl
     ld a,ST_FLOP

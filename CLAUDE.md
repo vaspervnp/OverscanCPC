@@ -395,6 +395,26 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Room 1's geometry is frozen - the scripted run in `make check` depends on every shelf,
   sausage and patrol being exactly where it is. Decoration can move; collision cannot.
 
+## 10b. Sound
+
+- The PSG is not on the bus. It is reached through the same 8255 PPI as the key
+  matrix: register number out on port A, port C told to select, value out on
+  port A, port C told to write. Port A has to be an output for that, which is
+  where `read_keyboard` leaves it.
+- **Bit 6 of the mixer is the PSG's own port A direction, and the keyboard is
+  read through that port.** Every mixer value in `sound.asm` keeps it at 0.
+  Setting it silently kills the keyboard, and nothing else would look wrong.
+- One channel, one effect at a time, four effects: jump, eat, die, belly-flop.
+  An effect is a starting tone period, a signed step added to it every 50 Hz
+  frame, and a length; the volume is whatever is left of the length, capped at
+  15, so everything fades out without costing a byte of state. Noise effects
+  carry the noise pitch in the period's low byte, which the tone effects do not
+  mind because their noise is switched off in the mixer.
+- `sfx_update` is stepped with the game logic, not with the picture, so an
+  effect lasts the same length of time whatever the render rate is.
+- There is no music. Three channels and a tracker replay is a different job and
+  there are about ninety bytes left between `game_end` and `PIC_STORE`.
+
 ## 11. Game state
 
 - Score is packed BCD, most significant byte first: `DAA` does the arithmetic and

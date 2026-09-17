@@ -109,6 +109,7 @@ loukoumas_start
     ld hl,pal_play              ; the picture is drawn in the game's own pens
     call set_pal
 
+    call sfx_init
     call irq_init
 
 ;; ---------------------------------------------------------------------------
@@ -315,6 +316,7 @@ pal_title
     include "video.asm"
     include "irq.asm"
     include "keys.asm"
+    include "sound.asm"
     include "text.asm"
     include "unpack.asm"
     include "sprite.asm"

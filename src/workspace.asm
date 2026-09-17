@@ -36,6 +36,11 @@ irq_count   defs 1              ; 0..5 within the frame
 frame_count defs 1              ; bumped once per 50 Hz frame, wraps at 256
 render_tick defs 1              ; frame_count at the last rendered picture
 
+;; sound.asm
+sfx_per     defs 2              ; the tone period, as it stands
+sfx_step    defs 2              ; added to it every 50 Hz step
+sfx_len     defs 1              ; steps left, and the volume while it lasts
+
 ;; keys.asm
 ctl_now     defs 1              ; controls held this frame
 ctl_last    defs 1
