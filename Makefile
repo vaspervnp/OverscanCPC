@@ -9,11 +9,12 @@
 #
 # Snapshots (.sna) drag into an emulator; disc images boot with RUN"<name>.
 
-# Scripted play. FLOP clears the shelf 2 robot with a belly-flop and takes the
-# sausage it was guarding; it is the level design's test as much as the code's.
-# Adding enemies made the old five-sausage route die, so completing the level
-# is no longer scripted - see the note in README.
-FLOP   := FIRE@12-13,FIRE@16-17,RIGHT@114-165,FIRE@136-137,FIRE@168-169,DOWN@172-195,FIRE@174-175,RIGHT@185-230
+# A clean playthrough with the enemies in place: all five sausages, no lives
+# lost. It has to belly-flop to get past the robot patrolling shelf 2, so it
+# tests that mechanic as well as the physics, and it is the level design's own
+# test - change a shelf, the jump height or an enemy's patrol and it stops
+# passing.
+ROUTE  := FIRE@12-13,RIGHT@14-52,LEFT@53-75,FIRE@76-77,LEFT@104-112,RIGHT@114-158,FIRE@129-130,FIRE@161-162,DOWN@165-190,FIRE@167-168,RIGHT@178-200,LEFT@203-262,FIRE@223-224,RIGHT@265-330,FIRE@285-286
 
 RASM   ?= rasm
 PYTHON ?= python3
@@ -116,13 +117,12 @@ check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
 		--keys "FIRE@12-13,RIGHT@14-120" --sym $(BUILD)/loukoumas_el.sym \
 		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 77| 78)"
-	@echo "=== loukoumas, belly-flop stuns the shelf robot and clears its sausage ==="
-	@echo "    178 the flop lands and the robot freezes, 206 the sausage is taken,"
-	@echo "    and all three lives survive walking straight through it"
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 240 --keys "$(FLOP)" \
+	@echo "=== loukoumas, clean playthrough: 5/5, three lives left, level done ==="
+	@echo "    a sausage at 51, 110, 196, 257 and 326, cat_lives never below 3"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 340 --keys "$(ROUTE)" \
 		--sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_x,cat_lives,sausages_got,enemies+15,enemies+22" \
-		| grep -E "frame (177|178|205|206|229)"
+		--watch "cat_lives,sausages_got,enemies+22,level_done" \
+		| grep -E "frame ( 51|110|172|196|257|326)"
 
 $(BUILD):
 	mkdir -p $(BUILD)

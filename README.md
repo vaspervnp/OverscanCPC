@@ -179,10 +179,11 @@ reverse of the order it was drawn, so a sprite never restores background another
 has since been drawn into. The cat is drawn last and erased first, which is also what
 puts it on top.
 
-**The level is no longer scripted to completion.** Adding enemies made the old
-five-sausage route die twice over, and re-scripting a clean run against moving enemies
-has not been done — so the earlier guarantee that the level can be finished no longer
-holds, and its difficulty is unvalidated.
+`make check` runs a **clean playthrough with the enemies in place**: all five sausages,
+no lives lost. It has to belly-flop to get past the robot patrolling shelf 2, so that
+mechanic is not decoration — the route does not survive without it. This is the level
+design's own test as much as the code's: change a shelf, the jump height or a patrol and
+it stops passing.
 
 ### Score and collection
 

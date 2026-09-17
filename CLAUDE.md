@@ -270,9 +270,10 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - The belly-flop stuns everything at roughly the height it landed at, ignoring distance
   along the shelf. That is deliberate: it makes the flop the tool for getting past a
   robot patrolling a whole shelf, which a short shockwave did not.
-- `make check` scripts fragments of play, not a whole run. Completing the level was
-  scripted before enemies existed and is not any more, so nothing currently proves the
-  level is finishable.
+- `make check` runs a clean scripted playthrough with the enemies in place: five
+  sausages, no lives lost. It has to belly-flop past the shelf 2 robot to work. Treat it
+  as the level design's test - if it stops passing after a change to a shelf, the jump
+  height or a patrol, the level is no longer completable the way it was.
 
 ## 11. Working conventions
 
