@@ -336,6 +336,14 @@ enemies       defs ENEMY_COUNT*E_SIZE
 enemy_bufs    defs ENEMY_COUNT*ENEMY_BUF
 e_bufp        defs 2                ; buffer cursor while walking the array
 
+;; The order the sprites are laid down in, worked out fresh every frame from
+;; where they are on screen. See sprites_order in play.asm.
+SPRITE_MAX    EQU ENEMY_COUNT+1
+ord_n         defs 1
+ord_y         defs SPRITE_MAX
+draw_order    defs SPRITE_MAX       ; ids: 0 is the cat, an enemy is index+1
+draw_n        defs 1                ; how many of them were drawn last frame
+
     IF TARGET==1
 RUN loukoumas_start
     ENDIF

@@ -75,6 +75,13 @@ play_screen
 play_room
     call room_load
 
+;; Everything that only thinks runs before a single pixel is disturbed, so the
+;; window where the sprites are missing from the screen holds nothing but the
+;; erase, the one background change that has to sit inside it, and the draw.
+;; The HUD goes first as well: it lives above the play area, where no sprite
+;; ever reaches, so repainting it there costs the sprites nothing - and it was
+;; the worst thing in the window, because it is two rows of text and it
+;; repaints on exactly the frame a sausage is collected.
 play_loop
     call wait_frame
     call read_controls
@@ -82,17 +89,13 @@ play_loop
     bit CTL_QUIT,a
     jr nz,play_quit
 
-    call cat_erase              ; unwind the scene in reverse draw order
-    call enemies_erase
-
     ld a,(game_over)
     or a
     jr nz,play_draw
 
     call cat_update
     call enemies_update
-    call check_sausages         ; between erase and draw: a sausage has to
-    call check_enemies          ; leave the background before it is saved again
+    call check_enemies
     call check_exit
     jr nc,play_draw
 
@@ -116,9 +119,14 @@ play_finished
     call msg_big_centre
 
 play_draw
-    call update_hud
-    call enemies_draw
-    call cat_draw               ; last, so the cat is on top
+    call update_hud             ; above the play area, so it is not in the way
+    call sprites_erase
+    call check_sausages         ; inside the window on purpose: a sausage has
+                                ; to leave the background after the sprites
+                                ; are lifted off it and before they are put
+                                ; back, or a save buffer either paints it
+                                ; again or never sees it go
+    call sprites_draw
     call shake_update
     jr play_loop
 
@@ -190,6 +198,7 @@ room_load_found
     ld (cat_starty),a
 
     xor a
+    ld (draw_n),a               ; nothing on screen to unwind yet
     ld (cat_yf),a
     ld (cat_stun),a
     ld (cat_state),a
@@ -1172,6 +1181,209 @@ cat_draw
 
     ld a,1
     ld (cat_drawn),a
+    ret
+
+;; ===========================================================================
+;; Laying the sprites down in the order the beam will meet them.
+;;
+;; There is no double buffer, so every sprite is erased and then redrawn, and
+;; the CRTC is reading the screen the whole time it is missing. The frame tick
+;; is phase-locked to VSYNC and the display has 40 blanked scanlines after it -
+;; about 2.5 ms - while the sprite work is five times that: the cat alone is
+;; 144 bytes to restore, 144 to save and 144 to blit, and a masked blit costs
+;; something like 18 us a byte against 6 for an LDIR.
+;;
+;; So the sprites cannot all be finished before the picture starts. What they
+;; can be is finished before the beam reaches each of them, and that only
+;; needs them done in the order it meets them: topmost first. Drawn that way
+;; every sprite has the whole of its own depth down the screen to be redrawn
+;; in, and the one with the least time - the canary, which flies near the top -
+;; is also the smallest. Drawn the other way round, which is what the fixed
+;; order did, the canary was redrawn about 4 ms after the beam had already
+;; passed it, and it flickered every frame it moved.
+;;
+;; Erasing has to unwind in the exact reverse of the order things were drawn,
+;; so it runs from the bottom of the screen up, over the order that was
+;; actually used last frame rather than a freshly computed one.
+;; ===========================================================================
+
+;; ---------------------------------------------------------------------------
+;; enemy_ptr - A = enemy index -> IY = its record, e_bufp = its save buffer.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+enemy_ptr
+    ld iy,enemies
+    ld hl,enemy_bufs
+    or a
+    jr z,enemy_ptr_done
+    ld b,a
+enemy_ptr_step
+    ld de,E_SIZE
+    add iy,de
+    ld de,ENEMY_BUF
+    add hl,de
+    djnz enemy_ptr_step
+enemy_ptr_done
+    ld (e_bufp),hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; sprite_erase_id / sprite_draw_id - A = id. 0 is the cat, anything else is
+;; an enemy index plus one.
+;; ---------------------------------------------------------------------------
+sprite_erase_id
+    or a
+    jp z,cat_erase
+    dec a
+    call enemy_ptr
+    ld a,(iy+E_DRAWN)
+    or a
+    ret z
+    jp enemy_erase_one
+
+sprite_draw_id
+    or a
+    jp z,cat_draw
+    dec a
+    call enemy_ptr
+    ld a,(iy+E_TYPE)
+    or a
+    ret z
+    jp enemy_draw_one
+
+;; ---------------------------------------------------------------------------
+;; ord_add - A = scanline, C = id. Appends one sprite to the list.
+;; Destroys DE, HL.
+;; ---------------------------------------------------------------------------
+ord_add
+    ld hl,ord_n
+    ld e,(hl)
+    inc (hl)
+    ld d,0
+    ld hl,ord_y
+    add hl,de
+    ld (hl),a
+    ld hl,draw_order
+    add hl,de
+    ld (hl),c
+    ret
+
+;; ---------------------------------------------------------------------------
+;; sprites_order - fill draw_order with what is on screen, topmost first.
+;; Destroys AF, BC, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+sprites_order
+    xor a
+    ld (ord_n),a
+
+    ld a,(cat_y)                ; the cat is always there
+    ld c,0
+    call ord_add
+
+    ld iy,enemies
+    ld b,ENEMY_COUNT
+    ld c,1
+sprites_order_loop
+    push bc
+    ld a,(iy+E_TYPE)
+    or a
+    jr z,sprites_order_next
+    ld a,(iy+E_Y)
+    call ord_add
+sprites_order_next
+    ld de,E_SIZE
+    add iy,de
+    pop bc
+    inc c
+    djnz sprites_order_loop
+    ;; fall through
+
+;; Four entries at most, so the simplest sort that works is also the one that
+;; is quickest to read.
+ord_sort
+    ld a,(ord_n)
+    cp 2
+    ret c
+    dec a
+    ld b,a
+ord_sort_pass
+    push bc
+    ld a,(ord_n)
+    dec a
+    ld b,a
+    ld hl,ord_y
+    ld de,draw_order
+ord_sort_cmp
+    ld a,(hl)
+    inc hl
+    cp (hl)
+    jr c,ord_sort_next
+    jr z,ord_sort_next
+    ld c,(hl)                   ; swap the pair, in both lists at once
+    dec hl
+    ld a,(hl)
+    ld (hl),c
+    inc hl
+    ld (hl),a
+    ex de,hl
+    ld a,(hl)
+    inc hl
+    ld c,(hl)
+    ld (hl),a
+    dec hl
+    ld (hl),c
+    ex de,hl
+ord_sort_next
+    inc de
+    djnz ord_sort_cmp
+    pop bc
+    djnz ord_sort_pass
+    ret
+
+;; ---------------------------------------------------------------------------
+;; sprites_erase - unwind last frame's picture, bottom of the screen first.
+;; ---------------------------------------------------------------------------
+sprites_erase
+    ld a,(draw_n)
+    or a
+    ret z
+    ld b,a
+    ld e,a
+    ld d,0
+    ld hl,draw_order
+    add hl,de
+    dec hl                      ; the last one that was laid down
+sprites_erase_loop
+    push bc
+    push hl
+    ld a,(hl)
+    call sprite_erase_id
+    pop hl
+    dec hl
+    pop bc
+    djnz sprites_erase_loop
+    ret
+
+;; ---------------------------------------------------------------------------
+;; sprites_draw - work the order out, then lay the picture down top first.
+;; ---------------------------------------------------------------------------
+sprites_draw
+    call sprites_order
+    ld a,(ord_n)
+    ld (draw_n),a
+    or a
+    ret z
+    ld b,a
+    ld hl,draw_order
+sprites_draw_loop
+    push bc
+    push hl
+    ld a,(hl)
+    call sprite_draw_id
+    pop hl
+    inc hl
+    pop bc
+    djnz sprites_draw_loop
     ret
 
 ;; ---------------------------------------------------------------------------

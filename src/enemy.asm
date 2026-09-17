@@ -144,11 +144,22 @@ enemy_move_canary
 
 ;; ---------------------------------------------------------------------------
 ;; enemy_move_robot - half the cat's speed, so it can be outrun.
+;;
+;; Counted per enemy rather than off the parity of frame_count. A free-running
+;; interrupt counter looks like the same thing until the game loop overruns a
+;; frame: frame_count then goes up by two, the parity does not change, and the
+;; robot either steps every single update or none of them until the next
+;; overrun flips it back. That reads as robots that stop dead and start again
+;; for no reason, and it happened most often on the frame a sausage was
+;; collected, because that is the frame that repaints the whole HUD.
+;;
+;; E_PHASE is free here - only the canary uses it, as its sine index.
 ;; ---------------------------------------------------------------------------
 enemy_move_robot
-    ld a,(frame_count)
-    and 1
-    ret nz
+    ld a,(iy+E_PHASE)
+    xor 1
+    ld (iy+E_PHASE),a
+    ret nz                      ; step on every second update of this enemy
     ;; fall through
 
 ;; ---------------------------------------------------------------------------
@@ -253,26 +264,6 @@ enemies_hit_next
 ;; enemies_draw / enemies_erase. Draw runs forwards, erase backwards, so the
 ;; whole scene unwinds in the reverse of the order it was laid down.
 ;; ---------------------------------------------------------------------------
-enemies_draw
-    ld hl,enemy_bufs
-    ld (e_bufp),hl
-    ld iy,enemies
-    ld b,ENEMY_COUNT
-enemies_draw_loop
-    push bc
-    ld a,(iy+E_TYPE)
-    or a
-    call nz,enemy_draw_one
-    pop bc
-    ld de,E_SIZE
-    add iy,de
-    ld hl,(e_bufp)
-    ld de,ENEMY_BUF
-    add hl,de
-    ld (e_bufp),hl
-    djnz enemies_draw_loop
-    ret
-
 enemy_draw_one
     call enemy_sprite
     call spr_size
@@ -295,26 +286,6 @@ enemy_draw_one
     call spr_blit
     ld a,1
     ld (iy+E_DRAWN),a
-    ret
-
-enemies_erase
-    ld hl,enemy_bufs+(ENEMY_COUNT-1)*ENEMY_BUF
-    ld (e_bufp),hl
-    ld iy,enemies+(ENEMY_COUNT-1)*E_SIZE
-    ld b,ENEMY_COUNT
-enemies_erase_loop
-    push bc
-    ld a,(iy+E_DRAWN)
-    or a
-    call nz,enemy_erase_one
-    pop bc
-    ld de,-E_SIZE
-    add iy,de
-    ld hl,(e_bufp)
-    ld de,-ENEMY_BUF
-    add hl,de
-    ld (e_bufp),hl
-    djnz enemies_erase_loop
     ret
 
 enemy_erase_one

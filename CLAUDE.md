@@ -239,11 +239,23 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   looks wrong, not before.
 - Everything walks `line_tab` rather than computing addresses, so the 2048-byte stride
   and the page 2 to page 3 crossing at row 21 never come up in game code.
-- Order per frame is restore, move, save, draw. With more than one moving sprite that
-  has to become restore-all then save-and-draw-all, or they erase each other.
-- Drawing starts right at the frame tick, which is phase-locked to VSYNC, so there are
-  about 40 blanked scanlines before the raster reaches line 0. A big blit will still
-  tear; nothing has been measured on hardware yet.
+- Order per frame is restore-all then save-and-draw-all, or the sprites erase each
+  other. Within each pass the order is by screen position, worked out fresh every frame
+  in `sprites_order`: draw from the top of the screen down, erase from the bottom up.
+- **That ordering is not cosmetic.** There are only about 40 blanked scanlines after the
+  frame tick - 2.5 ms - and the sprite work is five times that: a masked blit is roughly
+  18 us a byte against 6 for an LDIR, and the cat alone is 144 bytes restored, 144 saved
+  and 144 blitted. Nothing can be finished before the picture starts, so the only thing
+  that keeps a sprite off-screen when the beam arrives is being redrawn before it gets
+  there. A fixed order left the canary - highest on screen, so the least time - redrawn
+  about 4 ms after the beam had already passed it, and it flickered every frame it moved.
+- Keep work that only thinks out of the window between the erase and the draw. The HUD
+  in particular repaints on the frame a sausage is collected; it lives above the play
+  area, so it costs the sprites nothing if it is done before the erase.
+- **Never pace anything in the game off `frame_count` parity.** It is a free-running
+  interrupt counter, and a frame the loop overruns bumps it by two without changing the
+  parity, so anything keyed on it either runs every update or none of them. The robots
+  were paced that way and stopped and started for no visible reason. Count per object.
 
 ## 9. Physics
 
