@@ -53,6 +53,7 @@ SCORE_BYTES     EQU 3           ; six BCD digits
 SAUSAGE_POINTS  EQU #01         ; BCD, added to the hundreds digit
 
 WELLDONE_Y      EQU 40
+BANNER_PAD      EQU 6           ; clear space above and below the message
 WELLDONE_YS     EQU 3
 
 LIVES_START     EQU 3
@@ -91,11 +92,14 @@ play_loop
 
     ld a,(game_over)
     or a
-    jr nz,play_draw
+    jr nz,play_over             ; the cast has been lifted off the screen
 
     call cat_update
     call enemies_update
     call check_enemies
+    ld a,(game_over)            ; a robot may just have ended it
+    or a
+    jr nz,play_over
     call check_exit
     jr nc,play_draw
 
@@ -109,14 +113,9 @@ play_loop
 play_finished
     ld a,1
     ld (game_over),a
-    ld a,1
-    ld (txt_xs),a
-    ld a,WELLDONE_YS
-    ld (txt_ys),a
-    ld hl,line_tab+WELLDONE_Y*2
-    ld (txt_row),hl
     ld a,MSG_WELLDONE
-    call msg_big_centre
+    call big_banner
+    jr play_over
 
 play_draw
     call update_hud             ; above the play area, so it is not in the way
@@ -127,6 +126,7 @@ play_draw
                                 ; back, or a save buffer either paints it
                                 ; again or never sees it go
     call sprites_draw
+play_over
     call shake_update
     jr play_loop
 
@@ -489,6 +489,7 @@ draw_sausages_loop
 ;; ---------------------------------------------------------------------------
 draw_hud
     xor a
+    ld (txt_solid),a            ; the captions blend; the strip is cleared first
     ld (fill_x),a
     ld hl,BYTES_PER_LINE
     ld (fill_w),hl
@@ -546,13 +547,46 @@ draw_hud
     ld a,(room_name)
     jp msg_small
 
+;; Only the numbers move, so only the numbers are redrawn, and they are written
+;; straight over where they stand. Repainting the whole strip meant clearing 96
+;; bytes by 16 scanlines and laying the captions down again - about 9 ms, half
+;; a frame, every time a sausage was collected. That was what pushed the frame
+;; over and made the robots stutter, and it took the sprites with it.
 update_hud
     ld a,(hud_dirty)
     or a
     ret z
     xor a
     ld (hud_dirty),a
-    jp draw_hud
+    inc a
+    ld (txt_solid),a
+
+    ld hl,line_tab+HUD_Y*2
+    ld (txt_row),hl
+    ld a,SCORE_X
+    ld (txt_x),a
+    ld hl,score
+    ld b,SCORE_BYTES
+    call print_digits
+    ld a,LIVES_X
+    ld (txt_x),a
+    ld a,(cat_lives)
+    call print_digit
+
+    ld hl,line_tab+HUD_ROW2*2
+    ld (txt_row),hl
+    ld a,SAUS_COUNT_X
+    ld (txt_x),a
+    ld a,(sausages_got)
+    call print_digit
+    ld a,GL_SLASH
+    call print_glyph
+    ld a,(cur_nsaus)
+    call print_digit
+
+    xor a
+    ld (txt_solid),a
+    ret
 
 ;; ---------------------------------------------------------------------------
 ;; score_add - A = a BCD byte added to the hundreds digit. The score is kept
@@ -766,13 +800,46 @@ cat_dies
 cat_game_over
     ld a,1
     ld (game_over),a
+    ld a,MSG_GAMEOVER
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; big_banner - A = message id. Lifts the sprites off, clears a band right
+;; across the screen and puts the message in it.
+;;
+;; Big text ORs itself onto whatever is underneath, which sets pen bit 0 and
+;; leaves the other three pen bits alone. Over the navy background that makes
+;; coral and reads perfectly, and on the title screen, where the only other
+;; pen is 2, it is the whole trick that lets the letters cross the bands. Over
+;; a pen that already has bit 0 set it changes nothing at all - and eight of
+;; the sixteen do, now that the rooms are furnished in colour. The game ends
+;; on a room full of furniture, so the band is cleared rather than trusted.
+;;
+;; The sprites come off first and stay off: their saved backgrounds are from
+;; before the banner, so leaving them to erase themselves next frame would
+;; punch a cat-shaped and a canary-shaped hole straight through it.
+;; ---------------------------------------------------------------------------
+big_banner
+    push af
+    call update_hud             ; the life that just went still has to show
+    call sprites_erase
+    xor a
+    ld (draw_n),a
+    ld (fill_x),a
+    ld hl,BYTES_PER_LINE
+    ld (fill_w),hl
+    ld a,PEN0_BYTE
+    ld (fill_b),a
+    ld hl,line_tab+(WELLDONE_Y-BANNER_PAD)*2
+    ld de,WELLDONE_YS*8+BANNER_PAD*2
+    call fill_rows
     ld a,1
     ld (txt_xs),a
     ld a,WELLDONE_YS
     ld (txt_ys),a
     ld hl,line_tab+WELLDONE_Y*2
     ld (txt_row),hl
-    ld a,MSG_GAMEOVER
+    pop af
     jp msg_big_centre
 
 ;; ===========================================================================
@@ -1170,14 +1237,10 @@ cat_draw
     ld a,(cat_y)
     ld (cat_oy),a
 
-    call spr_row_ptr
-    ld hl,cat_buf
-    call spr_save
-
-    ld a,(cat_y)
-    call spr_row_ptr
-    pop hl
-    call spr_blit
+    call spr_row_ptr            ; A is still cat_y
+    ld de,cat_buf
+    pop hl                      ; the pixel data
+    call spr_draw
 
     ld a,1
     ld (cat_drawn),a

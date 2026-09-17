@@ -47,6 +47,8 @@ loukoumas_start
 
     ld a,LANG
     ld (txt_lang),a
+    xor a
+    ld (txt_solid),a            ; small text blends until the HUD asks for more
 
     call build_line_tab
     call draw_title_background

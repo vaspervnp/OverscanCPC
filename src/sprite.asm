@@ -19,6 +19,16 @@
 ;; Every routine walks line_tab rather than computing addresses, so the 2048
 ;; byte scanline stride and the jump from page 2 to page 3 at row 21 cost
 ;; nothing here.
+;;
+;; The per-scanline work is what this costs, not the per-byte work, so it is
+;; written to do as little of it as possible. There used to be a spr_row_addr
+;; subroutine and three passes over every sprite - restore, save, blit - each
+;; calling it once a scanline. A call and a return are 7 us, reloading spr_x is
+;; another 4, and "ld e,(ix+0)" is 5 on its own because of the index prefix:
+;; near 30 us a scanline, and there are about 200 scanlines of sprite in a
+;; frame. The line table walk is now inlined, spr_x is held in C for the whole
+;; sprite, and the save has been folded into the blit so the background is
+;; copied out and the sprite dropped in on a single walk down the rows.
 ;; ===========================================================================
 
 ;; ---------------------------------------------------------------------------
@@ -51,19 +61,45 @@ spr_row_addr
     ret
 
 ;; ---------------------------------------------------------------------------
-;; spr_blit - draw. HL = pixel data (past the header), IX = line_tab pointer
-;; for the top scanline, spr_x / spr_w / spr_h set.
+;; spr_draw - save the background and draw over it in one walk down the rows.
+;;   HL = pixel data (past the header), IX = line_tab pointer for the top
+;;   scanline, DE = where to save the background, spr_x / spr_w / spr_h set.
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
-spr_blit
+spr_draw
+    ld (spr_src),hl
+    ld (spr_bufp),de
+    ld a,(spr_x)
+    ld c,a                      ; x stays in C for the whole sprite
     ld a,(spr_h)
     ld b,a
-spr_blit_row
+spr_draw_row
     push bc
-    call spr_row_addr
+    ld e,(ix+0)                 ; the scanline, plus x
+    ld d,(ix+1)
+    inc ix
+    inc ix
+    ld a,c
+    add a,e
+    ld e,a
+    jr nc,spr_draw_row_set
+    inc d
+spr_draw_row_set
+    push de
+
+    ex de,hl                    ; HL = screen, DE = the save buffer
+    ld de,(spr_bufp)
+    ld a,(spr_w)
+    ld c,a
+    ld b,0
+    ldir
+    ld (spr_bufp),de
+
+    pop de                      ; back to the start of the row
+    ld hl,(spr_src)
     ld a,(spr_w)
     ld b,a
-spr_blit_col
+spr_draw_col
     ld a,(de)
     and (hl)                    ; punch the sprite's hole in the background
     inc hl
@@ -71,30 +107,52 @@ spr_blit_col
     inc hl
     ld (de),a
     inc de
-    djnz spr_blit_col
+    djnz spr_draw_col
+    ld (spr_src),hl
+
     pop bc
-    djnz spr_blit_row
+    djnz spr_draw_row
     ret
 
 ;; ---------------------------------------------------------------------------
-;; spr_save - copy the background into HL. IX = line_tab pointer, spr_x /
-;; spr_w / spr_h set. HL is left past the end of the saved data.
+;; spr_blit - draw without keeping what was underneath, for the things that
+;; are painted into the background once and left there.
+;;   HL = pixel data, IX = line_tab pointer, spr_x / spr_w / spr_h set.
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
-spr_save
+spr_blit
+    ld (spr_src),hl
+    ld a,(spr_x)
+    ld c,a
     ld a,(spr_h)
     ld b,a
-spr_save_row
+spr_blit_row
     push bc
-    call spr_row_addr
+    ld e,(ix+0)
+    ld d,(ix+1)
+    inc ix
+    inc ix
+    ld a,c
+    add a,e
+    ld e,a
+    jr nc,spr_blit_set
+    inc d
+spr_blit_set
+    ld hl,(spr_src)
     ld a,(spr_w)
-    ld c,a
-    ld b,0
-    ex de,hl                    ; HL = screen, DE = buffer
-    ldir
-    ex de,hl                    ; HL = next free byte of the buffer
+    ld b,a
+spr_blit_col
+    ld a,(de)
+    and (hl)
+    inc hl
+    or (hl)
+    inc hl
+    ld (de),a
+    inc de
+    djnz spr_blit_col
+    ld (spr_src),hl
     pop bc
-    djnz spr_save_row
+    djnz spr_blit_row
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -103,11 +161,22 @@ spr_save_row
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 spr_restore
+    ld a,(spr_x)
+    ld c,a
     ld a,(spr_h)
     ld b,a
 spr_restore_row
     push bc
-    call spr_row_addr
+    ld e,(ix+0)
+    ld d,(ix+1)
+    inc ix
+    inc ix
+    ld a,c
+    add a,e
+    ld e,a
+    jr nc,spr_restore_set
+    inc d
+spr_restore_set
     ld a,(spr_w)
     ld c,a
     ld b,0

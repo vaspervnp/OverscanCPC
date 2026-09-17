@@ -123,6 +123,9 @@ print_small_char
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 draw_glyph_small
+    ld a,(txt_solid)
+    or a
+    jr nz,draw_glyph_solid
     ld b,8                          ; one scanline per source row
 draw_glyph_small_line
     push bc
@@ -165,6 +168,50 @@ draw_glyph_small_nc
     ld (de),a
     pop bc
     djnz draw_glyph_small_line
+    ret
+
+;; ---------------------------------------------------------------------------
+;; draw_glyph_solid - the same, but writing the cell rather than blending into
+;; it, so whatever was there goes. That is what the HUD numbers want: a digit
+;; can be overwritten where it stands instead of clearing the strip first, and
+;; clearing the strip is 96 bytes by 16 scanlines of LDIR - about 9 ms, half a
+;; frame, to change one digit. It is also cheaper per byte than the blend,
+;; because it never reads the screen back.
+;; ---------------------------------------------------------------------------
+draw_glyph_solid
+    ld b,8
+draw_glyph_solid_line
+    push bc
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    inc hl
+    ld a,(txt_x)
+    add a,e
+    ld e,a
+    jr nc,draw_glyph_solid_nc
+    inc d
+draw_glyph_solid_nc
+    ld a,(ix+0)
+    inc ix
+    ld c,a
+    and #C0
+    ld (de),a
+    inc de
+    ld a,c
+    rlca
+    rlca
+    ld c,a
+    and #C0
+    ld (de),a
+    inc de
+    ld a,c
+    rlca
+    rlca
+    and #C0
+    ld (de),a
+    pop bc
+    djnz draw_glyph_solid_line
     ret
 
 ;; ---------------------------------------------------------------------------

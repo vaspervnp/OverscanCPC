@@ -27,6 +27,7 @@ run means the code really did execute.
 """
 
 import argparse
+import bisect
 import sys
 
 PARITY = [bin(i).count("1") % 2 == 0 for i in range(256)]
@@ -815,6 +816,12 @@ def main():
     ap.add_argument("--frames", type=int, default=0,
                     help="stop after this many virtual frames (0 = only on a "
                          "self-jump or HALT)")
+    ap.add_argument("--profile", action="store_true",
+                    help="count instructions executed in each named routine "
+                         "(needs --sym); says where a frame is going")
+    ap.add_argument("--profile-from", type=int, default=0, metavar="FRAME",
+                    help="start counting at this frame, to skip the title "
+                         "screen and the first room load")
     ap.add_argument("--frame-instr", type=int, default=12000,
                     help="instructions per virtual frame (default 12000, roughly "
                          "what a 19968 us CPC frame gets through)")
@@ -901,9 +908,22 @@ def main():
     last_frame = -1
     trace = []
 
+    prof = None
+    if args.profile:
+        if not symbols:
+            sys.exit("--profile needs --sym")
+        prof_addr = sorted(set(symbols.values()))
+        prof_name = {v: k for k, v in sorted(symbols.items(), reverse=True)}
+        prof = dict.fromkeys(prof_addr, 0)
+        prof_start = args.profile_from * args.frame_instr
+
     steps = 0
     while steps < limit:
         io.clock = steps
+        if prof is not None and steps >= prof_start:
+            i = bisect.bisect_right(prof_addr, cpu.pc) - 1
+            if i >= 0:
+                prof[prof_addr[i]] += 1
         if watch:
             f = steps // args.frame_instr
             if f != last_frame:
@@ -997,6 +1017,20 @@ def main():
         len(rows[0]), len(rows),
         " (%d wide on the tube)" % (len(rows[0]) * aspect) if aspect != 1 else "",
         io.crtc[1] * 2, ((io.crtc[12] & 0x3F) << 8) | io.crtc[13]))
+
+    if prof is not None:
+        total = sum(prof.values())
+        print()
+        print("PROFILE  %d instructions from frame %d on. Counts, not "
+              "microseconds -" % (total, args.profile_from))
+        print("         but a CPC instruction is 1 to 6 us, and a tight loop "
+              "of them is flat,")
+        print("         so the shape of this is the shape of the frame.")
+        for addr, n in sorted(prof.items(), key=lambda kv: -kv[1])[:20]:
+            if not n:
+                break
+            print("    %6d  %5.1f%%  %s" % (n, 100.0 * n / total,
+                                            prof_name.get(addr, "#%04X" % addr)))
 
     if args.ascii:
         print()

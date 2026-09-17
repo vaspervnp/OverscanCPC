@@ -252,6 +252,20 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Keep work that only thinks out of the window between the erase and the draw. The HUD
   in particular repaints on the frame a sausage is collected; it lives above the play
   area, so it costs the sprites nothing if it is done before the erase.
+- The per-scanline cost is what a sprite costs, not the per-byte cost. `ld e,(ix+0)` is
+  5 us because of the index prefix, a call and a return are 7, and reloading a variable
+  is 4: a subroutine that worked out one row's screen address came to nearly 30 us, and
+  there are about 200 rows of sprite in a frame. The line table walk is inlined in every
+  pass, spr_x is held in a register for the whole sprite, and the background save is
+  folded into the blit so the rows are walked twice instead of three times.
+- Never clear and redraw a whole panel to change a digit. The HUD strip is 96 bytes by
+  16 scanlines, which is 9 ms of LDIR - half a frame - and it was being done every time
+  a sausage was collected. `txt_solid` makes small text overwrite instead of blend, so
+  the numbers can be written straight over where they stand.
+- `tools/z80check.py --profile` counts instructions per routine and is how all of the
+  above was found rather than guessed. Its virtual frame is a fixed instruction budget,
+  so when the game stops overrunning it the scripted routes shift and have to be
+  re-derived - which is itself the signal that the frame got faster.
 - **Never pace anything in the game off `frame_count` parity.** It is a free-running
   interrupt counter, and a frame the loop overruns bumps it by two without changing the
   parity, so anything keyed on it either runs every update or none of them. The robots

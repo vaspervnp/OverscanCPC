@@ -277,13 +277,10 @@ enemy_draw_one
     ld (iy+E_OX),a
     ld a,(iy+E_Y)
     ld (iy+E_OY),a
-    call spr_row_ptr
-    ld hl,(e_bufp)
-    call spr_save
-    ld a,(iy+E_Y)
-    call spr_row_ptr
-    pop hl
-    call spr_blit
+    call spr_row_ptr            ; A is still E_Y
+    ld de,(e_bufp)
+    pop hl                      ; the pixel data
+    call spr_draw
     ld a,1
     ld (iy+E_DRAWN),a
     ret

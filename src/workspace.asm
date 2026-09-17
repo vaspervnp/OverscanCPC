@@ -13,6 +13,7 @@
 line_tab    defs DISPLAY_LINES*2    ; start address of every scanline
 dg_pat      defs GLYPH_MAX_BYTES    ; one expanded glyph row
 
+txt_solid   defs 1              ; small text overwrites instead of blending
 txt_lang    defs 1                  ; LANG_EN / LANG_EL
 txt_x       defs 1                  ; current x, in bytes
 txt_row     defs 2                  ; line_tab pointer for the current text row
@@ -43,6 +44,8 @@ press_state defs 1              ; blink phase of the "press fire" line
 key_rows    defs 10             ; the matrix as it was read this frame
 
 ;; sprite.asm
+spr_src     defs 2              ; sprite data cursor, across a fused row
+spr_bufp    defs 2              ; and where the background is being saved to
 spr_x       defs 1              ; x of the sprite being worked on, in bytes
 spr_w       defs 1
 spr_h       defs 1

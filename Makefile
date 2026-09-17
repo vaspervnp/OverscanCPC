@@ -14,7 +14,7 @@
 # tests that mechanic as well as the physics, and it is the level design's own
 # test - change a shelf, the jump height or an enemy's patrol and it stops
 # passing.
-LOUNGE_ROUTE := FIRE@12-13,RIGHT@18-56,LEFT@57-79,FIRE@80-81,LEFT@108-116,RIGHT@118-162,FIRE@133-134,FIRE@165-166,DOWN@169-194,FIRE@171-172,RIGHT@182-204,LEFT@207-266,FIRE@227-228,RIGHT@269-349,FIRE@289-290
+LOUNGE_ROUTE := FIRE@12-13,RIGHT@18-56,LEFT@57-79,FIRE@80-81,LEFT@108-116,RIGHT@118-162,FIRE@133-134,FIRE@165-166,DOWN@169-194,FIRE@171-172,RIGHT@182-204,LEFT@207-266,FIRE@227-228,RIGHT@269-349,FIRE@293-294
 
 RASM   ?= rasm
 PYTHON ?= python3
@@ -114,11 +114,11 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@echo "    every sausage must survive the cat walking over one"
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 60 --keys FIRE,RIGHT --ascii | sed -n '1,2p;33,38p'
 	@echo "=== loukoumas, physics: stand, jump, land on the shelf above ==="
-	@echo "    24 on the floor at 212, 25 leaves at -1152, 44 apex at 173,"
-	@echo "    51 landed on the rack's lower shelf at 180 and back in state 0"
+	@echo "    24 on the floor at 212, 25 leaves at -1152, 43 apex at 173,"
+	@echo "    50 landed on the rack's lower shelf at 180 and back in state 0"
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 55 \
 		--keys "FIRE@12-13,FIRE@24-25" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_y,cat_state,cat_vy:s" | grep -E "frame ( 24| 25| 44| 51)"
+		--watch "cat_y,cat_state,cat_vy:s" | grep -E "frame ( 24| 25| 43| 50)"
 	@echo "=== loukoumas, belly-flop: terminal velocity, screen shake, stun ==="
 	@echo "    35 commits at 1536, 39 lands flat and sets the shake and stun"
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 50 \
@@ -129,14 +129,14 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@echo "=== loukoumas, a robot costs a life and respawns the cat ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
 		--keys "FIRE@12-13,RIGHT@14-120" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 89| 90)"
+		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 88| 89)"
 	@echo "=== loukoumas, clean run of the lounge and out through the vent ==="
-	@echo "    a sausage at 55, 114, 200, 261 and 330, never below three lives,"
-	@echo "    then cur_room 8 -> 9 at 333 as the cat steps into the vent"
-	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 345 --keys "$(LOUNGE_ROUTE)" \
+	@echo "    a sausage at 55, 115, 200, 262 and 330, never below three lives,"
+	@echo "    then cur_room 8 -> 9 at 332 as the cat steps into the vent"
+	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 350 --keys "$(LOUNGE_ROUTE)" \
 		--sym $(BUILD)/loukoumas_lounge.sym \
 		--watch "cur_room,cat_lives,sausages_got,level_done" \
-		| grep -E "frame ( 55|114|200|261|330|333)"
+		| grep -E "frame ( 55|115|200|262|330|332)"
 	@echo "=== what you can actually run ==="
 	@ls -l $(BUILD)/*.sna $(BUILD)/*.dsk | awk '{printf "    %-28s %8s bytes  %s %s %s\n", $$9, $$5, $$6, $$7, $$8}'
 
