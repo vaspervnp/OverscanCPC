@@ -79,8 +79,10 @@ addressing, not a capture from an emulator or real hardware.
 
 ## ΛΟΥΚΟΥΜΑΣ / LOUKOUMAS
 
-The first game built on the engine, from [loukoumas.md](loukoumas.md). Title screen so
-far, in Greek and English:
+The first game built on the engine, from [loukoumas.md](loukoumas.md). Twenty-nine rooms
+in three acts: the flat at a quarter past three in the morning, the neighbourhood and the
+school in daylight, and the vet's and the rooftops home. Title screen, in Greek and
+English:
 
 ![Greek title screen](docs/loukoumas-title-el.png)
 ![English title screen](docs/loukoumas-title-en.png)
@@ -93,6 +95,12 @@ Pitsos itself:
 ![the lounge](docs/loukoumas-lounge.png)
 ![the kitchen](docs/loukoumas-kitchen.png)
 ![game over](docs/loukoumas-gameover.png)
+
+Then out of the flat, and the light changes with it:
+
+![the back yard](docs/loukoumas-backyard.png)
+![the park](docs/loukoumas-park.png)
+![the rooftops](docs/loukoumas-rooftops.png)
 
 ### Rooms
 
@@ -107,6 +115,23 @@ level readable: anything solid white is a platform you can stand on, anything ou
 scenery you cannot. It is blitted once into the background through the ordinary sprite
 path, so a sprite walking over it restores it for free.
 
+Boxes are almost free, and a fridge is a box. A tree, a cloud, a slide and a street lamp
+are not, so those are **decals** — bitmaps drawn in Aseprite by `assets/aseprite/*.lua`,
+turned into Z80 data by `tools/mkart.py` and ORed into the background when the room
+loads. No mask: the screen underneath has just been cleared to pen 0, and ORing pen 0
+changes nothing, so a decal costs half what the same picture would as a sprite and costs
+nothing at all while the game is running.
+
+A room's light is one byte — the hardware colour of pen 0, which is the background and
+the border both. Navy is a wall at three in the morning, sky blue is nine o'clock outside
+a school, black is a roof at midnight. Nothing else in the palette moves, so the cat is
+butter yellow in all twenty-nine of them.
+
+`tools/roomcheck.py` walks the tables out of the assembled binary and refuses a room the
+cat cannot climb: a shelf out of jump range, a sausage hanging in mid-air, a saucer of
+milk that cannot be reached, an enemy patrolling off the edge of a platform. It caught a
+kitchen whose worktop was seventy-two scanlines above a thirty-nine scanline jump.
+
 Nothing in `play.asm` knows the flat's layout — it walks whatever tables `room_load`
 points it at, which is what lets a new room be added without touching the playing code.
 
@@ -119,8 +144,8 @@ Both languages are in the same binary. Every line of text goes through a message
 directly:
 
 ```
-text/loukoumas.el.txt     TITLE2 = Η ΜΕΓΑΛΗ ΕΠΙΔΡΟΜΗ ΣΤΟ ΨΥΓΕΙΟ
-text/loukoumas.en.txt     TITLE2 = THE GREAT FRIDGE RAID
+text/loukoumas.el.txt     TITLE2 = ΤΟ ΚΥΝΗΓΙ ΤΟΥ ΛΟΥΚΑΝΙΚΟΥ
+text/loukoumas.en.txt     TITLE2 = THE GREAT SAUSAGE CHASE
 ```
 
 Greek is folded onto the font rather than doubling it: accents are dropped (all-caps

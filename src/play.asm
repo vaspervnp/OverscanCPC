@@ -207,6 +207,14 @@ room_load_found
     ld a,(iy+R_STARTY)
     ld (cat_y),a
     ld (cat_starty),a
+    ld a,(iy+R_MILKX)
+    ld (milk_x),a
+    ld a,(iy+R_MILKY)
+    ld (milk_y),a
+    ld a,(iy+R_PAL)
+    ld (room_pal),a
+    ld a,(iy+R_FLOOR)
+    ld (room_floor),a
 
     xor a
     ld (draw_n),a               ; nothing on screen to unwind yet

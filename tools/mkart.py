@@ -4,10 +4,10 @@
 Two kinds of picture come through here, and the difference is what they cost
 while the game is running rather than how they are drawn:
 
-  assets/art/sprite/*.png   enemies. Masked, so the background shows through,
-                            and blitted three times a frame - save, draw,
-                            restore. Same format as tools/mksprite.py writes,
-                            because the same routines draw them.
+  assets/art/sprite/*.png   the enemies, and the saucer of milk. Masked, so the
+                            background shows through, and drawn by the same
+                            routines as the hand-drawn cast, in the same format
+                            tools/mksprite.py writes.
 
   assets/art/decal/*.png    scenery. A tree, a cloud, a slide: painted once
                             into the background when the room loads and never
@@ -236,7 +236,8 @@ def main():
 
         fh.write(";; ---------------------------------------------------------"
                  "------------------\n")
-        fh.write(";; Enemies. Width in bytes, height, then mask/data pairs:\n")
+        fh.write(";; Masked sprites - the enemies, and the saucer of milk.\n")
+        fh.write(";; Width in bytes, height, then mask/data pairs:\n")
         fh.write(";;   screen = (screen AND mask) OR data\n")
         fh.write(";; ---------------------------------------------------------"
                  "------------------\n")
@@ -280,7 +281,7 @@ def main():
 
     sbytes = sum(2 * (w // PIXELS_PER_BYTE) * h + 2 for _n, w, h, _r in sprites)
     dbytes = sum((w // PIXELS_PER_BYTE) * h + 2 for _n, w, h, _r in decals)
-    print("mkart: %d enemies (%d bytes), %d decals (%d bytes)"
+    print("mkart: %d masked sprites (%d bytes), %d decals (%d bytes)"
           % (len(sprites), sbytes, len(decals), dbytes))
 
 

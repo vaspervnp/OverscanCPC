@@ -3,7 +3,8 @@
 ;; The pictures are drawn in Aseprite by assets/aseprite/*.lua.
 
 ;; ---------------------------------------------------------------------------
-;; Enemies. Width in bytes, height, then mask/data pairs:
+;; Masked sprites - the enemies, and the saucer of milk.
+;; Width in bytes, height, then mask/data pairs:
 ;;   screen = (screen AND mask) OR data
 ;; ---------------------------------------------------------------------------
 SPR_BALL_W       EQU 3

@@ -175,14 +175,12 @@ def main():
     saus_w = b.c("SPR_SAUSAGE_W")
     milk_h = b.c("SPR_MILK_H")
     milk_w = b.c("SPR_MILK_W")
-    robot_h = b.c("SPR_ROBOT_H")
-    robot_w = b.c("SPR_ROBOT_W")
-    canary_w = b.c("SPR_CANARY_W")
     line_w = b.c("BYTES_PER_LINE")
     lines = b.c("DISPLAY_LINES")
     play_top = b.c("PLAY_TOP")
     prop_boxes = b.c("PROP_BOXES")
     decal_table = b.c("DECAL_TABLE")
+    enemy_kinds = b.c("ENEMY_KINDS")
 
     bad = []
     for r in read_rooms(b):
@@ -256,19 +254,27 @@ def main():
             fail("the way out at x=%d y=%d %dx%d is not reachable"
                  % (r["exit_x"], r["exit_y"], r["exit_w"], r["exit_h"]))
 
-        # Enemies patrol inside the room and stand on something.
+        # Enemies patrol inside the room and stand on something. What an
+        # enemy is comes out of enemy_kinds - the sprite it is drawn with and
+        # which of the two behaviours moves it - so a wasp is measured as a
+        # wasp rather than as whatever the first two types happened to be.
         for ei, e in enumerate(read_enemies(b, r["enem"], r["nenem"])):
             kind, ex, ey, _dx, x0p, x1p, _base = e
-            w = robot_w if kind == 1 else canary_w
+            if not 1 <= kind <= b.c("ET_COUNT"):
+                fail("enemy %d is type %d, which does not exist" % (ei + 1, kind))
+                continue
+            row = enemy_kinds + (kind - 1) * b.c("EK_SIZE")
+            spr = b.word(row)
+            w, h, walks = b[spr], b[spr + 1], b[row + 2] == b.c("EB_WALK")
             if x1p + w > line_w:
                 fail("enemy %d patrols to column %d, past the right edge"
                      % (ei + 1, x1p))
             if x0p > x1p:
                 fail("enemy %d has an empty patrol %d..%d" % (ei + 1, x0p, x1p))
-            if kind == 1:
-                if not any(y == ey + robot_h and x0 <= x0p and x1p + w <= x1 + 1
+            if walks:
+                if not any(y == ey + h and x0 <= x0p and x1p + w <= x1 + 1
                            for x0, x1, y in plats):
-                    fail("robot %d at y=%d patrols %d..%d, which is not a "
+                    fail("enemy %d at y=%d patrols %d..%d, which is not a "
                          "platform" % (ei + 1, ey, x0p, x1p))
 
         # Furniture and scenery stay on screen. A prop id with bit 7 set is

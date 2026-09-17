@@ -47,7 +47,7 @@ R_PAL           EQU 23          ; hardware colour for pen 0 - what lights it
 R_FLOOR         EQU 24          ; pen the floor band is painted in
 R_SIZE          EQU 25
 
-ROOM_COUNT      EQU 10
+ROOM_COUNT      EQU 29
 SAUSAGE_MAX     EQU 6
 
 ;; Every room is a jump apart top to bottom: the cat clears 32 scanlines, so
@@ -95,6 +95,33 @@ PROP_TOILET     EQU 32
 PROP_DESK       EQU 33
 PROP_BOOKCASE   EQU 34
 PROP_BIN        EQU 35
+PROP_KENNEL     EQU 36
+PROP_STAND      EQU 37
+PROP_LOCKERS    EQU 38
+PROP_BOARD      EQU 39
+PROP_WALLBARS   EQU 40
+PROP_VAULT      EQU 41
+PROP_BLEACHERS  EQU 42
+PROP_BUSSEAT    EQU 43
+PROP_BUS        EQU 44
+PROP_COUNTER    EQU 45
+PROP_CHIMNEY    EQU 46
+PROP_SANDPIT    EQU 47
+PROP_FOUNTAIN   EQU 48
+PROP_BENCH      EQU 49
+PROP_CABINET    EQU 50
+PROP_EXAMTABLE  EQU 51
+PROP_TRUNK      EQU 52
+PROP_TRUNKLOW   EQU 53
+
+;; A prop id with bit 7 set is not a list of boxes at all: it is a decal, and
+;; the rest of the id indexes decal_table in the generated artwork. Furniture
+;; is rectangles because a fridge is a rectangle and fifty bytes will hold a
+;; sofa; a tree, a cloud, a slide and a street lamp are not, so those are
+;; pictures. draw_props tells them apart and nothing else has to care.
+;;
+;; #FF ends a prop list, so decal 127 is not available. There are eighteen.
+DECAL           EQU 128
 
 prop_boxes
     defw box_sofa, box_tv, box_window, box_cooker, box_worktop
@@ -107,6 +134,11 @@ prop_boxes
     defw box_bed, box_drawers, box_rail, box_cases, box_shoebox
     defw box_bath, box_basin, box_toilet
     defw box_desk, box_bookcase, box_bin
+    defw box_kennel, box_stand, box_lockers, box_board
+    defw box_wallbars, box_vault, box_bleachers
+    defw box_busseat, box_bus, box_counter, box_chimney
+    defw box_sandpit, box_fountain, box_bench
+    defw box_cabinet, box_examtable, box_trunk, box_trunklow
 
 ;; ---------------------------------------------------------------------------
 ;; The furniture. Sizes are in bytes across (4 pixels each) and scanlines down.
@@ -566,14 +598,241 @@ box_bookcase
     defb 22,104,  4, 24, 13
     defb  6,136,  3, 20, 15
     defb #FF
+
+;; ---------------------------------------------------------------------------
+;; Out of the flat: the yard, the street, the school, the vet's and the roofs.
+;; Sixteen more pieces of furniture, and everything the flat already owns gets
+;; used again - a packing crate is a packing crate wherever it is standing,
+;; and the steel shelving in the basement is the steel shelving in the vet's
+;; store room.
+;; ---------------------------------------------------------------------------
+
+;; 64 x 32 px: next door's kennel, and the first step up the garden wall.
+box_kennel
+    defb  6,  0,  4,  4, 12      ; the roof, stepped down to the eaves
+    defb  4,  4,  8,  4, 12
+    defb  2,  8, 12,  4, 12
+    defb  0, 12, 16,  4, 12
+    defb  1, 16, 14, 16,  7      ; the box itself
+    defb  2, 19, 12, 13,  6
+    defb  5, 20,  6, 12,  4      ; and the hole in the front of it
+    defb #FF
+
+;; 80 x 64 px: the lemonade stand, unattended since about half past seven.
+box_stand
+    defb  0,  0, 20, 12, 13      ; the sign
+    defb  1,  3, 18,  6, 15
+    defb  1, 12,  2, 16,  6      ; the posts holding it up
+    defb 17, 12,  2, 16,  6
+    defb  8, 20,  4,  8, 11      ; the jug
+    defb  0, 28, 20,  5,  7      ; the counter
+    defb  1, 33, 18, 31, 15      ; and the cloth over the trestle
+    defb  3, 33,  2, 31, 13      ; with a stripe down it
+    defb  9, 33,  2, 31, 13
+    defb 15, 33,  2, 31, 13
+    defb #FF
+
+;; 96 x 64 px: the bank of lockers down one side of the corridor.
+box_lockers
+    defb  0,  0, 24, 64,  6
+    defb  0,  0, 24,  3,  5      ; the top, which is what you climb onto
+    defb  1,  4,  3, 56, 10      ; six doors
+    defb  5,  4,  3, 56, 10
+    defb  9,  4,  3, 56, 10
+    defb 13,  4,  3, 56, 10
+    defb 17,  4,  3, 56, 10
+    defb 21,  4,  3, 56, 10
+    defb  3, 28,  1,  5,  2      ; and six handles
+    defb  7, 28,  1,  5,  2
+    defb 11, 28,  1,  5,  2
+    defb 15, 28,  1,  5,  2
+    defb 19, 28,  1,  5,  2
+    defb 23, 28,  1,  5,  2
+    defb #FF
+
+;; 112 x 64 px: the blackboard, with yesterday's lesson still on it.
+box_board
+    defb  0,  0, 28, 64,  6      ; the frame
+    defb  1,  3, 26, 55,  8      ; the slate
+    defb  3,  8, 10,  2,  3      ; chalk
+    defb  3, 14, 16,  2,  3
+    defb  3, 20,  7,  2,  3
+    defb  3, 32, 14,  2,  3
+    defb  3, 38,  9,  2,  3
+    defb  0, 58, 28,  6,  7      ; the tray
+    defb  2, 59,  4,  2, 15      ; and a stick of it in the tray
+    defb #FF
+
+;; 64 x 160 px: the gym's wall bars. The rungs are on the same 32-scanline
+;; grid the cat jumps on, which is why they are a staircase and not a ladder.
+box_wallbars
+    defb  0,  0,  2,160,  7
+    defb 14,  0,  2,160,  7
+    defb  0,  0, 16,  4,  7
+    defb  0, 32, 16,  4,  7
+    defb  0, 64, 16,  4,  7
+    defb  0, 96, 16,  4,  7
+    defb  0,128, 16,  4,  7
+    defb  0,156, 16,  4,  7
+    defb #FF
+
+;; 72 x 32 px: the vaulting horse.
+box_vault
+    defb  0,  0, 18,  6,  7      ; the padded top
+    defb  1,  2, 16,  2, 15      ; the seam along it
+    defb  0,  6, 18, 10,  6
+    defb  2, 16,  3, 16,  5      ; the legs
+    defb 13, 16,  3, 16,  5
+    defb #FF
+
+;; 112 x 64 px: four rows of terracing beside the pitch.
+box_bleachers
+    defb  0, 48, 28, 16,  5
+    defb  0, 48, 28,  3, 12
+    defb  4, 32, 24, 16,  5
+    defb  4, 32, 24,  3, 12
+    defb  8, 16, 20, 16,  5
+    defb  8, 16, 20,  3, 12
+    defb 12,  0, 16, 16,  5
+    defb 12,  0, 16,  3, 12
+    defb #FF
+
+;; 72 x 32 px: a pair of seats on the school bus.
+box_busseat
+    defb  0,  0,  8, 22, 13
+    defb  1,  2,  6, 16, 12
+    defb 10,  0,  8, 22, 13
+    defb 11,  2,  6, 16, 12
+    defb  0, 22, 18,  6, 12      ; the squabs
+    defb  2, 28,  2,  4,  5      ; and the frame under them
+    defb 14, 28,  2,  4,  5
+    defb #FF
+
+;; 128 x 88 px: the school bus, side on, with the engine running.
+box_bus
+    defb  0,  0, 32, 72,  2
+    defb  0,  0, 32,  4, 15      ; the roof
+    defb  2,  8,  5, 20, 11      ; four windows
+    defb  9,  8,  5, 20, 11
+    defb 16,  8,  5, 20, 11
+    defb 23,  8,  5, 20, 11
+    defb  0, 44, 32,  5,  4      ; the stripe along the side
+    defb 26, 50,  5, 22,  6      ; the door
+    defb 27, 53,  3, 16, 11
+    defb 30, 34,  2,  4, 13      ; a lamp
+    defb  4, 72,  6, 16,  4      ; wheels
+    defb  5, 76,  4,  8,  5
+    defb 22, 72,  6, 16,  4
+    defb 23, 76,  4,  8,  5
+    defb #FF
+
+;; 96 x 64 px: the counter at the vet's, with the bell nobody rings.
+box_counter
+    defb  0,  0, 24,  6,  3
+    defb 19,  0,  3,  4, 13      ; the bell
+    defb  1,  6, 22, 58, 11
+    defb  2, 10, 20, 46, 10
+    defb  4, 14,  7, 38,  3      ; two inlays
+    defb 13, 14,  7, 38,  3
+    defb #FF
+
+;; 40 x 64 px: a chimney stack, with the pots that are the way down it.
+box_chimney
+    defb  1,  0,  3, 10,  7
+    defb  6,  0,  3, 10,  7
+    defb  0, 10, 10, 54, 12
+    defb  0, 14, 10,  2,  7      ; courses of brick
+    defb  0, 22, 10,  2,  7
+    defb  0, 30, 10,  2,  7
+    defb  0, 38, 10,  2,  7
+    defb  0, 46, 10,  2,  7
+    defb  0, 54, 10,  2,  7
+    defb #FF
+
+;; 96 x 24 px: the sandpit, with a bucket and a spade left in it.
+box_sandpit
+    defb  0,  0, 24,  5,  6
+    defb  1,  5, 22, 19, 15
+    defb  4,  2,  3,  4, 13
+    defb 16,  3,  2,  3,  9
+    defb #FF
+
+;; 80 x 64 px: the fountain in the middle of the park.
+box_fountain
+    defb  9,  0,  2, 14, 11      ; the jet
+    defb  4, 12, 12,  6,  5      ; the upper bowl
+    defb  5, 14, 10,  3, 11
+    defb  8, 18,  4, 26,  5      ; the column
+    defb  0, 44, 20, 20,  5      ; the basin
+    defb  1, 47, 18, 10, 11
+    defb #FF
+
+;; 80 x 32 px: a park bench, which is also the waiting room's bench.
+box_bench
+    defb  0,  0, 20,  4,  7      ; the back slats
+    defb  0,  6, 20,  4,  7
+    defb  0, 10,  2,  9,  6      ; the arms
+    defb 18, 10,  2,  9,  6
+    defb  0, 14, 20,  5,  7      ; the seat
+    defb  1, 19,  3, 13,  6      ; the legs
+    defb 16, 19,  3, 13,  6
+    defb #FF
+
+;; 48 x 80 px: a filing cabinet, four drawers.
+box_cabinet
+    defb  0,  0, 12, 80,  5
+    defb  1,  3, 10, 17,  6
+    defb  5, 10,  3,  3,  3
+    defb  1, 22, 10, 17,  6
+    defb  5, 29,  3,  3,  3
+    defb  1, 41, 10, 17,  6
+    defb  5, 48,  3,  3,  3
+    defb  1, 60, 10, 17,  6
+    defb  5, 67,  3,  3,  3
+    defb #FF
+
+;; 16 x 160 px: a trunk, to put under a canopy. The decal is the leaves and
+;; nothing else, so without one of these a tree is a hedge in mid-air.
+box_trunk
+    defb  0,  0,  4,160,  6
+    defb  1,  0,  2,160,  7      ; lit down one side
+    defb  0, 34,  4,  4,  6      ; two branch stubs
+    defb  0, 78,  4,  4,  6
+    defb #FF
+
+;; 16 x 120 px: the same again for a tree whose lowest branch is a jump lower.
+box_trunklow
+    defb  0,  0,  4,120,  6
+    defb  1,  0,  2,120,  7
+    defb  0, 30,  4,  4,  6
+    defb #FF
+
+;; 88 x 32 px: the vet's examination table, and he is not getting on it.
+box_examtable
+    defb  0,  0, 22,  5,  3
+    defb  1,  2, 20,  3, 11      ; the padding
+    defb  2,  5,  3, 27,  5      ; the legs
+    defb 17,  5,  3, 27,  5
+    defb  2, 20, 18,  3,  5      ; the brace between them
+    defb  7,  8,  8,  6,  6      ; a drawer under the top
+    defb #FF
+
 ;; ===========================================================================
-;; The flat. Ten rooms, bottom to top: the cat works its way up from the
-;; basement to the kitchen, where the fridge is.
+;; Twenty-nine rooms in three acts. One to ten are the flat, bottom to top,
+;; from the basement to the fridge. Eleven to twenty-four are the morning
+;; after: the back yard, the street, the park and six rooms of school, chasing
+;; a lunchbox with the last sausage in it. Twenty-five to twenty-nine are the
+;; vet's, and the way home over the roofs.
 ;;
-;; Every room is the same shape underneath - a floor, four or five platforms a
-;; jump apart, five sausages, three enemies and a way out - and different on
-;; top, because the furniture that dresses it is different. tools/roomcheck.py
-;; walks these tables and refuses a room the cat cannot climb.
+;; Every room is the same shape underneath - a floor, four platforms a jump
+;; apart, five sausages, three enemies and a way out - and different on top,
+;; because the furniture that dresses it is different, the light it is lit by
+;; is different, and what is chasing the cat round it is different.
+;;
+;; Every third room has a saucer of milk in it, worth a life.
+;;
+;; tools/roomcheck.py walks these tables and refuses a room the cat cannot
+;; climb, a sausage hanging in mid-air or a saucer that cannot be reached.
 ;; ===========================================================================
 
 CAT_FLOOR       EQU FLOOR_Y-SPR_CAT_STAND_H
@@ -699,7 +958,8 @@ rooms
     defb 86, SHELF4-24
     defb 86, SHELF4-24, 6, 24, PROP_VENT, PROP_VENTOPEN
     defb 4, CAT_FLOOR
-    defb 36, SHELF3-MILK_ON         ; the saucer, along from the sausage
+    defb 60, SHELF2-MILK_ON         ; the saucer, at the near end of the
+                                    ; robot's shelf
     defb PAL_INDOOR, 3
 
     ;; --- 10: the kitchen ---------------------------------------------------
@@ -716,6 +976,254 @@ rooms
     defb 4, CAT_FLOOR
     defb NO_MILK, 0
     defb PAL_INDOOR, 3
+
+
+    ;; --- 11: the back yard -----------------------------------------------
+    defb MSG_ROOM11
+    defw r11_plat, r11_saus
+    defb 5
+    defw r11_enem
+    defb 3
+    defw r11_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_DAY, 9
+
+    ;; --- 12: the pavement, and a lemonade stand nobody is minding --------
+    defb MSG_ROOM12
+    defw r12_plat, r12_saus
+    defb 5
+    defw r12_enem
+    defb 3
+    defw r12_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb 78, SHELF_3-MILK_ON
+    defb PAL_DAY, 5
+
+    ;; --- 13: the playground ----------------------------------------------
+    defb MSG_ROOM13
+    defw r13_plat, r13_saus
+    defb 5
+    defw r13_enem
+    defb 3
+    defw r13_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_DAY, 7
+
+    ;; --- 14: the park ----------------------------------------------------
+    defb MSG_ROOM14
+    defw r14_plat, r14_saus
+    defb 5
+    defw r14_enem
+    defb 3
+    defw r14_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_DAY, 9
+
+    ;; --- 15: the school gate ---------------------------------------------
+    defb MSG_ROOM15
+    defw r15_plat, r15_saus
+    defb 5
+    defw r15_enem
+    defb 3
+    defw r15_props
+    defb 0, 56
+    defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 88, CAT_FLOOR
+    defb 80, SHELF_3-MILK_ON
+    defb PAL_DAY, 5
+
+    ;; --- 16: the corridor, and a floor the caretaker has just done -------
+    defb MSG_ROOM16
+    defw r16_plat, r16_saus
+    defb 5
+    defw r16_enem
+    defb 3
+    defw r16_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 3
+
+    ;; --- 17: the classroom -----------------------------------------------
+    defb MSG_ROOM17
+    defw r17_plat, r17_saus
+    defb 5
+    defw r17_enem
+    defb 3
+    defw r17_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 6
+
+    ;; --- 18: the staff room, which is where the confiscated things end up -
+    defb MSG_ROOM18
+    defw r18_plat, r18_saus
+    defb 5
+    defw r18_enem
+    defb 3
+    defw r18_props
+    defb 0, 56
+    defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 88, CAT_FLOOR
+    defb 80, SHELF_1-MILK_ON
+    defb PAL_INDOOR, 6
+
+    ;; --- 19: the chemistry lab -------------------------------------------
+    defb MSG_ROOM19
+    defw r19_plat, r19_saus
+    defb 5
+    defw r19_enem
+    defb 3
+    defw r19_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 10
+
+    ;; --- 20: the gymnasium -----------------------------------------------
+    defb MSG_ROOM20
+    defw r20_plat, r20_saus
+    defb 5
+    defw r20_enem
+    defb 3
+    defw r20_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 7
+
+    ;; --- 21: the school pitch --------------------------------------------
+    defb MSG_ROOM21
+    defw r21_plat, r21_saus
+    defb 5
+    defw r21_enem
+    defb 3
+    defw r21_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb 56, SHELF_2-MILK_ON
+    defb PAL_DAY, 9
+
+    ;; --- 22: the car park, and the bus is in it with the engine running --
+    defb MSG_ROOM22
+    defw r22_plat, r22_saus
+    defb 5
+    defw r22_enem
+    defb 3
+    defw r22_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_DAY, 5
+
+    ;; --- 23: inside the school bus ---------------------------------------
+    defb MSG_ROOM23
+    defw r23_plat, r23_saus
+    defb 5
+    defw r23_enem
+    defb 3
+    defw r23_props
+    defb 0, 56
+    defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 88, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 6
+
+    ;; --- 24: the pavement outside the school, and the bus pulling away from it -
+    defb MSG_ROOM24
+    defw r24_plat, r24_saus
+    defb 5
+    defw r24_enem
+    defb 3
+    defw r24_props
+    defb 0, 56
+    defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 88, CAT_FLOOR
+    defb 84, SHELF_1-MILK_ON
+    defb PAL_DAY, 5
+
+    ;; --- 25: the vet's waiting room --------------------------------------
+    defb MSG_ROOM25
+    defw r25_plat, r25_saus
+    defb 5
+    defw r25_enem
+    defb 3
+    defw r25_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 10
+
+    ;; --- 26: the examination room, and the table he is not getting onto --
+    defb MSG_ROOM26
+    defw r26_plat, r26_saus
+    defb 5
+    defw r26_enem
+    defb 3
+    defw r26_props
+    defb 0, 56
+    defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 88, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_INDOOR, 10
+
+    ;; --- 27: the store room, where the confiscated lunchbox is -----------
+    defb MSG_ROOM27
+    defw r27_plat, r27_saus
+    defb 5
+    defw r27_enem
+    defb 3
+    defw r27_props
+    defb 76, 56
+    defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 4, CAT_FLOOR
+    defb 54, SHELF_2-MILK_ON
+    defb PAL_INDOOR, 6
+
+    ;; --- 28: the rooftops, and it is dark again --------------------------
+    defb MSG_ROOM28
+    defw r28_plat, r28_saus
+    defb 5
+    defw r28_enem
+    defb 3
+    defw r28_props
+    defb 8, 180
+    defb 8, 180, 6, 24, PROP_VENT, PROP_VENTOPEN
+    defb 86, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_NIGHT, 5
+
+    ;; --- 29: down the chimney, and out into his own fireplace ------------
+    defb MSG_ROOM29
+    defw r29_plat, r29_saus
+    defb 5
+    defw r29_enem
+    defb 3
+    defw r29_props
+    defb 0, 56
+    defb 2, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
+    defb 88, CAT_FLOOR
+    defb NO_MILK, 0
+    defb PAL_NIGHT, 12
 
 ;; ---------------------------------------------------------------------------
 ;; 1 - the basement. Steel shelving on the left, packing crates in the middle,
@@ -1053,4 +1561,639 @@ r10_props
     defb PROP_BIN,     28, K_BIN
     defb PROP_WORKTOP,  0, K_WORKTOP-6
     defb PROP_COOKER,  44, K_WORKTOP
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 11 - the back yard. Out through the cat flap at dawn, and the school bus is
+;; already at the top of the road. Up the kennel, along the garden wall,
+;; over the crates and into the lemon tree.
+;; ---------------------------------------------------------------------------
+r11_plat
+    defb  0, 95, FLOOR_Y
+    defb  8, 24, SHELF_1                ; the kennel roof
+    defb 28, 52, SHELF_2                ; the top of the garden wall
+    defb 56, 80, SHELF_3                ; the stack of crates by the shed
+    defb 30, 54, SHELF_4                ; the low branch
+    defb #FF
+
+r11_saus
+    defb 48, FLOOR_Y-SAUS_ON
+    defb 12, SHELF_1-SAUS_ON
+    defb 36, SHELF_2-SAUS_ON
+    defb 62, SHELF_3-SAUS_ON
+    defb 40, SHELF_4-SAUS_ON
+
+r11_enem
+    defb ET_DOG,     40, FLOOR_Y-SPR_DOG_H,      1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+    defb ET_BALL,    34, SHELF_2-SPR_BALL_H,     1, 28, 50,                        0
+    defb ET_WASP,    60, 60,                    -1,  4, BYTES_PER_LINE-SPR_WASP_W, 60
+
+r11_props
+    defb DECAL+DECAL_CLOUD,      2, 24
+    defb DECAL+DECAL_CLOUD2,    66, 30
+    defb DECAL+DECAL_SUN,       82, 24
+    defb PROP_TRUNK,            36, 104
+    defb PROP_KENNEL,            8, SHELF_1
+    defb PROP_FENCE,            28, SHELF_2
+    defb PROP_CRATES,           56, SHELF_3
+    defb DECAL+DECAL_TREETOP,   30, 84
+    defb DECAL+DECAL_TREETOP,   42, 88
+    defb DECAL+DECAL_GRASS,     70, FLOOR_Y-6
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 12 - the pavement, and a lemonade stand nobody is minding. The first
+;; saucer of milk of the journey is on the wall, past the dog.
+;; ---------------------------------------------------------------------------
+r12_plat
+    defb  0, 95, FLOOR_Y
+    defb 10, 30, SHELF_1                ; the counter of the stand
+    defb 36, 56, SHELF_2                ; the bench
+    defb 62, 86, SHELF_3                ; the garden wall
+    defb 30, 54, SHELF_4                ; the balcony railing
+    defb #FF
+
+r12_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb 14, SHELF_1-SAUS_ON
+    defb 40, SHELF_2-SAUS_ON
+    defb 68, SHELF_3-SAUS_ON
+    defb 36, SHELF_4-SAUS_ON
+
+r12_enem
+    defb ET_DOG,     50, FLOOR_Y-SPR_DOG_H,     -1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+    defb ET_STRAY,   38, SHELF_2-SPR_STRAY_H,    1, 36, 51,                        0
+    defb ET_PIGEON,  20, 50,                     1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 50
+
+r12_props
+    defb DECAL+DECAL_CLOUD,      4, 24
+    defb DECAL+DECAL_CLOUD2,    70, 26
+    defb PROP_STAND,            10, SHELF_1
+    defb PROP_BENCH,            36, SHELF_2
+    defb PROP_FENCE,            62, SHELF_3
+    defb DECAL+DECAL_LAMP,      64, SHELF_3-26
+    defb PROP_FENCE,            30, SHELF_4
+    defb DECAL+DECAL_SIGN,      88, FLOOR_Y-18
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 13 - the playground. The slide is the way up and the sandpit is the way
+;; down, and the football has opinions about both.
+;; ---------------------------------------------------------------------------
+r13_plat
+    defb  0, 95, FLOOR_Y
+    defb  6, 26, SHELF_1                ; the swing seat
+    defb 44, 64, SHELF_2                ; the top of the slide
+    defb 20, 36, SHELF_3                ; the climbing frame
+    defb 20, 36, SHELF_4                ; and the top of it
+    defb #FF
+
+r13_saus
+    defb 48, FLOOR_Y-SAUS_ON
+    defb 10, SHELF_1-SAUS_ON
+    defb 50, SHELF_2-SAUS_ON
+    defb 26, SHELF_3-SAUS_ON
+    defb 26, SHELF_4-SAUS_ON
+
+r13_enem
+    defb ET_BALL,    40, FLOOR_Y-SPR_BALL_H,     1,  0, BYTES_PER_LINE-SPR_BALL_W, 0
+    defb ET_WASP,    30, 58,                     1,  4, BYTES_PER_LINE-SPR_WASP_W, 58
+    defb ET_PIGEON,  70, 48,                    -1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 48
+
+r13_props
+    defb DECAL+DECAL_CLOUD,     60, 24
+    defb DECAL+DECAL_SUN,       84, 26
+    defb DECAL+DECAL_SWING,      6, SHELF_1-22
+    defb PROP_WALLBARS,         20, FLOOR_Y-160
+    defb DECAL+DECAL_SLIDE,     48, SHELF_2-24
+    defb PROP_SANDPIT,           0, FLOOR_Y-24
+    defb DECAL+DECAL_GRASS,     66, FLOOR_Y-6
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 14 - the park. Two trees, a fountain and more pigeons than anyone needs.
+;; ---------------------------------------------------------------------------
+r14_plat
+    defb  0, 95, FLOOR_Y
+    defb  6, 26, SHELF_1                ; the park bench
+    defb 32, 52, SHELF_2                ; the rim of the fountain
+    defb 58, 82, SHELF_3                ; the low branch
+    defb 26, 50, SHELF_4                ; the high one
+    defb #FF
+
+r14_saus
+    defb 46, FLOOR_Y-SAUS_ON
+    defb 10, SHELF_1-SAUS_ON
+    defb 38, SHELF_2-SAUS_ON
+    defb 64, SHELF_3-SAUS_ON
+    defb 32, SHELF_4-SAUS_ON
+
+r14_enem
+    defb ET_PIGEON,  20, 52,                     1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 52
+    defb ET_WASP,    60, 70,                    -1,  4, BYTES_PER_LINE-SPR_WASP_W, 70
+    defb ET_DOG,     60, FLOOR_Y-SPR_DOG_H,     -1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+
+r14_props
+    defb DECAL+DECAL_CLOUD,      2, 24
+    defb DECAL+DECAL_SUN,       84, 24
+    defb PROP_TRUNKLOW,         64, SHELF_3-4
+    defb PROP_TRUNK,            30, 104
+    defb PROP_BENCH,             6, SHELF_1
+    defb PROP_FOUNTAIN,         32, SHELF_2
+    defb DECAL+DECAL_TREETOP,   58, SHELF_3-24
+    defb DECAL+DECAL_TREETOP,   70, SHELF_3-20
+    defb DECAL+DECAL_TREETOP,   26, 84
+    defb DECAL+DECAL_FLOWERS,   76, FLOOR_Y-10
+    defb DECAL+DECAL_BUSHY,     86, FLOOR_Y-12
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 15 - the school gate. In over the wall rather than through it, because the
+;; gate is shut and there is a terrier on the pavement.
+;; ---------------------------------------------------------------------------
+r15_plat
+    defb  0, 95, FLOOR_Y
+    defb  4, 28, SHELF_1                ; the low wall
+    defb 34, 58, SHELF_2                ; the railings
+    defb 60, 88, SHELF_3                ; the steps up to the door
+    defb 30, 54, SHELF_4                ; the canopy over them
+    defb #FF
+
+r15_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb  8, SHELF_1-SAUS_ON
+    defb 40, SHELF_2-SAUS_ON
+    defb 70, SHELF_3-SAUS_ON
+    defb 36, SHELF_4-SAUS_ON
+
+r15_enem
+    defb ET_DOG,     50, FLOOR_Y-SPR_DOG_H,      1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+    defb ET_BALL,     8, SHELF_1-SPR_BALL_H,     1,  4, 26,                        0
+    defb ET_PIGEON,  60, 46,                    -1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 46
+
+r15_props
+    defb DECAL+DECAL_CLOUD,      2, 24
+    defb DECAL+DECAL_SUN,       78, 24
+    defb PROP_FENCE,             4, SHELF_1
+    defb PROP_LOCKERS,          34, SHELF_2
+    defb PROP_STAIRS,           60, SHELF_3
+    defb PROP_FENCE,            30, SHELF_4
+    defb DECAL+DECAL_SIGN,      90, FLOOR_Y-18
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 16 - the corridor, and a floor the caretaker has just done. The lockers are
+;; the only way up, and there is a bucket at each end of the run.
+;; ---------------------------------------------------------------------------
+r16_plat
+    defb  0, 95, FLOOR_Y
+    defb 30, 42, SHELF_1                ; the bin
+    defb  0, 24, SHELF_2                ; the top of the lockers
+    defb 30, 56, SHELF_3                ; the window ledge
+    defb 60, 88, SHELF_4                ; the noticeboard
+    defb #FF
+
+r16_saus
+    defb 52, FLOOR_Y-SAUS_ON
+    defb 32, SHELF_1-SAUS_ON
+    defb  8, SHELF_2-SAUS_ON
+    defb 36, SHELF_3-SAUS_ON
+    defb 66, SHELF_4-SAUS_ON
+
+r16_enem
+    defb ET_MOP,     40, FLOOR_Y-SPR_MOP_H,      1,  0, BYTES_PER_LINE-SPR_MOP_W,  0
+    defb ET_MOP,      4, SHELF_2-SPR_MOP_H,      1,  0, 21,                        0
+    defb ET_PLANE,   60, 44,                    -1,  4, BYTES_PER_LINE-SPR_PLANE_W, 44
+
+r16_props
+    defb PROP_BIN,              30, SHELF_1
+    defb PROP_LOCKERS,           0, SHELF_2
+    defb PROP_WINDOW,           30, 44
+    defb PROP_BOARD,            60, SHELF_4
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 17 - the classroom. Desk, blackboard, window ledge, and a paper plane that
+;; has been going round the room since Tuesday.
+;; ---------------------------------------------------------------------------
+r17_plat
+    defb  0, 95, FLOOR_Y
+    defb  8, 38, SHELF_1                ; the desk
+    defb 50, 78, SHELF_2                ; the top of the blackboard
+    defb 14, 38, SHELF_3                ; the window ledge
+    defb 48, 74, SHELF_4                ; the shelf above the map
+    defb #FF
+
+r17_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb 14, SHELF_1-SAUS_ON
+    defb 56, SHELF_2-SAUS_ON
+    defb 20, SHELF_3-SAUS_ON
+    defb 54, SHELF_4-SAUS_ON
+
+r17_enem
+    defb ET_BALL,    40, FLOOR_Y-SPR_BALL_H,     1,  0, BYTES_PER_LINE-SPR_BALL_W, 0
+    defb ET_PLANE,   20, 46,                     1,  4, BYTES_PER_LINE-SPR_PLANE_W, 46
+    defb ET_PLANE,   70, 62,                    -1,  4, BYTES_PER_LINE-SPR_PLANE_W, 62
+
+r17_props
+    defb PROP_DESK,              8, SHELF_1
+    defb PROP_BOARD,            50, SHELF_2
+    defb PROP_WINDOW,           14, 44
+    defb PROP_TOOLBOARD,        52, 64
+    defb DECAL+DECAL_GLOBE,     30, SHELF_1-18
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 18 - the staff room, which is where the confiscated things end up. Milk on
+;; the desk, and nobody in until half past eight.
+;; ---------------------------------------------------------------------------
+r18_plat
+    defb  0, 95, FLOOR_Y
+    defb 58, 88, SHELF_1                ; the desk
+    defb 30, 46, SHELF_2                ; the chest of drawers
+    defb 24, 54, SHELF_3                ; the bookcase
+    defb 60, 92, SHELF_4                ; the coat rail
+    defb #FF
+
+r18_saus
+    defb 46, FLOOR_Y-SAUS_ON
+    defb 64, SHELF_1-SAUS_ON
+    defb 34, SHELF_2-SAUS_ON
+    defb 30, SHELF_3-SAUS_ON
+    defb 66, SHELF_4-SAUS_ON
+
+r18_enem
+    defb ET_MOP,     40, FLOOR_Y-SPR_MOP_H,     -1,  0, BYTES_PER_LINE-SPR_MOP_W,  0
+    defb ET_PLANE,   20, 48,                     1,  4, BYTES_PER_LINE-SPR_PLANE_W, 48
+    defb ET_WASP,    70, 58,                    -1,  4, BYTES_PER_LINE-SPR_WASP_W, 58
+
+r18_props
+    defb PROP_DOOR,              0, 56
+    defb PROP_BOOKCASE,         24, 76
+    defb PROP_DESK,             58, SHELF_1
+    defb PROP_DRAWERS,          30, SHELF_2
+    defb PROP_RAIL,             60, SHELF_4
+    defb DECAL+DECAL_PLANT,     88, FLOOR_Y-20
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 19 - the chemistry lab. Whatever was in the beaker is out of the beaker,
+;; and it has learned to get about.
+;; ---------------------------------------------------------------------------
+r19_plat
+    defb  0, 95, FLOOR_Y
+    defb  2, 26, SHELF_1                ; the first bench
+    defb 32, 56, SHELF_2                ; the second
+    defb 10, 34, SHELF_3                ; the shelf of the rack
+    defb 40, 72, SHELF_4                ; the top shelf
+    defb #FF
+
+r19_saus
+    defb 56, FLOOR_Y-SAUS_ON
+    defb  6, SHELF_1-SAUS_ON
+    defb 38, SHELF_2-SAUS_ON
+    defb 16, SHELF_3-SAUS_ON
+    defb 46, SHELF_4-SAUS_ON
+
+r19_enem
+    defb ET_BLOB,    40, FLOOR_Y-SPR_BLOB_H,     1,  0, BYTES_PER_LINE-SPR_BLOB_W, 0
+    defb ET_BLOB,    36, SHELF_2-SPR_BLOB_H,     1, 32, 53,                        0
+    defb ET_PLANE,   70, 46,                    -1,  4, BYTES_PER_LINE-SPR_PLANE_W, 46
+
+r19_props
+    defb PROP_RACK,             10, 76
+    defb PROP_WORKTOP,           2, SHELF_1-6
+    defb PROP_WORKTOP,          32, SHELF_2-6
+    defb PROP_TOOLBOARD,        44, 64
+    defb DECAL+DECAL_FLASK,      8, SHELF_1-16
+    defb DECAL+DECAL_FLASK,     38, SHELF_2-16
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 20 - the gymnasium. Wall bars up the left, the vaulting horse on the right,
+;; and a football nobody put away.
+;; ---------------------------------------------------------------------------
+r20_plat
+    defb  0, 95, FLOOR_Y
+    defb 60, 78, SHELF_1                ; the vaulting horse
+    defb 30, 54, SHELF_2                ; the stacked mats
+    defb  4, 20, SHELF_3                ; a rung of the wall bars
+    defb 36, 68, SHELF_4                ; the beam
+    defb #FF
+
+r20_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb 64, SHELF_1-SAUS_ON
+    defb 34, SHELF_2-SAUS_ON
+    defb  8, SHELF_3-SAUS_ON
+    defb 44, SHELF_4-SAUS_ON
+
+r20_enem
+    defb ET_BALL,    40, FLOOR_Y-SPR_BALL_H,    -1,  0, BYTES_PER_LINE-SPR_BALL_W, 0
+    defb ET_MOP,     40, SHELF_4-SPR_MOP_H,      1, 36, 65,                        0
+    defb ET_PLANE,   20, 50,                     1,  4, BYTES_PER_LINE-SPR_PLANE_W, 50
+
+r20_props
+    defb PROP_WALLBARS,          4, 76
+    defb PROP_CRATES,           30, SHELF_2
+    defb PROP_VAULT,            60, SHELF_1
+    defb DECAL+DECAL_HOOP,      70, 94
+    defb DECAL+DECAL_HOOP,      72, 40
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 21 - the school pitch. Up the terraces, over the steps and past the goal.
+;; ---------------------------------------------------------------------------
+r21_plat
+    defb  0, 95, FLOOR_Y
+    defb  6, 30, SHELF_1                ; the bottom terrace
+    defb 34, 70, SHELF_2                ; the steps
+    defb  8, 32, SHELF_3                ; the top terrace
+    defb 40, 64, SHELF_4                ; the floodlight gantry
+    defb #FF
+
+r21_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb 10, SHELF_1-SAUS_ON
+    defb 40, SHELF_2-SAUS_ON
+    defb 14, SHELF_3-SAUS_ON
+    defb 46, SHELF_4-SAUS_ON
+
+r21_enem
+    defb ET_BALL,    40, FLOOR_Y-SPR_BALL_H,     1,  0, BYTES_PER_LINE-SPR_BALL_W, 0
+    defb ET_PIGEON,  20, 50,                     1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 50
+    defb ET_DOG,     70, FLOOR_Y-SPR_DOG_H,     -1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+
+r21_props
+    defb DECAL+DECAL_CLOUD,      2, 24
+    defb DECAL+DECAL_SUN,       84, 26
+    defb PROP_BLEACHERS,         6, SHELF_3
+    defb PROP_STAIRS,           34, SHELF_2
+    defb DECAL+DECAL_LAMP,      46, 82
+    defb DECAL+DECAL_GOAL,      60, FLOOR_Y-16
+    defb DECAL+DECAL_GRASS,     78, FLOOR_Y-6
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 22 - the car park, and the bus is in it with the engine running. Up the
+;; teacher's car, over the crates and onto the roof of the bus.
+;; ---------------------------------------------------------------------------
+r22_plat
+    defb  0, 95, FLOOR_Y
+    defb 10, 58, SHELF_1                ; the roof of the car
+    defb 24, 48, SHELF_2                ; the crates
+    defb 44, 76, SHELF_3                ; the roof of the bus
+    defb 14, 44, SHELF_4                ; the lamp gantry
+    defb #FF
+
+r22_saus
+    defb 66, FLOOR_Y-SAUS_ON
+    defb 14, SHELF_1-SAUS_ON
+    defb 28, SHELF_2-SAUS_ON
+    defb 60, SHELF_3-SAUS_ON
+    defb 20, SHELF_4-SAUS_ON
+
+r22_enem
+    defb ET_STRAY,   40, FLOOR_Y-SPR_STRAY_H,    1,  0, BYTES_PER_LINE-SPR_STRAY_W, 0
+    defb ET_DOG,     20, SHELF_1-SPR_DOG_H,      1, 10, 54,                        0
+    defb ET_PIGEON,  70, 48,                    -1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 48
+
+r22_props
+    defb DECAL+DECAL_CLOUD,      2, 24
+    defb DECAL+DECAL_SUN,       84, 26
+    defb PROP_CRATES,           24, SHELF_2
+    defb PROP_CAR,              10, SHELF_1
+    defb PROP_BUS,              44, SHELF_3
+    defb PROP_TYRES,            80, SHELF_1
+    defb DECAL+DECAL_LAMP,      16, 82
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 23 - inside the school bus. Three rows of seats, the luggage rack, and the
+;; lunchbox is not in any of them.
+;; ---------------------------------------------------------------------------
+r23_plat
+    defb  0, 95, FLOOR_Y
+    defb  6, 24, SHELF_1                ; the first seat
+    defb 30, 48, SHELF_2                ; the second
+    defb 54, 72, SHELF_3                ; the third
+    defb 24, 48, SHELF_4                ; the luggage rack
+    defb #FF
+
+r23_saus
+    defb 62, FLOOR_Y-SAUS_ON
+    defb 10, SHELF_1-SAUS_ON
+    defb 34, SHELF_2-SAUS_ON
+    defb 58, SHELF_3-SAUS_ON
+    defb 30, SHELF_4-SAUS_ON
+
+r23_enem
+    defb ET_BALL,    40, FLOOR_Y-SPR_BALL_H,     1,  0, BYTES_PER_LINE-SPR_BALL_W, 0
+    defb ET_PLANE,   20, 44,                     1,  4, BYTES_PER_LINE-SPR_PLANE_W, 44
+    defb ET_PLANE,   70, 56,                    -1,  4, BYTES_PER_LINE-SPR_PLANE_W, 56
+
+r23_props
+    defb PROP_WINDOW,           72, 44
+    defb PROP_BUSSEAT,           6, SHELF_1
+    defb PROP_BUSSEAT,          30, SHELF_2
+    defb PROP_BUSSEAT,          54, SHELF_3
+    defb PROP_CASES,            24, SHELF_4
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 24 - the pavement outside the school, and the bus pulling away from it.
+;; Onto the roof of the bus, up to the balcony, and across the awnings.
+;; ---------------------------------------------------------------------------
+r24_plat
+    defb  0, 95, FLOOR_Y
+    defb 68, 92, SHELF_1                ; the low wall
+    defb 40, 72, SHELF_2                ; the roof of the bus
+    defb 12, 36, SHELF_3                ; the balcony
+    defb 44, 68, SHELF_4                ; the awning
+    defb #FF
+
+r24_saus
+    defb 30, FLOOR_Y-SAUS_ON
+    defb 72, SHELF_1-SAUS_ON
+    defb 46, SHELF_2-SAUS_ON
+    defb 18, SHELF_3-SAUS_ON
+    defb 50, SHELF_4-SAUS_ON
+
+r24_enem
+    defb ET_DOG,     40, FLOOR_Y-SPR_DOG_H,      1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+    defb ET_STRAY,   44, SHELF_2-SPR_STRAY_H,    1, 40, 66,                        0
+    defb ET_PIGEON,  20, 46,                     1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 46
+
+r24_props
+    defb DECAL+DECAL_CLOUD,      2, 22
+    defb DECAL+DECAL_CLOUD2,    60, 26
+    defb PROP_FENCE,            68, SHELF_1
+    defb PROP_BUS,              40, SHELF_2
+    defb PROP_FENCE,            12, SHELF_3
+    defb PROP_FENCE,            44, SHELF_4
+    defb DECAL+DECAL_LAMP,       2, FLOOR_Y-26
+    defb DECAL+DECAL_SIGN,      88, FLOOR_Y-18
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 25 - the vet's waiting room. Caught on the pavement by somebody who thought
+;; he was a stray, and the lunchbox went into the office with him.
+;; ---------------------------------------------------------------------------
+r25_plat
+    defb  0, 95, FLOOR_Y
+    defb  8, 28, SHELF_1                ; the bench
+    defb 34, 58, SHELF_2                ; the counter
+    defb 10, 34, SHELF_3                ; a shelf of the rack
+    defb 40, 52, SHELF_4                ; the top of the cabinet
+    defb #FF
+
+r25_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb 12, SHELF_1-SAUS_ON
+    defb 40, SHELF_2-SAUS_ON
+    defb 16, SHELF_3-SAUS_ON
+    defb 44, SHELF_4-SAUS_ON
+
+r25_enem
+    defb ET_DOG,     40, FLOOR_Y-SPR_DOG_H,      1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+    defb ET_SYRINGE, 20, 46,                     1,  4, BYTES_PER_LINE-SPR_SYRINGE_W, 46
+    defb ET_SYRINGE, 70, 60,                    -1,  4, BYTES_PER_LINE-SPR_SYRINGE_W, 60
+
+r25_props
+    defb PROP_RACK,             10, 76
+    defb PROP_BENCH,             8, SHELF_1
+    defb PROP_COUNTER,          34, SHELF_2
+    defb PROP_CABINET,          40, SHELF_4
+    defb DECAL+DECAL_PLANT,     60, FLOOR_Y-20
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 26 - the examination room, and the table he is not getting onto. The
+;; syringes float about on their own in here, which is not reassuring.
+;; ---------------------------------------------------------------------------
+r26_plat
+    defb  0, 95, FLOOR_Y
+    defb 60, 82, SHELF_1                ; the examination table
+    defb 30, 46, SHELF_2                ; the trolley
+    defb  4, 28, SHELF_3                ; a shelf of the rack
+    defb 36, 48, SHELF_4                ; the top of the cabinet
+    defb #FF
+
+r26_saus
+    defb 46, FLOOR_Y-SAUS_ON
+    defb 66, SHELF_1-SAUS_ON
+    defb 34, SHELF_2-SAUS_ON
+    defb 10, SHELF_3-SAUS_ON
+    defb 40, SHELF_4-SAUS_ON
+
+r26_enem
+    defb ET_DOG,     40, FLOOR_Y-SPR_DOG_H,     -1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
+    defb ET_SYRINGE, 20, 48,                     1,  4, BYTES_PER_LINE-SPR_SYRINGE_W, 48
+    defb ET_SYRINGE, 70, 62,                    -1,  4, BYTES_PER_LINE-SPR_SYRINGE_W, 62
+
+r26_props
+    defb PROP_RACK,              4, 76
+    defb PROP_BASIN,            76, SHELF_2
+    defb PROP_EXAMTABLE,        60, SHELF_1
+    defb PROP_DRAWERS,          30, SHELF_2
+    defb PROP_CABINET,          36, SHELF_4
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 27 - the store room, where the confiscated lunchbox is. Milk on the crates,
+;; which is either a kindness or a trap.
+;; ---------------------------------------------------------------------------
+r27_plat
+    defb  0, 95, FLOOR_Y
+    defb  6, 26, SHELF_1                ; the boxes
+    defb 36, 60, SHELF_2                ; the crates
+    defb  8, 32, SHELF_3                ; a shelf of the near rack
+    defb 40, 64, SHELF_4                ; the far one
+    defb #FF
+
+r27_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb 10, SHELF_1-SAUS_ON
+    defb 42, SHELF_2-SAUS_ON
+    defb 14, SHELF_3-SAUS_ON
+    defb 46, SHELF_4-SAUS_ON
+
+r27_enem
+    defb ET_MOP,     40, FLOOR_Y-SPR_MOP_H,      1,  0, BYTES_PER_LINE-SPR_MOP_W,  0
+    defb ET_BLOB,    10, SHELF_1-SPR_BLOB_H,     1,  6, 22,                        0
+    defb ET_SYRINGE, 70, 44,                    -1,  4, BYTES_PER_LINE-SPR_SYRINGE_W, 44
+
+r27_props
+    defb PROP_RACK,              8, 76
+    defb PROP_RACK,             40, SHELF_4
+    defb PROP_SHOEBOX,           6, SHELF_1
+    defb PROP_CRATES,           36, SHELF_2
+    defb DECAL+DECAL_FLASK,     66, SHELF_1-16
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 28 - the rooftops, and it is dark again. Home is four streets that way, over
+;; the slates, and the tom who lives up here was here first.
+;; ---------------------------------------------------------------------------
+r28_plat
+    defb  0, 95, FLOOR_Y
+    defb  8, 18, SHELF_1                ; the chimney stack
+    defb 30, 66, SHELF_2                ; the pitch of the first roof
+    defb 60, 92, SHELF_3                ; the next one up
+    defb 24, 48, SHELF_4                ; the water tank
+    defb #FF
+
+r28_saus
+    defb 50, FLOOR_Y-SAUS_ON
+    defb 10, SHELF_1-SAUS_ON
+    defb 38, SHELF_2-SAUS_ON
+    defb 66, SHELF_3-SAUS_ON
+    defb 30, SHELF_4-SAUS_ON
+
+r28_enem
+    defb ET_BAT,     20, 44,                     1,  4, BYTES_PER_LINE-SPR_BAT_W,  44
+    defb ET_BAT,     70, 60,                    -1,  4, BYTES_PER_LINE-SPR_BAT_W,  60
+    defb ET_STRAY,   40, FLOOR_Y-SPR_STRAY_H,    1,  0, BYTES_PER_LINE-SPR_STRAY_W, 0
+
+r28_props
+    defb DECAL+DECAL_MOON,      82, 24
+    defb PROP_CHIMNEY,           8, SHELF_1
+    defb PROP_STAIRS,           30, SHELF_2
+    defb PROP_STAIRS,           60, SHELF_3
+    defb PROP_CRATES,           24, SHELF_4
+    defb DECAL+DECAL_AERIAL,    70, SHELF_3-14
+    defb DECAL+DECAL_AERIAL,    14, FLOOR_Y-14
+    defb #FF
+
+;; ---------------------------------------------------------------------------
+;; 29 - down the chimney, and out into his own fireplace. Two floors of soot,
+;; a colony of bats, and the smell of the flat at the bottom of it.
+;; ---------------------------------------------------------------------------
+r29_plat
+    defb  0, 95, FLOOR_Y
+    defb 60, 84, SHELF_1                ; a ledge of soot boxes
+    defb 30, 54, SHELF_2                ; the next one
+    defb 58, 92, SHELF_3                ; the brickwork steps
+    defb 24, 48, SHELF_4                ; the flue above them
+    defb #FF
+
+r29_saus
+    defb 46, FLOOR_Y-SAUS_ON
+    defb 66, SHELF_1-SAUS_ON
+    defb 36, SHELF_2-SAUS_ON
+    defb 64, SHELF_3-SAUS_ON
+    defb 30, SHELF_4-SAUS_ON
+
+r29_enem
+    defb ET_BAT,     20, 48,                     1,  4, BYTES_PER_LINE-SPR_BAT_W,  48
+    defb ET_BAT,     70, 64,                    -1,  4, BYTES_PER_LINE-SPR_BAT_W,  64
+    defb ET_STRAY,   40, FLOOR_Y-SPR_STRAY_H,   -1,  0, BYTES_PER_LINE-SPR_STRAY_W, 0
+
+r29_props
+    defb PROP_CRATES,           60, SHELF_1
+    defb PROP_CRATES,           30, SHELF_2
+    defb PROP_STAIRS,           58, SHELF_3
+    defb PROP_CRATES,           24, SHELF_4
+    defb DECAL+DECAL_AERIAL,     4, FLOOR_Y-14
     defb #FF

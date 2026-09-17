@@ -193,6 +193,21 @@ assume an effect that works in one emulator works on another type.
   not touch, ROMs disabled.
 - The firmware screen routines (SCR_*, TXT_*) assume 40x25 in 16 KB and are useless here.
   Everything is written directly.
+- **The screen leaves sixteen kilobytes for everything else, and that is not enough.**
+  32 KB of screen at #8000-#FFFF, and AMSDOS only hands control to a program the lower
+  ROM is not sitting over, so code loads at #4000-#7FFF. Ten rooms fitted in that.
+  Twenty-nine do not. #0000-#3FFF is sixteen more kilobytes nothing is using once both
+  ROMs are off - the only thing in it is the interrupt jump at #0038 - but a program
+  cannot be *loaded* there, because the lower ROM is still enabled when the loader
+  jumps to us and it would execute ROM. It can be loaded high and copied down: rasm's
+  second ORG argument (`ORG DATA_ORG,DATA_STORE`) assembles the tables to run at #0100
+  while storing them at #6000 inside the file, and the first dozen instructions of the
+  game move them with one LDIR. Everything down there is read and never executed - the
+  font, the strings, the sprites, the artwork, the enemy table and every room - so it
+  never has to be in place before that.
+- The file may run over the screen at #8000 while it is loading, because nothing has
+  looked at the screen yet. It must not run over AMSDOS's own buffers, which start at
+  #A67B; that is why HIMEM drops when a disc drive is attached.
 
 ---
 
@@ -299,7 +314,26 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Furniture is masked sprites blitted once into the background. Outlined in white, not
   solid: solid white means a platform, outlined means scenery. That distinction is the
   level's visual grammar, so keep it.
-- Props are shared across rooms, so a new room is usually free.
+- Props are shared across rooms, so a new room is usually free. Twenty-nine rooms come
+  to about four kilobytes of tables between them.
+- Furniture is boxes because boxes are almost free and a fridge is a box. A tree, a
+  cloud, a slide, a street lamp and a crescent moon are not, so those are **decals**:
+  bitmaps drawn in Aseprite (`assets/aseprite/*.lua`), converted by `tools/mkart.py`
+  and ORed into the background when the room loads. A prop id with bit 7 set is a
+  decal, anything else is a box list, and draw_props tells them apart. They carry no
+  mask, because the screen underneath has just been cleared to pen 0 and ORing pen 0
+  changes nothing: half the bytes of a masked sprite the same size, and the whole cost
+  is paid once, when the room loads.
+- **A decal ORs, so it has to land on empty background.** Draw one over a box and the
+  pens mix - a trunk running up through a canopy comes out neither wood nor leaf.
+  Start the trunk inside the leaves, or put the box in the list after the decal.
+- A room's light is one byte: the hardware colour of pen 0, which is the background and
+  the border both. Navy is a wall at three in the morning, sky blue is nine o'clock
+  outside a school, black is a roof at midnight. Nothing else in the palette moves, so
+  the cat is butter yellow in every room and every piece of furniture keeps the colour
+  it was drawn in. The floor band has its own pen as well - boards, grass, tarmac,
+  slate - but the shelves stay pen 2, because "you can stand on this" has to read the
+  same everywhere.
 - Room 1's geometry is frozen - the scripted run in `make check` depends on every shelf,
   sausage and patrol being exactly where it is. Decoration can move; collision cannot.
 
@@ -316,13 +350,26 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   `enemies_erase` walks the array backwards for that reason.
 - Enemies are a fixed array of records addressed through IY, because IX is already the
   line_tab cursor inside the sprite routines.
+- Enemies are a table, not a branch. There are two behaviours - walk a platform at
+  half the cat's speed, fly an arc across the room - and twelve creatures, because a
+  robot vacuum patrolling a park bench is not a joke that survives being told
+  nineteen times. `src/enemykind.asm` maps the type byte to a sprite and a behaviour;
+  adding one costs three bytes there plus its picture.
+- Every third room has a saucer of milk in it, worth one life up to five. It is not
+  one of the sausages and the way out does not wait for it, so a room can be finished
+  without it - and it is always on the awkward shelf, usually one something is
+  patrolling. Collecting it flashes the border, because the lives digit in the corner
+  of a two-row HUD is not something anyone sees while they are being chased, and a
+  game with no border left to speak of has exactly one frame around the picture that
+  cannot be missed.
 - The belly-flop stuns everything at roughly the height it landed at, ignoring distance
   along the shelf. That is deliberate: it makes the flop the tool for getting past a
   robot patrolling a whole shelf, which a short shockwave did not.
 - `make check` runs a clean scripted playthrough with the enemies in place: five
-  sausages, no lives lost. It has to belly-flop past the shelf 2 robot to work. Treat it
-  as the level design's test - if it stops passing after a change to a shelf, the jump
-  height or a patrol, the level is no longer completable the way it was.
+  sausages, the saucer of milk on the shelf the robot patrols, no lives lost. It has to
+  belly-flop past that robot to work. Treat it as the level design's test - if it stops
+  passing after a change to a shelf, the jump height or a patrol, the level is no
+  longer completable the way it was.
 
 ## 12. Working conventions
 

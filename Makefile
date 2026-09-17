@@ -9,11 +9,12 @@
 #
 # Snapshots (.sna) drag into an emulator; disc images boot with RUN"<name>.
 
-# A clean playthrough with the enemies in place: all five sausages, no lives
-# lost. It has to belly-flop to get past the robot patrolling shelf 2, so it
-# tests that mechanic as well as the physics, and it is the level design's own
-# test - change a shelf, the jump height or an enemy's patrol and it stops
-# passing.
+# A clean playthrough with the enemies in place: all five sausages, the saucer
+# of milk, no lives lost. It has to belly-flop to get past the robot patrolling
+# shelf 2, so it tests that mechanic as well as the physics, and the saucer sits
+# at the near end of that same shelf, so it tests the extra life too. It is the
+# level design's own test - change a shelf, the jump height or an enemy's patrol
+# and it stops passing.
 LOUNGE_ROUTE := FIRE@12-13,RIGHT@18-56,LEFT@57-79,FIRE@80-81,LEFT@108-116,RIGHT@118-162,FIRE@133-134,FIRE@165-166,DOWN@169-194,FIRE@171-172,RIGHT@182-204,LEFT@207-266,FIRE@227-228,RIGHT@269-349,FIRE@293-294
 
 RASM   ?= rasm
@@ -84,11 +85,21 @@ $(BUILD)/loukoumas_en.bin: $(DEPS) | $(BUILD)
 $(BUILD)/loukoumas_el.bin: $(DEPS) | $(BUILD)
 	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -ob $@ -s -sa -os $(BUILD)/loukoumas_el.sym
 
-# The living room is room 9 of 10, so the scripted run that tests it would
-# otherwise have to play the eight rooms in front of it first.
+# The living room is room 9 of 29, so the scripted run that tests it would
+# otherwise have to play the eight rooms in front of it first. The back yard
+# and the rooftops are there to prove a room is lit by its own palette: the
+# first daylight room in the game and the first night one.
 $(BUILD)/loukoumas_lounge.bin: $(DEPS) | $(BUILD)
 	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -DSTARTROOM=8 -ob $@ \
 		-s -sa -os $(BUILD)/loukoumas_lounge.sym
+
+$(BUILD)/loukoumas_yard.bin: $(DEPS) | $(BUILD)
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -DSTARTROOM=10 -ob $@ \
+		-s -sa -os $(BUILD)/loukoumas_yard.sym
+
+$(BUILD)/loukoumas_roof.bin: $(DEPS) | $(BUILD)
+	$(RASM) src/loukoumas.asm -DTARGET=3 -DLANG=1 -DSTARTROOM=27 -ob $@ \
+		-s -sa -os $(BUILD)/loukoumas_roof.sym
 
 # ---------------------------------------------------------------------------
 # Executes each build on a Z80 interpreter and decodes screen RAM through the
@@ -99,8 +110,9 @@ $(BUILD)/loukoumas_lounge.bin: $(DEPS) | $(BUILD)
 # anyone actually runs, and without this they can sit a conversion behind the
 # sources while check goes on passing against freshly built .bin files.
 check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
-       $(BUILD)/loukoumas_lounge.bin
-	@echo "=== the flat: every room climbable, every sausage reachable ==="
+       $(BUILD)/loukoumas_lounge.bin $(BUILD)/loukoumas_yard.bin \
+       $(BUILD)/loukoumas_roof.bin
+	@echo "=== every room climbable, every sausage and every saucer reachable ==="
 	@./tools/roomcheck.py $(BUILD)/loukoumas_el.bin $(BUILD)/loukoumas_el.sym
 	@echo "=== hello world ==="
 	@./tools/z80check.py $(BUILD)/hello.bin --ascii
@@ -131,12 +143,19 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		--keys "FIRE@12-13,RIGHT@14-120" --sym $(BUILD)/loukoumas_el.sym \
 		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 88| 89)"
 	@echo "=== loukoumas, clean run of the lounge and out through the vent ==="
-	@echo "    a sausage at 55, 115, 200, 262 and 330, never below three lives,"
-	@echo "    then cur_room 8 -> 9 at 332 as the cat steps into the vent"
+	@echo "    a sausage at 55, 115, 200, 262 and 330, the saucer of milk at 162"
+	@echo "    for a fourth life, then cur_room 8 -> 9 at 332 into the vent"
 	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 350 --keys "$(LOUNGE_ROUTE)" \
 		--sym $(BUILD)/loukoumas_lounge.sym \
-		--watch "cur_room,cat_lives,sausages_got,level_done" \
-		| grep -E "frame ( 55|115|200|262|330|332)"
+		--watch "cur_room,cat_lives,sausages_got,milk_alive,level_done" \
+		| grep -E "frame ( 55|115|162|200|262|330|332)"
+	@echo "=== loukoumas, a room is lit by one pen, and it is pen 0 ==="
+	@echo "    the back yard must report pen0=23, sky blue; the rooftops pen0=20,"
+	@echo "    black; every room in the flat is pen0=4, navy"
+	@./tools/z80check.py $(BUILD)/loukoumas_yard.bin --frames 40 --keys FIRE@12-13 \
+		| grep -o "pen0=[0-9]* " | sed 's/^/    back yard  /'
+	@./tools/z80check.py $(BUILD)/loukoumas_roof.bin --frames 40 --keys FIRE@12-13 \
+		| grep -o "pen0=[0-9]* " | sed 's/^/    rooftops   /'
 	@echo "=== what you can actually run ==="
 	@ls -l $(BUILD)/*.sna $(BUILD)/*.dsk | awk '{printf "    %-28s %8s bytes  %s %s %s\n", $$9, $$5, $$6, $$7, $$8}'
 
