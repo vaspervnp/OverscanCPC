@@ -95,7 +95,10 @@ $(BUILD)/loukoumas_lounge.bin: $(DEPS) | $(BUILD)
 # CRTC addressing - a layout check that needs no emulator. It models no timing
 # at all; see the header of tools/z80check.py for the rest of the caveats.
 # ---------------------------------------------------------------------------
-check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
+# `all` is a dependency on purpose: the snapshots and disc images are what
+# anyone actually runs, and without this they can sit a conversion behind the
+# sources while check goes on passing against freshly built .bin files.
+check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
        $(BUILD)/loukoumas_lounge.bin
 	@echo "=== the flat: every room climbable, every sausage reachable ==="
 	@./tools/roomcheck.py $(BUILD)/loukoumas_el.bin $(BUILD)/loukoumas_el.sym
@@ -134,6 +137,8 @@ check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
 		--sym $(BUILD)/loukoumas_lounge.sym \
 		--watch "cur_room,cat_lives,sausages_got,level_done" \
 		| grep -E "frame ( 55|114|200|261|330|333)"
+	@echo "=== what you can actually run ==="
+	@ls -l $(BUILD)/*.sna $(BUILD)/*.dsk | awk '{printf "    %-28s %8s bytes  %s %s %s\n", $$9, $$5, $$6, $$7, $$8}'
 
 $(BUILD):
 	mkdir -p $(BUILD)
