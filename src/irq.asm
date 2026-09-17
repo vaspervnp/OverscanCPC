@@ -28,35 +28,60 @@ irq_init
     ld hl,irq_handler
     ld (#0039),hl
 
-    call wait_vsync             ; the Gate Array resets its own counter just
-    xor a                       ; after VSYNC, so start counting from here
+    call wait_vsync             ; start somewhere sane; the handler locks on
+    xor a                       ; to VSYNC properly from the first frame
     ld (irq_count),a
     ld (frame_count),a
     ei
     ret
 
 ;; ---------------------------------------------------------------------------
-;; irq_handler - one of six per frame; every sixth is a new frame.
+;; irq_handler - one of six per frame, and one of the six is the frame.
+;;
+;; Counting to six and calling every sixth a frame is only right if you know
+;; which one you started on, and you do not: the Gate Array resets its counter
+;; two scanlines into VSYNC and issues an interrupt there if the count had got
+;; far enough, so the first interrupt after a program starts may be that one or
+;; may be any of the other five. Get it wrong and everything the game does
+;; happens at a fixed offset into the picture instead of at the start of it -
+;; and since the sprite work is ten milliseconds of a twenty millisecond frame,
+;; that puts the erase-and-redraw straight under the beam. The bottom of the
+;; screen flickers, because the sprites down there are the ones that are gone
+;; the longest: erased first and redrawn last.
+;;
+;; So the frame is not counted, it is recognised. VSYNC is eight scanlines and
+;; the interrupts are fifty-two apart, so exactly one of them can fall inside
+;; it, and that one is the start of the frame. The count stays as a fallback in
+;; case a machine never lands one there.
 ;; ---------------------------------------------------------------------------
 irq_handler
     push af
+    push bc
     push hl
-    ld hl,irq_count
-    ld a,(hl)
-    inc a
-    cp IRQS_PER_FRAME
-    jr c,irq_handler_store
-    xor a
-    ld (hl),a
+    ld bc,#F500                 ; PPI port B, bit 0 = VSYNC
+    in a,(c)
+    rra
+    jr nc,irq_handler_mid
+
+    xor a                       ; inside VSYNC: this is the top of the frame
+    ld (irq_count),a
     ld hl,frame_count
     inc (hl)
+    jr irq_handler_done
+
+irq_handler_mid
+    ld hl,irq_count
+    inc (hl)
+    ld a,(hl)
+    cp IRQS_PER_FRAME
+    jr c,irq_handler_done
+    ld (hl),0                   ; no interrupt has landed inside VSYNC, so fall
+    ld hl,frame_count           ; back on counting - the game still runs
+    inc (hl)
+
+irq_handler_done
     pop hl
-    pop af
-    ei
-    ret
-irq_handler_store
-    ld (hl),a
-    pop hl
+    pop bc
     pop af
     ei
     ret

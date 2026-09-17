@@ -14,7 +14,8 @@ the tables back out of the binary, through the symbol file, and checks:
   * every third room has a saucer of milk on one, and no other room does
   * the cat starts on one
   * every platform can be reached from the start, one jump at a time
-  * the exit can be reached from a platform the cat can get to
+  * the exit can be reached from a platform the cat can get to, and no shelf
+    runs into it
   * enemies patrol within the room, on something solid
   * furniture stays inside the screen
 
@@ -253,6 +254,20 @@ def main():
                    for i, (x0, x1, y) in enumerate(plats) if i in got):
             fail("the way out at x=%d y=%d %dx%d is not reachable"
                  % (r["exit_x"], r["exit_y"], r["exit_w"], r["exit_h"]))
+
+        # No shelf may run into the way out. draw_exit paints the door over
+        # the shelf so it looks right, but the collision is still there and
+        # the cat walks on nothing in the middle of the doorway.
+        ex_w, ex_h = 0, 0
+        for dx, dy, w, h, _pen in read_boxes(b, b.word(prop_boxes
+                                                       + 2 * r["shut"])):
+            ex_w = max(ex_w, dx + w)
+            ex_h = max(ex_h, dy + h)
+        for x0, x1, y in plats[1:]:                 # the floor is under it
+            if (x1 >= r["exit_px"] and r["exit_px"] + ex_w > x0
+                    and r["exit_py"] <= y < r["exit_py"] + ex_h):
+                fail("the shelf %d..%d at y=%d runs into the way out at %d..%d"
+                     % (x0, x1, y, r["exit_px"], r["exit_px"] + ex_w - 1))
 
         # Enemies patrol inside the room and stand on something. What an
         # enemy is comes out of enemy_kinds - the sprite it is drawn with and

@@ -135,8 +135,19 @@ falls off the screen.
 - Any rupture that changes R4 or R9 changes how many HSYNCs the frame contains. Get it
   wrong and the interrupt cadence, and the display, drift. Always verify the line count
   still totals 312.
-- `src/irq.asm` is the implementation: handler at `#0038`, phase-locked to VSYNC at
-  startup, counting six interrupts to a frame. Anything that must happen once per frame
+- **The frame is recognised, not counted.** Six interrupts to a frame is true, but
+  counting to six only tells you which frame you are in if you know which of the six you
+  started on - and you do not. VSYNC is eight scanlines and the interrupts are fifty-two
+  apart, so exactly one of them falls inside VSYNC; the handler reads PPI port B and
+  treats that one as the top of the frame. Counting is kept as a fallback in case a
+  machine never lands one there.
+- Getting that wrong does not break anything you can see in a debugger: the game runs at
+  exactly 50 Hz either way. What it does is put every frame's work at a fixed, arbitrary
+  offset into the picture, and since the sprite work is about ten milliseconds of a
+  twenty millisecond frame, that can drop the erase-and-redraw straight under the beam.
+  The bottom of the screen goes first, because the sprites down there are absent the
+  longest - erased first, redrawn last.
+- `src/irq.asm` is the implementation: handler at `#0038`, locked to VSYNC every frame. Anything that must happen once per frame
   hangs off `frame_count`, never off a bare `HALT`. With the ROMs disabled `#0038` is
   plain RAM, so the jump there has to be written before `EI` - enabling interrupts
   without it is an immediate crash, and it is a mistake both design documents make.

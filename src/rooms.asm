@@ -1001,7 +1001,7 @@ rooms
     defb 76, 56
     defb 78, 176, 16, 60, PROP_DOOR, PROP_DOOROPEN
     defb 4, CAT_FLOOR
-    defb 78, SHELF_3-MILK_ON
+    defb 70, SHELF_3-MILK_ON
     defb PAL_DAY, 5
 
     ;; --- 13: the playground ----------------------------------------------
@@ -1304,7 +1304,7 @@ r3_plat
     defb  4, 28, SHELF_1                ; the top of the fence
     defb 30, 64, SHELF_2                ; the low branch
     defb 14, 44, SHELF_3
-    defb 46, 78, SHELF_4
+    defb 46, 75, SHELF_4
     defb #FF
 
 r3_saus
@@ -1572,7 +1572,7 @@ r11_plat
     defb  0, 95, FLOOR_Y
     defb  8, 24, SHELF_1                ; the kennel roof
     defb 28, 52, SHELF_2                ; the top of the garden wall
-    defb 56, 80, SHELF_3                ; the stack of crates by the shed
+    defb 56, 75, SHELF_3                ; the stack of crates by the shed
     defb 30, 54, SHELF_4                ; the low branch
     defb #FF
 
@@ -1609,7 +1609,7 @@ r12_plat
     defb  0, 95, FLOOR_Y
     defb 10, 30, SHELF_1                ; the counter of the stand
     defb 36, 56, SHELF_2                ; the bench
-    defb 62, 86, SHELF_3                ; the garden wall
+    defb 62, 75, SHELF_3                ; the garden wall
     defb 30, 54, SHELF_4                ; the balcony railing
     defb #FF
 
@@ -1617,7 +1617,7 @@ r12_saus
     defb 50, FLOOR_Y-SAUS_ON
     defb 14, SHELF_1-SAUS_ON
     defb 40, SHELF_2-SAUS_ON
-    defb 68, SHELF_3-SAUS_ON
+    defb 64, SHELF_3-SAUS_ON
     defb 36, SHELF_4-SAUS_ON
 
 r12_enem
@@ -1677,7 +1677,7 @@ r14_plat
     defb  0, 95, FLOOR_Y
     defb  6, 26, SHELF_1                ; the park bench
     defb 32, 52, SHELF_2                ; the rim of the fountain
-    defb 58, 82, SHELF_3                ; the low branch
+    defb 58, 75, SHELF_3                ; the low branch
     defb 26, 50, SHELF_4                ; the high one
     defb #FF
 
@@ -1713,7 +1713,7 @@ r14_props
 ;; ---------------------------------------------------------------------------
 r15_plat
     defb  0, 95, FLOOR_Y
-    defb  4, 28, SHELF_1                ; the low wall
+    defb 20, 44, SHELF_1                ; the low wall
     defb 34, 58, SHELF_2                ; the railings
     defb 60, 88, SHELF_3                ; the steps up to the door
     defb 30, 54, SHELF_4                ; the canopy over them
@@ -1721,20 +1721,20 @@ r15_plat
 
 r15_saus
     defb 50, FLOOR_Y-SAUS_ON
-    defb  8, SHELF_1-SAUS_ON
+    defb 26, SHELF_1-SAUS_ON
     defb 40, SHELF_2-SAUS_ON
     defb 70, SHELF_3-SAUS_ON
     defb 36, SHELF_4-SAUS_ON
 
 r15_enem
     defb ET_DOG,     50, FLOOR_Y-SPR_DOG_H,      1,  0, BYTES_PER_LINE-SPR_DOG_W,  0
-    defb ET_BALL,     8, SHELF_1-SPR_BALL_H,     1,  4, 26,                        0
+    defb ET_BALL,    24, SHELF_1-SPR_BALL_H,     1, 20, 42,                        0
     defb ET_PIGEON,  60, 46,                    -1,  4, BYTES_PER_LINE-SPR_PIGEON_W, 46
 
 r15_props
     defb DECAL+DECAL_CLOUD,      2, 24
     defb DECAL+DECAL_SUN,       78, 24
-    defb PROP_FENCE,             4, SHELF_1
+    defb PROP_FENCE,            20, SHELF_1
     defb PROP_LOCKERS,          34, SHELF_2
     defb PROP_STAIRS,           60, SHELF_3
     defb PROP_FENCE,            30, SHELF_4
@@ -1750,7 +1750,7 @@ r16_plat
     defb 30, 42, SHELF_1                ; the bin
     defb  0, 24, SHELF_2                ; the top of the lockers
     defb 30, 56, SHELF_3                ; the window ledge
-    defb 60, 88, SHELF_4                ; the noticeboard
+    defb 60, 75, SHELF_4                ; the noticeboard
     defb #FF
 
 r16_saus
@@ -1779,7 +1779,7 @@ r16_props
 r17_plat
     defb  0, 95, FLOOR_Y
     defb  8, 38, SHELF_1                ; the desk
-    defb 50, 78, SHELF_2                ; the top of the blackboard
+    defb 50, 75, SHELF_2                ; the top of the blackboard
     defb 14, 38, SHELF_3                ; the window ledge
     defb 48, 74, SHELF_4                ; the shelf above the map
     defb #FF
@@ -1876,7 +1876,7 @@ r19_props
 ;; ---------------------------------------------------------------------------
 r20_plat
     defb  0, 95, FLOOR_Y
-    defb 60, 78, SHELF_1                ; the vaulting horse
+    defb 60, 75, SHELF_1                ; the vaulting horse
     defb 30, 54, SHELF_2                ; the stacked mats
     defb  4, 20, SHELF_3                ; a rung of the wall bars
     defb 36, 68, SHELF_4                ; the beam
@@ -1943,7 +1943,7 @@ r22_plat
     defb  0, 95, FLOOR_Y
     defb 10, 58, SHELF_1                ; the roof of the car
     defb 24, 48, SHELF_2                ; the crates
-    defb 44, 76, SHELF_3                ; the roof of the bus
+    defb 44, 75, SHELF_3                ; the roof of the bus
     defb 14, 44, SHELF_4                ; the lamp gantry
     defb #FF
 
@@ -1975,7 +1975,7 @@ r22_props
 ;; ---------------------------------------------------------------------------
 r23_plat
     defb  0, 95, FLOOR_Y
-    defb  6, 24, SHELF_1                ; the first seat
+    defb 22, 40, SHELF_1                ; the first seat
     defb 30, 48, SHELF_2                ; the second
     defb 54, 72, SHELF_3                ; the third
     defb 24, 48, SHELF_4                ; the luggage rack
@@ -1983,7 +1983,7 @@ r23_plat
 
 r23_saus
     defb 62, FLOOR_Y-SAUS_ON
-    defb 10, SHELF_1-SAUS_ON
+    defb 26, SHELF_1-SAUS_ON
     defb 34, SHELF_2-SAUS_ON
     defb 58, SHELF_3-SAUS_ON
     defb 30, SHELF_4-SAUS_ON
@@ -1995,7 +1995,7 @@ r23_enem
 
 r23_props
     defb PROP_WINDOW,           72, 44
-    defb PROP_BUSSEAT,           6, SHELF_1
+    defb PROP_BUSSEAT,          22, SHELF_1
     defb PROP_BUSSEAT,          30, SHELF_2
     defb PROP_BUSSEAT,          54, SHELF_3
     defb PROP_CASES,            24, SHELF_4
@@ -2009,7 +2009,7 @@ r24_plat
     defb  0, 95, FLOOR_Y
     defb 68, 92, SHELF_1                ; the low wall
     defb 40, 72, SHELF_2                ; the roof of the bus
-    defb 12, 36, SHELF_3                ; the balcony
+    defb 20, 44, SHELF_3                ; the balcony
     defb 44, 68, SHELF_4                ; the awning
     defb #FF
 
@@ -2017,7 +2017,7 @@ r24_saus
     defb 30, FLOOR_Y-SAUS_ON
     defb 72, SHELF_1-SAUS_ON
     defb 46, SHELF_2-SAUS_ON
-    defb 18, SHELF_3-SAUS_ON
+    defb 26, SHELF_3-SAUS_ON
     defb 50, SHELF_4-SAUS_ON
 
 r24_enem
@@ -2030,7 +2030,7 @@ r24_props
     defb DECAL+DECAL_CLOUD2,    60, 26
     defb PROP_FENCE,            68, SHELF_1
     defb PROP_BUS,              40, SHELF_2
-    defb PROP_FENCE,            12, SHELF_3
+    defb PROP_FENCE,            20, SHELF_3
     defb PROP_FENCE,            44, SHELF_4
     defb DECAL+DECAL_LAMP,       2, FLOOR_Y-26
     defb DECAL+DECAL_SIGN,      88, FLOOR_Y-18
@@ -2076,7 +2076,7 @@ r26_plat
     defb  0, 95, FLOOR_Y
     defb 60, 82, SHELF_1                ; the examination table
     defb 30, 46, SHELF_2                ; the trolley
-    defb  4, 28, SHELF_3                ; a shelf of the rack
+    defb 20, 44, SHELF_3                ; a shelf of the rack
     defb 36, 48, SHELF_4                ; the top of the cabinet
     defb #FF
 
@@ -2084,7 +2084,7 @@ r26_saus
     defb 46, FLOOR_Y-SAUS_ON
     defb 66, SHELF_1-SAUS_ON
     defb 34, SHELF_2-SAUS_ON
-    defb 10, SHELF_3-SAUS_ON
+    defb 26, SHELF_3-SAUS_ON
     defb 40, SHELF_4-SAUS_ON
 
 r26_enem
@@ -2093,7 +2093,7 @@ r26_enem
     defb ET_SYRINGE, 70, 62,                    -1,  4, BYTES_PER_LINE-SPR_SYRINGE_W, 62
 
 r26_props
-    defb PROP_RACK,              4, 76
+    defb PROP_RACK,             20, 76
     defb PROP_BASIN,            76, SHELF_2
     defb PROP_EXAMTABLE,        60, SHELF_1
     defb PROP_DRAWERS,          30, SHELF_2

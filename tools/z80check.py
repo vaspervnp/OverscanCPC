@@ -14,8 +14,11 @@ What it does NOT do, and what it therefore cannot tell you:
 
   * No cycle timing. A virtual frame is a fixed number of INSTRUCTIONS
     (--frame-instr), not 19968 microseconds, and interrupts are spread six to
-    the frame inside that. So the six-to-one relationship the code depends on
-    is real, but nothing about raster position or how long a routine takes is.
+    the frame inside that, the first of them inside the VSYNC pulse where the
+    Gate Array puts it. So the six-to-one relationship and which interrupt
+    starts a frame are both real; nothing about raster position, or how long a
+    routine takes in microseconds, is. In particular a profile that shows the
+    frame half idle says nothing about whether it is idle on a real CPC.
   * No ROMs, no 128K banking - a flat 64K of RAM.
   * One static frame at the end of the run, decoded from the CRTC registers
     left set then. Rupture (reprogramming R12/R13 mid-frame) is invisible.
@@ -935,10 +938,16 @@ def main():
     cpu.pc = org
     cpu.sp = 0xC000
 
+    # Six interrupts to a frame, and the first of them inside the VSYNC pulse:
+    # on the real machine the Gate Array resets its own HSYNC counter two
+    # scanlines into VSYNC and issues an interrupt there, which is the one a
+    # program locks its frame to. Spacing them evenly from zero instead hides
+    # every phase bug there is.
     irq_period = max(1, args.frame_instr // 6)
+    irq_first = max(1, args.frame_instr * 2 // 312)
     budget = args.frames * args.frame_instr if args.frames else args.max_steps
     limit = min(budget, args.max_steps)
-    next_irq = irq_period
+    next_irq = irq_first
     irqs = 0
     reason = "instruction budget"
     last_frame = -1
@@ -976,6 +985,9 @@ def main():
                 trace.append("  frame %3d  %s" % (f, "  ".join(cells)))
         if steps >= next_irq:
             next_irq += irq_period
+            if next_irq % args.frame_instr < irq_first:
+                next_irq = (next_irq // args.frame_instr) * args.frame_instr \
+                           + irq_first
             if cpu.iff and cpu.imode == 1:
                 # IM 1: the CPU stacks PC, jumps to #0038 and masks interrupts
                 # until the handler re-enables them.
