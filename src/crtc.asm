@@ -72,6 +72,18 @@ pal_blank
     defb 1,   #40+20
     defb 2,   #40+20
     defb 3,   #40+20
+    defb 4,   #40+20            ; mode 0 has sixteen pens to put out, not four
+    defb 5,   #40+20
+    defb 6,   #40+20
+    defb 7,   #40+20
+    defb 8,   #40+20
+    defb 9,   #40+20
+    defb 10,  #40+20
+    defb 11,  #40+20
+    defb 12,  #40+20
+    defb 13,  #40+20
+    defb 14,  #40+20
+    defb 15,  #40+20
     defb #10, #40+20
     defb #FF
 

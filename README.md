@@ -59,7 +59,7 @@ make
 ![expected screen](docs/expected-screen.png)
 
 Everything blue is picture where a stock CPC would be showing border. The black
-rectangle is exactly the area a normal 40x25 mode 1 screen covers, so the demo draws
+rectangle is exactly the area a normal 40x25 screen covers, so the demo draws
 the letters straight across its edges — and because the glyphs are OR-ed onto the
 background, each letter changes from yellow to white at precisely the point where a
 normal screen would have clipped it.
@@ -96,7 +96,7 @@ Pitsos itself:
 
 ### Rooms
 
-Rooms are **composed, not painted**. A single 384x272 mode 1 background is 26 KB, so even
+Rooms are **composed, not painted**. A single 192x272 mode 0 background is 26 KB, so even
 two rooms of bitmap art would not fit, let alone a flat's worth. Each room in
 `src/rooms.asm` is a handful of tables — platforms, sausages, enemies, furniture, where
 the way out is — and costs a few dozen bytes plus whatever props it names. Props are

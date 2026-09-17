@@ -748,7 +748,19 @@ def screen_pens(mem, io):
     return rows, mode, per_byte
 
 
-def write_png(rows, io, path, scale):
+def pixel_aspect(per_byte):
+    """How wide one pixel of this mode is, in mode 1 pixels.
+
+    All three modes fill the same width of tube; they differ in how finely it
+    is divided. A mode 0 pixel is two mode 1 pixels wide, so a picture decoded
+    in mode 0 has to be stretched to come out the shape it is on the monitor.
+    Mode 2 would want half, which integers cannot do - it is rendered 1:1 and
+    so comes out twice as wide as it should. Nothing here uses mode 2.
+    """
+    return max(1, 4 // per_byte)
+
+
+def write_png(rows, io, path, scale, aspect=1):
     try:
         from PIL import Image
     except ImportError:
@@ -759,18 +771,18 @@ def write_png(rows, io, path, scale):
     for y, line in enumerate(rows):
         for x, pen in enumerate(line):
             px[x, y] = HW_RGB[io.ink.get(pen, 20)]
-    if scale != 1:
-        img = img.resize((w * scale, h * scale), Image.NEAREST)
+    if scale != 1 or aspect != 1:
+        img = img.resize((w * scale * aspect, h * scale), Image.NEAREST)
     img.save(path)
     return img.size
 
 
-def write_ascii(rows, io, cols):
+def write_ascii(rows, io, cols, aspect=1):
     """Coarse terminal preview: one character per block, darkest pen wins."""
     ramp = " .:-=+*#%@"
     h, w = len(rows), len(rows[0])
     step_x = max(1, w // cols)
-    step_y = step_x * 2                       # characters are about twice as tall
+    step_y = step_x * 2 * aspect              # characters are about twice as tall
     out = []
     for y in range(0, h, step_y):
         line = []
@@ -979,16 +991,18 @@ def main():
     print("INK   " + " ".join("%s=%d" % ("border" if k == 0x10 else "pen%d" % k, v)
                               for k, v in sorted(io.ink.items())))
 
-    rows, mode, _ = screen_pens(mem, io)
-    print("SCREEN %dx%d pixels, %d bytes per line, start address #%04X" % (
-        len(rows[0]), len(rows), io.crtc[1] * 2,
-        ((io.crtc[12] & 0x3F) << 8) | io.crtc[13]))
+    rows, mode, per_byte = screen_pens(mem, io)
+    aspect = pixel_aspect(per_byte)
+    print("SCREEN %dx%d pixels%s, %d bytes per line, start address #%04X" % (
+        len(rows[0]), len(rows),
+        " (%d wide on the tube)" % (len(rows[0]) * aspect) if aspect != 1 else "",
+        io.crtc[1] * 2, ((io.crtc[12] & 0x3F) << 8) | io.crtc[13]))
 
     if args.ascii:
         print()
-        print(write_ascii(rows, io, 96))
+        print(write_ascii(rows, io, 96, aspect))
     if args.png:
-        size = write_png(rows, io, args.png, args.scale)
+        size = write_png(rows, io, args.png, args.scale, aspect)
         print("wrote %s (%dx%d)" % (args.png, size[0], size[1]))
 
 

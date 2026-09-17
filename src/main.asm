@@ -1,7 +1,7 @@
 ;; ===========================================================================
 ;; OverscanCPC - "HELLO WORLD" in a 384x272 full-overscan screen.
 ;;
-;; Amstrad CPC 6128, mode 1, 32 KB screen at #8000-#FFFF, no firmware.
+;; Amstrad CPC 6128, mode 0, 32 KB screen at #8000-#FFFF, no firmware.
 ;; The letters are deliberately drawn past the edges of the area a normal
 ;; 40x25 screen covers - that area is painted black, everything around it is
 ;; blue, and all the blue used to be border.
@@ -17,7 +17,7 @@ BUILDSNA
 BANKSET 0
     ENDIF
 
-HELLO_XS        EQU 2       ; 2 bytes per source pixel = 64 px per letter
+HELLO_XS        EQU 2       ; 2 bytes per source pixel = 48 px per letter
 HELLO_YS        EQU 12      ; 8 source rows * 12 = 96 px tall
 TEXT1_Y         EQU 8       ; HELLO!: starts 24 lines above the normal screen
 TEXT2_Y         EQU 168     ; WORLD!: ends 32 lines below it
@@ -32,7 +32,7 @@ main_start
     di                      ; the firmware's interrupt handler is about to go
     ld sp,STACK_TOP
 
-    ld bc,#7F8D             ; Gate Array: mode 1, upper and lower ROM disabled
+    ld bc,#7F8C             ; Gate Array: mode 0, upper and lower ROM disabled
     out (c),c
 
     ld hl,pal_blank         ; everything black while we build the screen, so

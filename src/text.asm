@@ -1,16 +1,19 @@
 ;; ===========================================================================
 ;; text.asm - drawing glyphs from the generated font, at two sizes.
 ;;
-;; Small text is 1:1. A glyph row is 8 source pixels and mode 1 packs 4 pixels
-;; per byte, so the row splits into two screen bytes with no shifting at all:
-;; for pen 1 the mode 1 encoding puts pixel i's only set bit at bit 7-i, which
-;; makes the left byte (row AND #F0) and the right byte (row rotated left 4).
+;; Small text is 1:1. A cell is 6 mode 0 pixels - five drawn and one of letter
+;; spacing - and mode 0 packs 2 pixels per byte, so the row splits into three
+;; screen bytes with no shifting at all. Mode 0 puts the left pixel's pen bit 0
+;; in bit 7 and the right pixel's in bit 6, and the font byte already holds its
+;; six pixels in bits 7..2, so each screen byte is just (row AND #C0) with the
+;; row rotated two places along between them.
 ;;
 ;; Big text scales each source pixel to whole bytes across and whole scanlines
-;; down, so it also never shifts.
+;; down, so it also never shifts - and being counted in bytes it is the one
+;; part of the text that mode 0 did not change the size of.
 ;;
-;; Both OR the glyph onto the background, and in mode 1 that is not neutral: a
-;; set source pixel contributes pen bit 0 while pen bit 1 survives from what
+;; Both OR the glyph onto the background, and that is not neutral: a set source
+;; pixel contributes pen bit 0 while the other three pen bits survive from what
 ;; was underneath. Letters come out pen 1 over pen 0 and pen 3 over pen 2,
 ;; which is how text stays readable when it crosses a coloured band.
 ;; ===========================================================================
@@ -81,6 +84,10 @@ msg_small_centre
 ;; ---------------------------------------------------------------------------
 small_centre
     ld a,(hl)
+    ld b,a
+    add a,a
+    add a,b                         ; length * SMALL_W_BYTES
+    srl a                           ; half the width, rounded down
     neg
     add a,CENTRE_HALF
     ld (txt_x),a
@@ -131,8 +138,18 @@ draw_glyph_small_line
 draw_glyph_small_nc
     ld a,(ix+0)
     inc ix
-    ld c,a
-    and #F0                         ; left 4 pixels
+    ld c,a                          ; the cell's six pixels, in bits 7..2
+    and #C0                         ; pixels 0 and 1: mode 0 puts pixel 0's pen
+    ld b,a                          ; bit 0 in bit 7 and pixel 1's in bit 6,
+    ld a,(de)                       ; which is where the font already has them
+    or b
+    ld (de),a
+    inc de
+    ld a,c
+    rlca
+    rlca
+    ld c,a                          ; rotate the next pair up into 7,6
+    and #C0                         ; pixels 2 and 3
     ld b,a
     ld a,(de)
     or b
@@ -141,9 +158,7 @@ draw_glyph_small_nc
     ld a,c
     rlca
     rlca
-    rlca
-    rlca
-    and #F0                         ; right 4 pixels
+    and #C0                         ; pixels 4 and 5, the second being the gap
     ld b,a
     ld a,(de)
     or b
@@ -203,7 +218,7 @@ print_digits_loop
 
 ;; ---------------------------------------------------------------------------
 ;; msg_big_centre - A = message id, centred for the current txt_xs.
-;; x = 48 - length*txt_xs*4
+;; x = 48 - length*txt_xs*3
 ;; ---------------------------------------------------------------------------
 msg_big_centre
     call get_msg
@@ -217,9 +232,10 @@ big_centre
     ld a,(hl)
     ld b,a
     ld a,(txt_xs)
+    ld c,a
     add a,a
-    add a,a
-    add a,a                         ; 8 source pixels * txt_xs = bytes per cell
+    add a,c
+    add a,a                         ; 6 source pixels * txt_xs = bytes per cell
     ld c,a
     xor a
 msg_big_width
@@ -249,9 +265,10 @@ print_big_char
     ld hl,(txt_row)
     call draw_glyph
     ld a,(txt_xs)               ; advance one whole cell
+    ld b,a
     add a,a
-    add a,a
-    add a,a
+    add a,b
+    add a,a                     ; 6 source pixels * txt_xs
     ld b,a
     ld a,(txt_x)
     add a,b
@@ -299,15 +316,18 @@ draw_glyph_nocarry
     ret
 
 ;; ---------------------------------------------------------------------------
-;; dg_expand - A = 8 source pixels (bit 7 leftmost) -> dg_pat, repeating each
+;; dg_expand - A = 6 source pixels (bit 7 leftmost) -> dg_pat, repeating each
 ;; pixel (txt_xs) times. Clear pixels become zero, which blits transparently.
+;; A cell is six pixels, bits 7..2, so six rotates are wanted here and A is
+;; left rotated rather than restored. It is reloaded from the glyph for every
+;; row, so that is harmless.
 ;; Destroys AF, BC, HL.
 ;; ---------------------------------------------------------------------------
 dg_expand
     ld hl,dg_pat
-    ld b,8
+    ld b,6
 dg_expand_loop
-    rlca                            ; 8 rotates leave A as it started
+    rlca
     ld c,0
     jr nc,dg_expand_store
     ld c,PEN1_BYTE
@@ -330,9 +350,10 @@ dg_expand_rep
 dg_blit
     ld hl,dg_pat
     ld a,(txt_xs)
+    ld b,a
     add a,a
-    add a,a
-    add a,a                         ; 8 source pixels * txt_xs
+    add a,b
+    add a,a                         ; 6 source pixels * txt_xs
     ld b,a
 dg_blit_loop
     ld a,(de)

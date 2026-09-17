@@ -5,12 +5,14 @@ Sprites are stored mask-then-data, byte by byte, so the blit is
 
     screen = (screen AND mask) OR data
 
-with both operands read straight off an advancing pointer. Mode 1 spreads one
-pixel's two pen bits across bits 7-i and 3-i of a byte, so a transparent pixel
-means setting both of those in the mask and neither in the data.
+with both operands read straight off an advancing pointer. Mode 0 spreads one
+pixel's four pen bits across bits 7,3,5,1 of a byte for the left pixel and
+6,2,4,0 for the right, so a transparent pixel means setting all four of its
+bits in the mask and none in the data.
 
-Sprites are byte aligned: they move 4 pixels at a time horizontally. Moving a
-pixel at a time needs four pre-shifted copies of every frame, which is worth
+Sprites are byte aligned: they move 2 pixels at a time horizontally, which on
+a mode 0 screen is the same 4/384ths of the width a mode 1 sprite moved. Moving
+a pixel at a time needs two pre-shifted copies of every frame, which is worth
 doing when something actually looks wrong, not before.
 """
 
@@ -19,6 +21,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ART = os.path.join(ROOT, "assets", "sprites.txt")
+PIXELS_PER_BYTE = 2
 OUT = os.path.join(ROOT, "src", "sprites.asm")
 
 
@@ -40,10 +43,10 @@ def read_art():
                 continue
             if name is None:
                 sys.exit("%s:%d: pixel row before any \":name\"" % (ART, lineno))
-            bad = set(line) - set(".0123")
+            bad = set(line) - set(".0123456789ABCDEF")
             if bad:
-                sys.exit("%s:%d: %s may only contain . 0 1 2 3, found %s"
-                         % (ART, lineno, name, "".join(sorted(bad))))
+                sys.exit("%s:%d: %s may only contain . and a pen 0-9 A-F, "
+                         "found %s" % (ART, lineno, name, "".join(sorted(bad))))
             rows.append(line)
     if name is not None:
         sprites.append((name, rows, lineno))
@@ -52,9 +55,9 @@ def read_art():
         if not rows:
             sys.exit("%s: sprite %s has no rows" % (ART, name))
         width = len(rows[0])
-        if width % 4:
-            sys.exit("%s: sprite %s is %d pixels wide; mode 1 sprites must be "
-                     "a multiple of 4" % (ART, name, width))
+        if width % PIXELS_PER_BYTE:
+            sys.exit("%s: sprite %s is %d pixels wide; mode 0 sprites must be "
+                     "a multiple of %d" % (ART, name, width, PIXELS_PER_BYTE))
         for r in rows:
             if len(r) != width:
                 sys.exit("%s: sprite %s has rows of %d and %d pixels"
@@ -62,20 +65,25 @@ def read_art():
     return [(n, r) for n, r, _ in sprites]
 
 
+#: Where each of a pixel's four pen bits lives, left pixel then right.
+PEN_BITS = ((7, 3, 5, 1), (6, 2, 4, 0))
+
+
 def encode_row(row):
     """One pixel row -> a list of (mask, data) byte pairs."""
     out = []
-    for i in range(0, len(row), 4):
+    for i in range(0, len(row), PIXELS_PER_BYTE):
         mask = data = 0
-        for j, ch in enumerate(row[i:i + 4]):
+        for j, ch in enumerate(row[i:i + PIXELS_PER_BYTE]):
+            bits = PEN_BITS[j]
             if ch == ".":
-                mask |= (1 << (7 - j)) | (1 << (3 - j))
+                for b in bits:
+                    mask |= 1 << b            # keep every bit of the background
             else:
-                pen = int(ch)
-                if pen & 1:
-                    data |= 1 << (7 - j)
-                if pen & 2:
-                    data |= 1 << (3 - j)
+                pen = int(ch, 16)
+                for k, b in enumerate(bits):
+                    if pen & (1 << k):
+                        data |= 1 << b
         out.append((mask, data))
     return out
 
@@ -90,7 +98,7 @@ def main():
         fh.write(";; Blit is  screen = (screen AND mask) OR data.\n\n")
         body = []
         for name, rows in sprites:
-            wbytes = len(rows[0]) // 4
+            wbytes = len(rows[0]) // PIXELS_PER_BYTE
             height = len(rows)
             biggest = max(biggest, wbytes * height)
             label = "spr_" + name.lower()
@@ -100,7 +108,8 @@ def main():
         fh.write("\n;; Largest sprite, for sizing the background save buffers.\n")
         fh.write("SPR_MAX_BYTES EQU %d\n" % biggest)
         for name, label, wbytes, height, rows in body:
-            fh.write("\n;; %s - %d x %d pixels\n%s\n" % (name, wbytes * 4, height, label))
+            fh.write("\n;; %s - %d x %d pixels\n%s\n"
+                     % (name, wbytes * PIXELS_PER_BYTE, height, label))
             fh.write("    defb %d,%d\n" % (wbytes, height))
             for row in rows:
                 pairs = encode_row(row)

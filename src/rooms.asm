@@ -2,7 +2,7 @@
 ;; rooms.asm - the flat: which platforms, sausages, enemies and furniture each
 ;; room has, and where the way out is.
 ;;
-;; Rooms are composed, not painted. A full 384x272 mode 1 background is 26 KB,
+;; Rooms are composed, not painted. A full 192x272 mode 0 background is 26 KB,
 ;; so even two rooms of bitmap art would not fit, let alone a flat's worth.
 ;;
 ;; Furniture is not sprites either. Drawn at the size it should be - a sofa is
@@ -980,7 +980,7 @@ r9_enem
     defb ET_CANARY, 20, 44,                   1,  4, BYTES_PER_LINE-SPR_CANARY_W, 44
 
 r9_props
-    defb PROP_WINDOW, 18, 20
+    defb PROP_WINDOW, 18, 24
     defb PROP_SOFA,   54, FLOOR_Y-58
     defb PROP_TV,     38, FLOOR_Y-56
     defb #FF
@@ -1017,7 +1017,7 @@ r10_enem
     defb ET_CANARY, 40, 44,               -1,  4, BYTES_PER_LINE-SPR_CANARY_W, 44
 
 r10_props
-    defb PROP_WINDOW,  52, 16
+    defb PROP_WINDOW,  52, 24
     defb PROP_BIN,     28, K_BIN
     defb PROP_WORKTOP,  0, K_WORKTOP-6
     defb PROP_COOKER,  44, K_WORKTOP

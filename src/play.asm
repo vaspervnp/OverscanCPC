@@ -33,17 +33,21 @@ ST_ROLL         EQU 3
 
 SHAKE_LEN       EQU 6
 
-;; HUD, in the twelve scanlines above the play area. The captions come from the
-;; string table, so the columns leave room for the longer language.
+;; HUD, in the twenty scanlines above the play area. A mode 0 cell is three
+;; bytes, so a row holds 32 characters rather than the 48 mode 1 gave, and the
+;; captions no longer fit beside the numbers on one line - so there are two.
+;; The captions come from the string table, so the columns leave room for the
+;; longer language: SCORE/ΣΚΟΡ, LIVES/ΖΩΕΣ, SAUSAGES/ΛΟΥΚΑΝΙΚΑ.
 HUD_Y           EQU 2
-HUD_H           EQU 8
-SCORE_LABEL_X   EQU 2
-SCORE_X         EQU 14
-SAUS_LABEL_X    EQU 28
-SAUS_COUNT_X    EQU 48
-LIVES_LABEL_X   EQU 56
-LIVES_X         EQU 68
-ROOM_NAME_X     EQU 72
+HUD_ROW2        EQU HUD_Y+8
+HUD_H           EQU 16
+SCORE_LABEL_X   EQU 3
+SCORE_X         EQU 21
+LIVES_LABEL_X   EQU 48
+LIVES_X         EQU 66
+SAUS_LABEL_X    EQU 3
+SAUS_COUNT_X    EQU 33
+ROOM_NAME_X     EQU 48
 
 SCORE_BYTES     EQU 3           ; six BCD digits
 SAUSAGE_POINTS  EQU #01         ; BCD, added to the hundreds digit
@@ -235,7 +239,10 @@ room_load_alive
 ;; box with a navy one inside it.
 ;; ---------------------------------------------------------------------------
 pen_bytes
-    defb PEN0_BYTE, PEN1_BYTE, PEN2_BYTE, PEN3_BYTE
+    defb PEN0_BYTE,  PEN1_BYTE,  PEN2_BYTE,  PEN3_BYTE
+    defb PEN4_BYTE,  PEN5_BYTE,  PEN6_BYTE,  PEN7_BYTE
+    defb PEN8_BYTE,  PEN9_BYTE,  PEN10_BYTE, PEN11_BYTE
+    defb PEN12_BYTE, PEN13_BYTE, PEN14_BYTE, PEN15_BYTE
 
 ;; ---------------------------------------------------------------------------
 ;; prop_boxes_at - A = prop id -> HL = its box list.
@@ -482,6 +489,7 @@ draw_hud
     ld de,HUD_H
     call fill_rows
 
+    ;; --- first row: what the player has, and how long they keep it ---------
     ld hl,line_tab+HUD_Y*2
     ld (txt_row),hl
 
@@ -496,6 +504,20 @@ draw_hud
     ld b,SCORE_BYTES
     call print_digits
 
+    ld a,LIVES_LABEL_X
+    ld (txt_x),a
+    ld a,MSG_LIVES
+    call msg_small
+
+    ld a,LIVES_X
+    ld (txt_x),a
+    ld a,(cat_lives)
+    call print_digit
+
+    ;; --- second row: what is left to find, and which room it is in ---------
+    ld hl,line_tab+HUD_ROW2*2
+    ld (txt_row),hl
+
     ld a,SAUS_LABEL_X
     ld (txt_x),a
     ld a,MSG_SAUSAGES
@@ -508,16 +530,6 @@ draw_hud
     ld a,GL_SLASH
     call print_glyph
     ld a,(cur_nsaus)
-    call print_digit
-
-    ld a,LIVES_LABEL_X
-    ld (txt_x),a
-    ld a,MSG_LIVES
-    call msg_small
-
-    ld a,LIVES_X
-    ld (txt_x),a
-    ld a,(cat_lives)
     call print_digit
 
     ld a,ROOM_NAME_X
@@ -1198,9 +1210,25 @@ shake_tab                       ; indexed by the timer counting down
 ;; against it, so pen 2 has to be the fur.
 ;; ---------------------------------------------------------------------------
 pal_play
-    defb 0,   #40+4             ; pen 0 - deep navy: the wall, and inside furniture
-    defb 1,   #40+7             ; pen 1 - coral: paws, nose, sausages, robots, text
-    defb 2,   #40+10            ; pen 2 - butter yellow: fur, shelves, light
-    defb 3,   #40+11            ; pen 3 - white: eyes, the floor, furniture outlines
-    defb #10, #40+4
+    ;; Sixteen pens. The first four are the ones the game was built in and keep
+    ;; their meaning, so everything drawn before mode 0 still reads the same;
+    ;; the twelve after them are what mode 0 bought, and are what the rooms get
+    ;; painted with. Hardware colour numbers, not firmware INK numbers.
+    defb 0,   #40+4             ; deep navy: the wall, and inside furniture
+    defb 1,   #40+7             ; coral: paws, nose, sausages, text
+    defb 2,   #40+10            ; butter yellow: fur, light, brass
+    defb 3,   #40+11            ; white: eyes, the floor, furniture outlines
+    defb 4,   #40+20            ; black: shadow, pupils, the back of a cupboard
+    defb 5,   #40+0             ; grey: steel - shelving, the car, appliances
+    defb 6,   #40+30            ; olive: wood in shadow
+    defb 7,   #40+14            ; orange: wood in the light, brick, rust
+    defb 8,   #40+22            ; dark green: leaves, painted metal
+    defb 9,   #40+18            ; bright green: grass, new growth
+    defb 10,  #40+6             ; teal: deep water, glazed tile
+    defb 11,  #40+19            ; bright cyan: water, glass, porcelain
+    defb 12,  #40+28            ; dark red: the robots' bodies
+    defb 13,  #40+12            ; bright red: hobs, warning lamps, danger
+    defb 14,  #40+24            ; purple: night through a window, the wardrobe
+    defb 15,  #40+3             ; pale yellow: lamplight
+    defb #10, #40+4             ; border - navy, blends into the picture
     defb #FF

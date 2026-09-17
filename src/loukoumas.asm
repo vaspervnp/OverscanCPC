@@ -1,5 +1,5 @@
 ;; ===========================================================================
-;; ΛΟΥΚΟΥΜΑΣ / LOUKOUMAS - title screen, 384x272 full overscan, mode 1.
+;; ΛΟΥΚΟΥΜΑΣ / LOUKOUMAS - title screen, 384x272 full overscan, mode 0.
 ;;
 ;; Both languages live in the same binary: tools/mktext.py builds a string
 ;; table per language from text/loukoumas.*.txt and every line drawn here goes
@@ -39,7 +39,7 @@ loukoumas_start
     di
     ld sp,STACK_TOP
 
-    ld bc,#7F8D                 ; mode 1, both ROMs disabled
+    ld bc,#7F8C                 ; mode 0, both ROMs disabled
     out (c),c
 
     ld hl,pal_blank             ; build the screen unseen
@@ -171,7 +171,7 @@ draw_title_text
     ld de,H_TITLE
     ld a,PEN0_BYTE
     call clear_rows
-    ld a,1                      ; 1 byte per source pixel = 32 px per letter
+    ld a,1                      ; 1 byte per source pixel = 24 px per letter
     ld (txt_xs),a
     ld a,TITLE_YS
     ld (txt_ys),a
@@ -227,6 +227,18 @@ pal_title
     defb 1,   #40+10            ; pen 1 - butter yellow, text on the background
     defb 2,   #40+7             ; pen 2 - coral, the overscan bands
     defb 3,   #40+11            ; pen 3 - white, text crossing a band
+    defb 4,   #40+20            ; the rest are the play palette, so that coming
+    defb 5,   #40+0             ; back to the title does not have to reload
+    defb 6,   #40+30            ; anything the game already set
+    defb 7,   #40+14
+    defb 8,   #40+22
+    defb 9,   #40+18
+    defb 10,  #40+6
+    defb 11,  #40+19
+    defb 12,  #40+28
+    defb 13,  #40+12
+    defb 14,  #40+24
+    defb 15,  #40+3
     defb #10, #40+4             ; border - navy, blends into the picture
     defb #FF
 

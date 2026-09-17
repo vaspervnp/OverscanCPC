@@ -211,14 +211,23 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   Latin glyph. Only Γ Δ Θ Λ Ξ Π Σ Φ Ψ Ω are drawn separately.
 - All-caps in both languages. Unaccented capitals are correct Greek typography, not a
   shortcut, and it halves the font.
-- Glyph cells are 8x8 drawn 6 wide and 7 tall, so the spare column and row are the letter
-  spacing. That keeps every character 2 bytes wide in mode 1 and means no text routine
-  ever has to shift a byte.
+- Glyph cells are 5x8 drawn 7 tall, and the tool adds a sixth column of letter spacing,
+  because a mode 0 byte is two pixels and a cell has to be a whole number of them. That
+  keeps every character 3 bytes wide and means no text routine ever has to shift a byte.
+  A cell is 32 to the row rather than mode 1's 48, which is why the HUD is two rows.
 - Greek in a rasm label breaks the assembler - `mktext.py` spells the Greek-only glyph
   names out (`GL_SIGMA`, not `GL_Σ`).
 
 ## 8. Sprites
 
+- The screen is **mode 0**: 2 pixels per byte, 16 pens, 96 bytes to the line, so 192
+  pixels across a 384-pixel-wide picture. A mode 0 pixel is two mode 1 pixels wide, so
+  nothing changed size when the game moved over - only how finely it can be drawn. Every
+  layout in the project is in bytes (rooms, furniture, collision boxes, sprite widths),
+  which is why the move cost nothing outside the font and the sprite art.
+- A solid-pen byte is not a nibble pattern the way it was in mode 1: a pixel's four pen
+  bits are spread across bits 7,3,5,1 (left) and 6,2,4,0 (right). `PEN0_BYTE`..
+  `PEN15_BYTE` in `config.asm` are the sixteen written out, and `pen_bytes` indexes them.
 - No double buffer. A second 32 KB screen plus code does not fit comfortably in 128 KB,
   and repainting 26 KB a frame is impossible. Sprites save the background they cover and
   put it back before moving - which also makes static scenery underneath survive.
@@ -256,7 +265,7 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 
 ## 10. Rooms
 
-- Rooms are composed from tables in `src/rooms.asm`, never painted. One 384x272 mode 1
+- Rooms are composed from tables in `src/rooms.asm`, never painted. One 192x272 mode 0
   background is 26 KB; a flat's worth of bitmap art does not exist in this machine.
 - A room record names its platforms, sausages, enemies, props, start position and exit.
   `play.asm` knows none of that - it walks whatever `room_load` points it at, so adding
