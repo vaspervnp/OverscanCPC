@@ -116,7 +116,7 @@ check: $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin
 	@echo "=== loukoumas, a robot costs a life and respawns the cat ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
 		--keys "FIRE@12-13,RIGHT@14-120" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 75| 76)"
+		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame ( 79| 80)"
 	@echo "=== loukoumas, clean run of the lounge and out through the vent ==="
 	@echo "    a sausage at 52, 109, 197, 256 and 327, never below three lives,"
 	@echo "    then cur_room 0 -> 1 at 330 as the cat steps into the vent"

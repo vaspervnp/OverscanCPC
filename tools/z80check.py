@@ -60,11 +60,24 @@ class Z80:
         self.halted = False
 
     # -- memory / fetch -----------------------------------------------------
+    trap = None
+    trap_value = None
+    trap_frame = None
+    trap_hit = None
+    big_ldir = None
+
     def rb(self, a):
         return self.m[a & 0xFFFF]
 
     def wb(self, a, v):
-        self.m[a & 0xFFFF] = v & 0xFF
+        a &= 0xFFFF
+        if (a == self.trap and self.trap_hit is None
+                and (self.trap_value is None or (v & 0xFF) == self.trap_value)
+                and (self.trap_frame is None or self.io.frame() >= self.trap_frame)):
+            self.trap_hit = (self.pc, v, self.io.frame(),
+                             self.hl, self.de, self.bc, self.sp,
+                             self.rb(self.sp) | (self.rb(self.sp + 1) << 8))
+        self.m[a] = v & 0xFF
 
     def rw(self, a):
         return self.rb(a) | (self.rb(a + 1) << 8)
@@ -221,8 +234,14 @@ class Z80:
         return res
 
     # -- stack / flow -------------------------------------------------------
+    sp_floor = None
+    sp_hit = None
+
     def push(self, v):
         self.sp = (self.sp - 2) & 0xFFFF
+        if (self.sp_floor is not None and self.sp < self.sp_floor
+                and self.sp_hit is None):
+            self.sp_hit = (self.pc, self.sp, self.io.frame())
         self.ww(self.sp, v)
 
     def pop(self):
@@ -505,6 +524,11 @@ class Z80:
         if op in (0xA0, 0xA8, 0xB0, 0xB8):              # ldi ldd ldir lddr
             step = 1 if op in (0xA0, 0xB0) else -1
             repeat = op >= 0xB0
+            if repeat and self.bc > 4096 and self.big_ldir is None:
+                # Almost always a zero length that wrapped to 65535, which on
+                # a CPC smears one byte over the whole of memory.
+                self.big_ldir = (self.pc - 2, self.bc, self.hl, self.de,
+                                 self.rb(self.sp) | (self.rb(self.sp + 1) << 8))
             while True:
                 self.wb(self.de, self.rb(self.hl))
                 self.hl = (self.hl + step) & 0xFFFF
@@ -782,6 +806,11 @@ def main():
     ap.add_argument("--frame-instr", type=int, default=12000,
                     help="instructions per virtual frame (default 12000, roughly "
                          "what a 19968 us CPC frame gets through)")
+    ap.add_argument("--trap", help="symbol or address; report the first write "
+                                   "to it and where it came from")
+    ap.add_argument("--trap-value", help="only trap a write of this byte value")
+    ap.add_argument("--sp-floor", help="report the first push below this address")
+    ap.add_argument("--trap-frame", type=int, help="ignore trap hits before this frame")
     ap.add_argument("--max-steps", type=int, default=50_000_000)
     args = ap.parse_args()
 
@@ -839,6 +868,15 @@ def main():
 
     io = CPCIO(keys, args.frame_instr)
     cpu = Z80(mem, io)
+    if args.trap:
+        cpu.trap = (symbols.get(args.trap.upper()) if args.trap.upper() in symbols
+                    else int(args.trap, 0))
+        if args.trap_value:
+            cpu.trap_value = int(args.trap_value, 0) & 0xFF
+        if args.trap_frame:
+            cpu.trap_frame = args.trap_frame
+    if args.sp_floor:
+        cpu.sp_floor = int(args.sp_floor, 0)
     cpu.pc = org
     cpu.sp = 0xC000
 
@@ -899,6 +937,23 @@ def main():
             sys.exit("z80check: still running after %d instructions" % limit)
         reason = "frame budget"
 
+    if cpu.sp_hit:
+        print("STACK SP reached #%04X on frame %d, at PC #%04X"
+              % (cpu.sp_hit[1], cpu.sp_hit[2], cpu.sp_hit[0]))
+    if cpu.big_ldir:
+        pc, n, src, dst, ret = cpu.big_ldir
+        print("LDIR  %d bytes at PC #%04X, HL=#%04X DE=#%04X - a length that "
+              "wrapped? Return address on the stack #%04X"
+              % (n, pc, src, dst, ret))
+    if cpu.trap is not None:
+        if cpu.trap_hit:
+            pc, v, fr, hl, de, bc, sp, ret = cpu.trap_hit
+            print("TRAP  #%04X written with #%02X on frame %d, PC after the "
+                  "store #%04X" % (cpu.trap, v, fr, pc))
+            print("      HL=#%04X DE=#%04X BC=#%04X SP=#%04X, return address "
+                  "on the stack #%04X" % (hl, de, bc, sp, ret))
+        else:
+            print("TRAP  #%04X never written" % cpu.trap)
     if trace:
         print("WATCH")
         print("\n".join(trace))

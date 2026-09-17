@@ -160,8 +160,16 @@ room_load_found
     ld (cur_props),hl
     ld a,(iy+R_EXITX)
     ld (exit_x),a
+    ld a,(iy+R_EXITPX)
+    ld (exit_px),a
+    ld a,(iy+R_EXITPY)
+    ld (exit_py),a
     ld a,(iy+R_EXITY)
     ld (exit_y),a
+    ld a,(iy+R_EXITW)
+    ld (exit_w),a
+    ld a,(iy+R_EXITH)
+    ld (exit_h),a
     ld a,(iy+R_EXITSHUT)
     ld (exit_shut),a
     ld a,(iy+R_EXITOPEN)
@@ -220,13 +228,22 @@ room_load_alive
     jp draw_hud
 
 ;; ---------------------------------------------------------------------------
-;; prop_sprite - A = prop id -> HL = its sprite. Preserves BC.
+;; Furniture. A prop is a list of filled rectangles rather than a bitmap: at
+;; the size furniture wants to be, masked sprites for a flat's worth came to
+;; about 30 KB. Later boxes draw over earlier ones, so an outline is a white
+;; box with a navy one inside it.
 ;; ---------------------------------------------------------------------------
-prop_sprite
+pen_bytes
+    defb PEN0_BYTE, PEN1_BYTE, PEN2_BYTE, PEN3_BYTE
+
+;; ---------------------------------------------------------------------------
+;; prop_boxes_at - A = prop id -> HL = its box list.
+;; ---------------------------------------------------------------------------
+prop_boxes_at
     add a,a
     ld l,a
     ld h,0
-    ld de,prop_sprites
+    ld de,prop_boxes
     add hl,de
     ld a,(hl)
     inc hl
@@ -235,7 +252,85 @@ prop_sprite
     ret
 
 ;; ---------------------------------------------------------------------------
-;; draw_props - the furniture, blitted once into the background.
+;; draw_boxes - HL = box list, drawn relative to (prop_x),(prop_y).
+;; ---------------------------------------------------------------------------
+draw_boxes
+    ld a,(hl)
+    inc a
+    ret z
+    dec a
+    ld b,a                      ; dx
+    ld a,(prop_x)
+    add a,b
+    ld (fill_x),a
+    inc hl
+
+    ld b,(hl)                   ; dy
+    inc hl
+    ld a,(prop_y)
+    add a,b
+    ld (box_top),a
+    ld a,0                      ; ld does not touch the carry
+    adc a,0                     ; 1 if the top ran past scanline 255
+    ld (box_over),a
+
+    ld a,(hl)                   ; width in bytes
+    inc hl
+    ld c,a
+    ld b,0
+    push hl
+    ld h,b
+    ld l,c
+    ld (fill_w),hl
+    pop hl
+
+    ld a,(hl)                   ; height in scanlines
+    inc hl
+    ld (box_high),a
+
+    ld a,(hl)                   ; pen
+    inc hl
+    push hl
+    ld l,a
+    ld h,0
+    ld de,pen_bytes
+    add hl,de
+    ld a,(hl)
+    ld (fill_b),a
+
+    ;; Clip. line_tab has one entry per displayed scanline and the workspace
+    ;; follows it, so a box that runs past the bottom would index off the end
+    ;; and fill variables instead of screen. Do not trust the table.
+    ld a,(box_over)
+    or a
+    jr nz,draw_boxes_next
+    ld a,(box_top)
+    ld c,a
+    ld a,(box_high)
+    ld b,a
+    ld a,c
+    add a,b
+    jr nc,draw_boxes_fill
+    xor a
+    sub c                       ; only what fits above scanline 255
+    ld b,a
+    or a
+    jr z,draw_boxes_next
+draw_boxes_fill
+    ld l,c                      ; line_tab entry for the top scanline
+    ld h,0
+    add hl,hl
+    ld de,line_tab
+    add hl,de
+    ld e,b
+    ld d,0
+    call fill_rows
+draw_boxes_next
+    pop hl
+    jr draw_boxes
+
+;; ---------------------------------------------------------------------------
+;; draw_props - the room's furniture, painted once into the background.
 ;; ---------------------------------------------------------------------------
 draw_props
     ld hl,(cur_props)
@@ -244,51 +339,41 @@ draw_props_loop
     inc a
     ret z
     dec a
+    ld e,a                      ; prop id
     inc hl
-    ld c,(hl)                   ; x
+    ld a,(hl)
+    ld (prop_x),a
     inc hl
-    ld b,(hl)                   ; y
+    ld a,(hl)
+    ld (prop_y),a
     inc hl
     push hl                     ; the prop list
-    call prop_sprite
-    ld a,c
-    ld (spr_x),a
-    call spr_size
-    push hl                     ; the pixel data
-    ld a,b
-    call spr_row_ptr
-    pop hl
-    call spr_blit
+    ld a,e
+    call prop_boxes_at
+    call draw_boxes
     pop hl
     jr draw_props_loop
 
 ;; ---------------------------------------------------------------------------
-;; draw_exit - the way out, shut or open. Solid white like a platform would be
-;; misleading, so it is outlined like the rest of the furniture and only the
-;; light behind it changes.
+;; draw_exit - the way out, shut or open. Outlined like the rest of the
+;; furniture rather than solid, because solid white means a platform; only
+;; the light behind it changes.
 ;; ---------------------------------------------------------------------------
 draw_exit
+    ld a,(exit_px)              ; where the prop is drawn, which is not where
+    ld (prop_x),a               ; the collision box is: the Pitsos is 136
+    ld a,(exit_py)              ; scanlines tall but only its lower half counts
+    ld (prop_y),a
     ld a,(level_done)
     or a
     jr z,draw_exit_shut
     ld a,(exit_open)
-    jr draw_exit_blit
+    jr draw_exit_boxes
 draw_exit_shut
     ld a,(exit_shut)
-draw_exit_blit
-    call prop_sprite
-    ld a,(exit_x)
-    ld (spr_x),a
-    call spr_size
-    ld a,(spr_w)
-    ld (exit_w),a
-    ld a,(spr_h)
-    ld (exit_h),a
-    push hl
-    ld a,(exit_y)
-    call spr_row_ptr
-    pop hl
-    jp spr_blit
+draw_exit_boxes
+    call prop_boxes_at
+    jp draw_boxes
 
 ;; ---------------------------------------------------------------------------
 ;; check_exit - carry set once the cat has stepped into an open way out.

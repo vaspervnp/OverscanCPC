@@ -58,11 +58,95 @@ build_line_tab_raster
 ;; fill_rows - fill a byte-aligned rectangle.
 ;;   HL       = pointer into line_tab for the first scanline
 ;;   DE       = number of scanlines
-;;   (fill_x) = x offset in bytes, (fill_w) = width in bytes (never 0)
+;;   (fill_x) = x offset in bytes, (fill_w) = width in bytes
 ;;   (fill_b) = byte value to write
 ;; Destroys AF, BC, DE, HL.
+;;
+;; Every argument is clamped on the way in. A rectangle that hangs off the
+;; screen is a data mistake and should draw wrong, not destroy the program,
+;; and two of the ways it can go wrong here are silent:
+;;
+;;   * A count that walks past the end of line_tab has the loop read workspace
+;;     bytes as a scanline address and smear over our own variables - fill_w
+;;     among them, which the next row would then read back as a 64K LDIR.
+;;   * A width of 1 leaves BC = 0 after the DEC, and LDIR takes that as 65536.
 ;; ---------------------------------------------------------------------------
 fill_rows
+    ld a,d
+    or e
+    ret z                       ; no scanlines
+    push ix
+    push hl                     ; table pointer
+    push de                     ; scanlines asked for
+
+    ;; --- the table pointer has to be inside line_tab -----------------------
+    ld bc,line_tab
+    or a
+    sbc hl,bc                   ; HL = byte offset into the table
+    jr c,fill_rows_bad          ; before the table
+    ld bc,DISPLAY_LINES*2
+    ld a,h
+    cp b
+    jr c,fill_rows_fits
+    jr nz,fill_rows_bad
+    ld a,l
+    cp c
+    jr nc,fill_rows_bad         ; at or past the end of the table
+fill_rows_fits
+
+    ;; --- clamp the count to the rows the table still holds ------------------
+    ex de,hl                    ; DE = offset
+    ld h,b
+    ld l,c
+    or a
+    sbc hl,de                   ; HL = bytes left in the table
+    srl h
+    rr l                        ; HL = scanlines left, never zero here
+    pop de                      ; scanlines asked for
+    push hl
+    or a
+    sbc hl,de
+    pop hl
+    jr nc,fill_rows_rows_ok     ; asked for no more than there is
+    ex de,hl                    ; clamp to what is left
+fill_rows_rows_ok
+    push de
+
+    ;; --- clamp the width to what is left of the scanline --------------------
+    ld a,(fill_x)
+    cp BYTES_PER_LINE
+    jr nc,fill_rows_bad         ; starts past the end of the line
+    ld c,a
+    ld a,BYTES_PER_LINE
+    sub c
+    ld c,a                      ; what is left of the line
+    ld hl,(fill_w)
+    ld a,h
+    or a
+    jr nz,fill_rows_clip        ; 256 or wider is certainly too wide
+    ld a,l
+    or a
+    jr z,fill_rows_bad          ; nothing to draw
+    cp c
+    jr c,fill_rows_go
+    jr z,fill_rows_go
+fill_rows_clip
+    ld l,c
+    ld h,0
+fill_rows_go
+    dec hl
+    push hl
+    pop ix                      ; IX = LDIR count, out of reach of the smear
+    pop de                      ; clamped scanline count
+    pop hl                      ; table pointer
+    jr fill_rows_loop
+
+fill_rows_bad
+    pop de
+    pop hl
+    pop ix
+    ret
+
 fill_rows_loop
     push de                 ; scanline counter
     ld e,(hl)
@@ -77,18 +161,23 @@ fill_rows_loop
     add hl,bc
     ld a,(fill_b)
     ld (hl),a               ; seed byte, then smear it with LDIR
+    push ix
+    pop bc
+    ld a,b
+    or c
+    jr z,fill_rows_next     ; one byte wide - the seed is the whole row
     ld d,h
     ld e,l
     inc de
-    ld bc,(fill_w)
-    dec bc
     ldir
+fill_rows_next
     pop hl
     pop de
     dec de
     ld a,d
     or e
     jr nz,fill_rows_loop
+    pop ix
     ret
 
 ;; ---------------------------------------------------------------------------
