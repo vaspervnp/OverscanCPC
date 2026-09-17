@@ -10,8 +10,15 @@
 ;; lot came to about 30 KB. Each piece is instead a short list of filled
 ;; rectangles, which costs some fifty bytes however large the thing is, and
 ;; scales for free. A box is dx, dy, width in bytes, height in scanlines, pen;
-;; later boxes draw over earlier ones, so an outline is a white box with a
-;; navy one inside it.
+;; later boxes draw over earlier ones, so an outline is a light box with a
+;; darker one inside it.
+;;
+;; The pen is an index into pal_play's sixteen, and that is what mode 0 bought:
+;; the inside of a piece of furniture used to be pen 0, the same navy as the
+;; wall behind it, so everything was an outline drawn on nothing. Now a door is
+;; wood, a bath is porcelain with water in it, the car is a car. The white
+;; outline stays where the level's grammar needs it - outlined means scenery,
+;; solid means something the cat can stand on.
 ;;
 ;; The scale is about 80 pixels to the metre, which is what makes the cat
 ;; twenty-four pixels tall.
@@ -104,13 +111,13 @@ prop_boxes
 ;; 128 x 58 px: a two-seater against the wall.
 box_sofa
     defb  0,  0, 32, 24, 3      ; back
-    defb  2,  3, 28, 18, 0
+    defb  2,  3, 28, 18, 12
     defb  0, 24, 32, 22, 3      ; seat
-    defb  2, 27, 28, 16, 2      ; cushions
+    defb  2, 27, 28, 16, 13      ; cushions
     defb  0, 10,  5, 38, 3      ; arms
-    defb  1, 14,  3, 30, 0
+    defb  1, 14,  3, 30, 12
     defb 27, 10,  5, 38, 3
-    defb 28, 14,  3, 30, 0
+    defb 28, 14,  3, 30, 12
     defb  3, 48,  4, 10, 3      ; feet
     defb 25, 48,  4, 10, 3
     defb #FF
@@ -120,31 +127,31 @@ box_tv
     defb  5, 44,  4, 10, 3      ; stand
     defb  2, 52, 10,  4, 3      ; base
     defb  0,  0, 14, 44, 3      ; case
-    defb  1,  2, 12, 40, 0
-    defb  2,  5, 10, 32, 2      ; picture
+    defb  1,  2, 12, 40, 4
+    defb  2,  5, 10, 32, 11      ; picture
     defb #FF
 
 ;; 96 x 96 px: a window on the back wall.
 box_window
     defb  0,  0, 24, 96, 3
-    defb  2,  4, 20, 88, 0
-    defb  3,  6,  8, 38, 2
-    defb 13,  6,  8, 38, 2
-    defb  3, 50,  8, 38, 2
-    defb 13, 50,  8, 38, 2
+    defb  2,  4, 20, 88, 6
+    defb  3,  6,  8, 38, 15
+    defb 13,  6,  8, 38, 15
+    defb  3, 50,  8, 38, 15
+    defb 13, 50,  8, 38, 15
     defb #FF
 
 ;; 48 x 70 px: a freestanding cooker, hob level with the worktop.
 box_cooker
     defb  0,  0, 12, 70, 3
-    defb  1,  4, 10, 62, 0
+    defb  1,  4, 10, 62, 5
     defb  0,  0, 12,  6, 3      ; hob
-    defb  2,  1,  3,  4, 1      ; rings
-    defb  7,  1,  3,  4, 1
+    defb  2,  1,  3,  4, 13      ; rings
+    defb  7,  1,  3,  4, 13
     defb  2, 14,  8,  3, 3      ; handle
     defb  1, 22, 10, 42, 3      ; oven door
-    defb  2, 25,  8, 36, 0
-    defb  3, 30,  6, 26, 2      ; the light inside
+    defb  2, 25,  8, 36, 5
+    defb  3, 30,  6, 26, 7      ; the light inside
     defb #FF
 
 ;; 100 x 70 px: worktop with a sink and a tap. Its surface is six scanlines
@@ -154,39 +161,39 @@ box_worktop
     defb 16,  0,  1,  6, 3      ; tap
     defb 15,  0,  4,  3, 3
     defb  0,  6, 25,  6, 3      ; the worktop
-    defb  3,  7, 10,  4, 0      ; basin
+    defb  3,  7, 10,  4, 11      ; basin
     defb  0, 12, 25, 58, 3      ; unit
-    defb  1, 15, 23, 52, 0
+    defb  1, 15, 23, 52, 6
     defb  2, 18, 10, 46, 3      ; doors
-    defb  3, 21,  8, 40, 0
+    defb  3, 21,  8, 40, 6
     defb 13, 18, 10, 46, 3
-    defb 14, 21,  8, 40, 0
+    defb 14, 21,  8, 40, 6
     defb #FF
 
 ;; 48 x 32 px: the pedal bin, and the way up onto the worktop.
 box_bin
     defb  0,  0, 12,  5, 3      ; lid
     defb  1,  5, 10, 27, 3
-    defb  2,  8,  8, 21, 0
-    defb  5,  0,  2,  3, 1      ; pedal linkage
+    defb  2,  8,  8, 21, 5
+    defb  5,  0,  2,  3, 13      ; pedal linkage
     defb #FF
 
 ;; 48 x 136 px: the vintage Pitsos, two doors and four digital locks.
 box_fridge
     defb  0,  0, 12,136, 3
-    defb  1,  3, 10,130, 0
+    defb  1,  3, 10,130, 5
     defb  0, 58, 12,  4, 3      ; between the doors
     defb  9, 20,  2, 16, 3      ; handles
     defb  9, 76,  2, 16, 3
-    defb  2, 70,  2,  6, 1      ; the four locks
-    defb  2, 82,  2,  6, 1
-    defb  2, 94,  2,  6, 1
-    defb  2,106,  2,  6, 1
+    defb  2, 70,  2,  6, 13      ; the four locks
+    defb  2, 82,  2,  6, 13
+    defb  2, 94,  2,  6, 13
+    defb  2,106,  2,  6, 13
     defb #FF
 
 box_fridgeopen
     defb  0,  0, 12,136, 3
-    defb  1,  3, 10,130, 2      ; the light is on
+    defb  1,  3, 10,130, 15      ; the light is on
     defb  0, 58, 12,  4, 3
     defb  9, 20,  2, 16, 3
     defb  9, 76,  2, 16, 3
@@ -195,7 +202,7 @@ box_fridgeopen
 ;; 24 x 24 px. A vent is not furniture; it is cat sized on purpose.
 box_vent
     defb  0,  0,  6, 24, 3
-    defb  1,  2,  4, 20, 0
+    defb  1,  2,  4, 20, 4
     defb  1,  5,  4,  2, 3
     defb  1, 11,  4,  2, 3
     defb  1, 17,  4,  2, 3
@@ -203,7 +210,7 @@ box_vent
 
 box_ventopen
     defb  0,  0,  6, 24, 3
-    defb  1,  2,  4, 20, 2      ; light from the next room
+    defb  1,  2,  4, 20, 15      ; light from the next room
     defb #FF
 
 ;; ---------------------------------------------------------------------------
@@ -212,50 +219,50 @@ box_ventopen
 ;; ---------------------------------------------------------------------------
 box_door
     defb  0,  0, 20,180, 3      ; frame
-    defb  1,  4, 18,176, 0
+    defb  1,  4, 18,176, 6
     defb  2,  6, 16,174, 3      ; the leaf
-    defb  3,  9, 14,168, 0
+    defb  3,  9, 14,168, 6
     defb  4, 18,  5, 52, 3      ; upper panels
-    defb  5, 21,  3, 46, 0
+    defb  5, 21,  3, 46, 6
     defb 12, 18,  5, 52, 3
-    defb 13, 21,  3, 46, 0
+    defb 13, 21,  3, 46, 6
     defb  4, 92,  5, 64, 3      ; lower panels
-    defb  5, 95,  3, 58, 0
+    defb  5, 95,  3, 58, 6
     defb 12, 92,  5, 64, 3
-    defb 13, 95,  3, 58, 0
-    defb 15, 84,  2,  6, 1      ; handle
+    defb 13, 95,  3, 58, 6
+    defb 15, 84,  2,  6, 2      ; handle
     defb #FF
 
 box_dooropen
     defb  0,  0, 20,180, 3
-    defb  1,  4, 18,176, 2      ; the next room, lit
+    defb  1,  4, 18,176, 15      ; the next room, lit
     defb 14,  4,  5,176, 3      ; the leaf swung back against the jamb
-    defb 15,  8,  3,168, 0
+    defb 15,  8,  3,168, 6
     defb #FF
 
 ;; 120 x 176 px: the bedroom wardrobe, and the way through to inside it.
 box_wardrobe
     defb  0,  0, 30,176, 3
-    defb  1,  4, 28,168, 0
+    defb  1,  4, 28,168, 6
     defb  1,  0, 28,  6, 3      ; cornice
     defb  2,  8, 12,160, 3      ; the two doors
-    defb  3, 11, 10,154, 0
+    defb  3, 11, 10,154, 6
     defb 16,  8, 12,160, 3
-    defb 17, 11, 10,154, 0
-    defb 13, 78,  2, 16, 1      ; handles
-    defb 16, 78,  2, 16, 1
+    defb 17, 11, 10,154, 6
+    defb 13, 78,  2, 16, 2      ; handles
+    defb 16, 78,  2, 16, 2
     defb  1,172, 28,  4, 3      ; plinth
     defb #FF
 
 box_wardrobeopen
     defb  0,  0, 30,176, 3
-    defb  1,  4, 28,168, 2      ; lit inside
+    defb  1,  4, 28,168, 15      ; lit inside
     defb  1,  0, 28,  6, 3
     defb  2, 10, 26,  3, 3      ; the rail
-    defb  4, 13,  4, 90, 0      ; and what hangs off it
-    defb  9, 13,  5,104, 0
-    defb 15, 13,  4, 84, 0
-    defb 20, 13,  5, 96, 0
+    defb  4, 13,  4, 90, 12      ; and what hangs off it
+    defb  9, 13,  5,104, 11
+    defb 15, 13,  4, 84, 14
+    defb 20, 13,  5, 96, 13
     defb  1,172, 28,  4, 3
     defb #FF
 
@@ -266,36 +273,36 @@ box_wardrobeopen
 ;; 96 x 160 px: steel shelving. Its shelves are 32 scanlines apart, which is
 ;; exactly one jump, so the platforms line up with the bars that are drawn.
 box_rack
-    defb  0,  0,  2,160, 3      ; uprights
-    defb 22,  0,  2,160, 3
-    defb  0,  0, 24,  4, 3      ; five shelves
-    defb  0, 32, 24,  4, 3
-    defb  0, 64, 24,  4, 3
-    defb  0, 96, 24,  4, 3
-    defb  0,128, 24,  4, 3
-    defb  3,  8, 18, 22, 2      ; tins and jars nobody has touched in years
-    defb  5, 40, 12, 22, 2
-    defb  4,104, 16, 22, 2
+    defb  0,  0,  2,160, 5      ; uprights
+    defb 22,  0,  2,160, 5
+    defb  0,  0, 24,  4, 5      ; five shelves
+    defb  0, 32, 24,  4, 5
+    defb  0, 64, 24,  4, 5
+    defb  0, 96, 24,  4, 5
+    defb  0,128, 24,  4, 5
+    defb  3,  8, 18, 22, 7      ; tins and jars nobody has touched in years
+    defb  5, 40, 12, 22, 7
+    defb  4,104, 16, 22, 7
     defb #FF
 
 ;; 96 x 64 px: two packing crates, one on the other.
 box_crates
-    defb  0, 32, 24, 32, 3
-    defb  1, 35, 22, 26, 0
-    defb  1, 46, 22,  3, 3
-    defb  0,  0, 24, 32, 3
-    defb  1,  3, 22, 26, 0
-    defb  1, 14, 22,  3, 3
+    defb  0, 32, 24, 32, 7
+    defb  1, 35, 22, 26, 6
+    defb  1, 46, 22,  3, 7
+    defb  0,  0, 24, 32, 7
+    defb  1,  3, 22, 26, 6
+    defb  1, 14, 22,  3, 7
     defb #FF
 
 ;; 72 x 96 px: the water heater, still lit.
 box_boiler
     defb  0,  0, 18, 96, 3
-    defb  1,  4, 16, 88, 0
-    defb  2,  8, 14,  8, 1      ; the burner
+    defb  1,  4, 16, 88, 5
+    defb  2,  8, 14,  8, 13      ; the burner
     defb  3, 24, 12, 40, 3      ; tank face
-    defb  4, 27, 10, 34, 0
-    defb  7, 74,  4,  6, 2      ; dial
+    defb  4, 27, 10, 34, 5
+    defb  7, 74,  4,  6, 15      ; dial
     defb  6, 84,  2, 12, 3      ; pipes
     defb 12, 84,  2, 12, 3
     defb #FF
@@ -308,38 +315,38 @@ box_boiler
 ;; to the roof, so the car is the climb as well as the scenery.
 box_car
     defb  0, 26, 48, 14, 3      ; body
-    defb  1, 29, 46,  8, 0
+    defb  1, 29, 46,  8, 12
     defb 16,  0, 30, 28, 3      ; cabin, over the back half
-    defb 17,  3, 28, 22, 0
-    defb 18,  6, 11, 16, 2      ; windows
-    defb 31,  6, 13, 16, 2
-    defb  0, 30, 48,  3, 1      ; the trim line down the side
-    defb  1, 22,  5,  4, 1      ; headlamp, on the nose of the bonnet
-    defb  5, 40, 10, 14, 3      ; wheels, clear of the body
-    defb  8, 43,  4,  8, 0
-    defb 33, 40, 10, 14, 3
-    defb 36, 43,  4,  8, 0
+    defb 17,  3, 28, 22, 12
+    defb 18,  6, 11, 16, 11      ; windows
+    defb 31,  6, 13, 16, 11
+    defb  0, 30, 48,  3, 13      ; the trim line down the side
+    defb  1, 22,  5,  4, 15      ; headlamp, on the nose of the bonnet
+    defb  5, 40, 10, 14, 4      ; wheels, clear of the body
+    defb  8, 43,  4,  8, 5
+    defb 33, 40, 10, 14, 4
+    defb 36, 43,  4,  8, 5
     defb #FF
 
 ;; 48 x 32 px: three tyres nobody got round to taking to the tip.
 box_tyres
-    defb  0,  0, 12, 10, 3
-    defb  3,  2,  6,  6, 0
-    defb  0, 11, 12, 10, 3
-    defb  3, 13,  6,  6, 0
-    defb  0, 22, 12, 10, 3
-    defb  3, 24,  6,  6, 0
+    defb  0,  0, 12, 10, 4
+    defb  3,  2,  6,  6, 5
+    defb  0, 11, 12, 10, 4
+    defb  3, 13,  6,  6, 5
+    defb  0, 22, 12, 10, 4
+    defb  3, 24,  6,  6, 5
     defb #FF
 
 ;; 80 x 44 px: the tool board on the wall.
 box_toolboard
     defb  0,  0, 20, 44, 3
-    defb  1,  3, 18, 38, 0
-    defb  3,  6,  2, 20, 2
-    defb  7,  6,  3, 14, 2
-    defb 12,  6,  2, 24, 2
-    defb 15,  6,  3, 18, 2
-    defb  3, 32, 14,  4, 2
+    defb  1,  3, 18, 38, 6
+    defb  3,  6,  2, 20, 5
+    defb  7,  6,  3, 14, 5
+    defb 12,  6,  2, 24, 5
+    defb 15,  6,  3, 18, 5
+    defb  3, 32, 14,  4, 5
     defb #FF
 
 ;; ---------------------------------------------------------------------------
@@ -348,37 +355,37 @@ box_toolboard
 
 ;; 112 x 160 px: the lemon tree. Its branches are the platforms.
 box_tree
-    defb 12, 56,  4,104, 3      ; trunk
-    defb 13, 60,  2, 96, 2
-    defb  6,  0, 16, 24, 3      ; canopy, three tiers
-    defb  7,  3, 14, 18, 2
-    defb  2, 18, 24, 26, 3
-    defb  3, 21, 22, 20, 2
-    defb  8, 40, 12, 22, 3
-    defb  9, 43, 10, 16, 2
-    defb  4, 62,  8,  3, 3      ; branch stubs
-    defb 16, 78, 10,  3, 3
-    defb  2, 96, 10,  3, 3
+    defb 12, 56,  4,104, 6      ; trunk
+    defb 13, 60,  2, 96, 7
+    defb  6,  0, 16, 24, 8      ; canopy, three tiers
+    defb  7,  3, 14, 18, 9
+    defb  2, 18, 24, 26, 8
+    defb  3, 21, 22, 20, 9
+    defb  8, 40, 12, 22, 8
+    defb  9, 43, 10, 16, 9
+    defb  4, 62,  8,  3, 6      ; branch stubs
+    defb 16, 78, 10,  3, 6
+    defb  2, 96, 10,  3, 6
     defb #FF
 
 ;; 96 x 32 px: the garden fence.
 box_fence
-    defb  0,  0, 24,  4, 3      ; rails
-    defb  0, 14, 24,  4, 3
-    defb  1,  0,  2, 32, 3      ; pickets
-    defb  6,  0,  2, 32, 3
-    defb 11,  0,  2, 32, 3
-    defb 16,  0,  2, 32, 3
-    defb 21,  0,  2, 32, 3
+    defb  0,  0, 24,  4, 7      ; rails
+    defb  0, 14, 24,  4, 7
+    defb  1,  0,  2, 32, 7      ; pickets
+    defb  6,  0,  2, 32, 7
+    defb 11,  0,  2, 32, 7
+    defb 16,  0,  2, 32, 7
+    defb 21,  0,  2, 32, 7
     defb #FF
 
 ;; 64 x 36 px: a shrub by the back door.
 box_bush
-    defb  2,  0, 12, 16, 3
-    defb  3,  3, 10, 12, 2
-    defb  0, 12, 16, 24, 3
-    defb  1, 15, 14, 18, 2
-    defb  7, 30,  2,  6, 3
+    defb  2,  0, 12, 16, 8
+    defb  3,  3, 10, 12, 9
+    defb  0, 12, 16, 24, 8
+    defb  1, 15, 14, 18, 9
+    defb  7, 30,  2,  6, 8
     defb #FF
 
 ;; ---------------------------------------------------------------------------
@@ -388,15 +395,15 @@ box_bush
 ;; 144 x 64 px: the flight up, top step on the right.
 box_stairs
     defb 30,  0,  6, 64, 3
-    defb 31,  3,  4, 58, 0
+    defb 31,  3,  4, 58, 6
     defb 24, 12,  6, 52, 3
-    defb 25, 15,  4, 46, 0
+    defb 25, 15,  4, 46, 6
     defb 18, 24,  6, 40, 3
-    defb 19, 27,  4, 34, 0
+    defb 19, 27,  4, 34, 6
     defb 12, 36,  6, 28, 3
-    defb 13, 39,  4, 22, 0
+    defb 13, 39,  4, 22, 6
     defb  6, 48,  6, 16, 3
-    defb  7, 51,  4, 10, 0
+    defb  7, 51,  4, 10, 6
     defb  0, 58,  6,  6, 3
     defb #FF
 
@@ -406,21 +413,21 @@ box_shoes
     defb  0, 28, 20,  4, 3
     defb  0,  0,  2, 32, 3
     defb 18,  0,  2, 32, 3
-    defb  3,  6,  5,  8, 1
-    defb 10,  6,  5,  8, 1
-    defb  3, 18,  5,  8, 2
-    defb 11, 18,  5,  8, 2
+    defb  3,  6,  5,  8, 12
+    defb 10,  6,  5,  8, 12
+    defb  3, 18,  5,  8, 13
+    defb 11, 18,  5,  8, 13
     defb #FF
 
 ;; 56 x 88 px: the coat stand, fully loaded as always.
 box_coats
-    defb  6,  0,  2, 88, 3      ; pole
-    defb  2,  4, 10,  3, 3      ; hooks
-    defb  0,  8, 14,  3, 3
-    defb  0, 11,  4, 40, 2      ; three coats on it
-    defb  5, 11,  4, 48, 1
-    defb 10, 11,  4, 36, 2
-    defb  4, 78,  6, 10, 3      ; foot
+    defb  6,  0,  2, 88, 5      ; pole
+    defb  2,  4, 10,  3, 5      ; hooks
+    defb  0,  8, 14,  3, 5
+    defb  0, 11,  4, 40, 12      ; three coats on it
+    defb  5, 11,  4, 48, 13
+    defb 10, 11,  4, 36, 14
+    defb  4, 78,  6, 10, 5      ; foot
     defb #FF
 
 ;; ---------------------------------------------------------------------------
@@ -430,11 +437,11 @@ box_coats
 ;; 144 x 32 px: the bed, headboard to the left.
 box_bed
     defb  0,  4, 36, 24, 3      ; base
-    defb  1,  7, 34, 18, 0
+    defb  1,  7, 34, 18, 6
     defb  0,  0,  5, 32, 3      ; headboard
-    defb  1,  3,  3, 26, 0
+    defb  1,  3,  3, 26, 6
     defb  5,  4, 10,  6, 3      ; pillow
-    defb  5, 10, 30,  8, 2      ; quilt
+    defb  5, 10, 30,  8, 11      ; quilt
     defb  2, 28,  3,  4, 3      ; legs
     defb 31, 28,  3,  4, 3
     defb #FF
@@ -442,48 +449,48 @@ box_bed
 ;; 64 x 60 px: the bedside chest.
 box_drawers
     defb  0,  0, 16, 60, 3
-    defb  1,  3, 14, 54, 0
+    defb  1,  3, 14, 54, 6
     defb  2,  6, 12, 14, 3
-    defb  3,  9, 10,  8, 0
+    defb  3,  9, 10,  8, 6
     defb  2, 24, 12, 14, 3
-    defb  3, 27, 10,  8, 0
+    defb  3, 27, 10,  8, 6
     defb  2, 42, 12, 14, 3
-    defb  3, 45, 10,  8, 0
-    defb  7, 12,  2,  2, 1      ; handles
-    defb  7, 30,  2,  2, 1
-    defb  7, 48,  2,  2, 1
+    defb  3, 45, 10,  8, 6
+    defb  7, 12,  2,  2, 2      ; handles
+    defb  7, 30,  2,  2, 2
+    defb  7, 48,  2,  2, 2
     defb #FF
 
 ;; 128 x 52 px: the hanging rail, seen from inside the wardrobe.
 box_rail
-    defb  0,  0, 32,  4, 3
-    defb  2,  4,  5, 40, 2
-    defb  8,  4,  6, 46, 1
-    defb 15,  4,  5, 36, 2
-    defb 21,  4,  6, 48, 1
-    defb 28,  4,  4, 42, 2
+    defb  0,  0, 32,  4, 5
+    defb  2,  4,  5, 40, 12
+    defb  8,  4,  6, 46, 13
+    defb 15,  4,  5, 36, 11
+    defb 21,  4,  6, 48, 14
+    defb 28,  4,  4, 42, 7
     defb #FF
 
 ;; 72 x 40 px: the suitcases that live at the bottom of it.
 box_cases
     defb  0, 22, 18, 18, 3      ; the big one, underneath
-    defb  1, 25, 16, 12, 0
+    defb  1, 25, 16, 12, 12
     defb  1, 30, 16,  2, 3      ; its lid seam
     defb  8, 19,  2,  3, 3      ; handle
     defb  3,  0, 12, 17, 3      ; and a smaller one on top
-    defb  4,  3, 10, 11, 0
+    defb  4,  3, 10, 11, 7
     defb  4,  8, 10,  2, 3
-    defb  8, 16,  2,  3, 1
+    defb  8, 16,  2,  3, 2
     defb #FF
 
 ;; 80 x 32 px: shoe boxes, stacked.
 box_shoebox
     defb  0, 16, 20, 16, 3
-    defb  1, 19, 18, 10, 0
-    defb  0, 16, 20,  4, 2
+    defb  1, 19, 18, 10, 7
+    defb  0, 16, 20,  4, 15
     defb  2,  0, 16, 16, 3
-    defb  3,  3, 14, 10, 0
-    defb  2,  0, 16,  4, 2
+    defb  3,  3, 14, 10, 7
+    defb  2,  0, 16,  4, 15
     defb #FF
 
 ;; ---------------------------------------------------------------------------
@@ -493,30 +500,30 @@ box_shoebox
 ;; 128 x 40 px: the bath, still half full.
 box_bath
     defb  0,  0, 32, 30, 3
-    defb  3,  5, 26, 22, 0
-    defb  3, 17, 26, 10, 2      ; still half full
+    defb  3,  5, 26, 22, 3
+    defb  3, 17, 26, 10, 11      ; still half full
     defb  0,  0, 32,  5, 3      ; the rim
     defb  0, 27, 32,  3, 3      ; and the skirt
     defb  2, 30,  5, 10, 3      ; feet
     defb 25, 30,  5, 10, 3
-    defb 29,  1,  2,  4, 1      ; tap
+    defb 29,  1,  2,  4, 2      ; tap
     defb #FF
 
 ;; 72 x 64 px: pedestal basin.
 box_basin
     defb  0,  0, 18, 12, 3
-    defb  1,  3, 16,  6, 0
+    defb  1,  3, 16,  6, 3
     defb  6, 12,  6, 44, 3      ; pedestal
-    defb  7, 15,  4, 38, 0
+    defb  7, 15,  4, 38, 3
     defb  2, 56, 14,  8, 3      ; foot
-    defb  8,  0,  2,  4, 1      ; tap
+    defb  8,  0,  2,  4, 2      ; tap
     defb #FF
 
 ;; 48 x 32 px.
 box_toilet
     defb  0,  0, 12,  6, 3      ; lid
     defb  1,  6, 10, 12, 3
-    defb  2,  9,  8,  6, 0
+    defb  2,  9,  8,  6, 3
     defb  3, 18,  6, 10, 3
     defb  1, 28, 10,  4, 3
     defb #FF
@@ -531,29 +538,29 @@ box_desk
     defb  1,  5,  3, 27, 3      ; legs
     defb 26,  5,  3, 27, 3
     defb 14,  5, 14, 16, 3      ; drawer unit
-    defb 15,  8, 12, 10, 0
-    defb 19, 12,  4,  2, 1
+    defb 15,  8, 12, 10, 6
+    defb 19, 12,  4,  2, 2
     defb #FF
 
 ;; 128 x 160 px: the bookcase. Like the basement rack its shelves are one
 ;; jump apart, so what is drawn is what the cat can stand on.
 box_bookcase
     defb  0,  0, 32,160, 3
-    defb  2,  4, 28,152, 0
+    defb  2,  4, 28,152, 6
     defb  2, 32, 28,  4, 3      ; shelves
     defb  2, 64, 28,  4, 3
     defb  2, 96, 28,  4, 3
     defb  2,128, 28,  4, 3
-    defb  4,  8,  3, 24, 1      ; books
-    defb  8,  8,  2, 24, 2
-    defb 11,  8,  3, 24, 1
-    defb  4, 40,  2, 24, 2
-    defb  7, 40,  3, 24, 1
-    defb 20, 40,  4, 24, 2
-    defb  5,104,  3, 24, 1
-    defb 10,104,  2, 24, 2
-    defb 22,104,  4, 24, 1
-    defb  6,136,  3, 20, 2
+    defb  4,  8,  3, 24, 12      ; books
+    defb  8,  8,  2, 24, 9
+    defb 11,  8,  3, 24, 13
+    defb  4, 40,  2, 24, 7
+    defb  7, 40,  3, 24, 14
+    defb 20, 40,  4, 24, 11
+    defb  5,104,  3, 24, 12
+    defb 10,104,  2, 24, 9
+    defb 22,104,  4, 24, 13
+    defb  6,136,  3, 20, 15
     defb #FF
 ;; ===========================================================================
 ;; The flat. Ten rooms, bottom to top: the cat works its way up from the
