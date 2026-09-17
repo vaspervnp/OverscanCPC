@@ -85,7 +85,9 @@ far, in Greek and English:
 ![Greek title screen](docs/loukoumas-title-el.png)
 ![English title screen](docs/loukoumas-title-en.png)
 
-FIRE starts the play field, Escape comes back, L switches language:
+FIRE starts the play field, Escape comes back, L switches language. Cursor keys or
+joystick to walk, FIRE or up to jump, down to roll, down plus FIRE in mid-air to
+belly-flop:
 
 ![play field](docs/loukoumas-play.png)
 
@@ -130,6 +132,33 @@ vertically. Pixel-exact horizontal movement needs four pre-shifted copies of eve
 that is worth doing when it looks wrong, not before. Every routine walks `line_tab`, so
 the 2048-byte scanline stride and the jump from page 2 to page 3 at row 21 cost nothing.
 
+### Physics
+
+Vertical position is 8.8 fixed point — a byte of scanline and a byte of fraction, with
+velocity in the same units. Whole-pixel gravity at 50 Hz either falls like a brick or
+floats, and neither suits a cat the design document insists is overweight. Gravity is
+0.25 px/frame, the jump leaves at 4.5 and clears about 40 pixels, and the shelves are 32
+apart so each is reachable from the one below.
+
+Platforms are one-way: you land on them coming down and pass through going up. That is
+what a single-screen platform puzzle wants and it costs one comparison rather than a
+swept-box intersection.
+
+Rolling makes the cat shorter as well as faster, which is the point — 16 scanlines
+instead of 24 fits under things the standing cat does not. Changing sprite height keeps
+the feet anchored, so curling up and standing back up neither sinks nor hops.
+
+The belly-flop drops at terminal velocity, lands flat, stuns for 14 frames and shakes the
+room. The shake moves **R7**, the VSYNC position, which slides the whole picture against
+the monitor without touching a byte of screen memory. Shifting `R12`/`R13` would have been
+the obvious trick and is wrong here: the screen base is chosen so the page 2 to page 3
+crossing lands exactly on a character row, and moving it scrambles the row where the
+pages meet. R7 can only go up from 34 — below `R6` the VSYNC would start inside the
+display.
+
+`make check` asserts the numbers frame by frame: the jump apex, the landing on the shelf,
+the flop's terminal velocity and the shake and stun it sets.
+
 ### Timing and input
 
 The title screen runs on a real 50 Hz loop. The Gate Array interrupts every 52 scanlines,
@@ -152,7 +181,10 @@ make check
 
 Add `--png out.png` for an image instead of the terminal preview (needs Pillow),
 `--frames N` to run a game loop for a while instead of stopping at a self-jump, and
-`--keys L` or `--keys FIRE,RIGHT` to hold keys down. It models IM 1 interrupts six to the
+`--keys` to press keys on a schedule — `L` for the whole run, `FIRE@12-13` for those
+frames only, `RIGHT@15` from there on. With `--sym` (rasm's symbol file) and `--watch
+cat_y,cat_vy:s` it prints named variables once per virtual frame, which is how the
+physics above is checked. It models IM 1 interrupts six to the
 frame, the VSYNC bit on PPI port B, and the key matrix through the PPI, which is enough
 to prove a main loop turns over and reacts to input. `make check` uses that to assert the
 Greek build comes out in English when L is held.

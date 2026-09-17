@@ -250,7 +250,17 @@ code_end
 ;; the shared engine workspace.
 ;; ---------------------------------------------------------------------------
 cat_x       defs 1              ; column, in bytes
-cat_y       defs 1              ; top scanline
+cat_yf      defs 1              ; 8.8 fixed point: cat_yf then cat_y, so
+cat_y       defs 1              ; "ld hl,(cat_yf)" loads the pair
+cat_vy      defs 2              ; vertical velocity, same units, signed
+cat_state   defs 1              ; ST_GROUND / ST_AIR / ST_FLOP / ST_ROLL
+cat_stun    defs 1              ; frames left flat after a belly-flop
+cat_w       defs 1              ; current sprite size
+cat_h       defs 1
+cat_moved   defs 1              ; did it move horizontally this frame?
+cat_ofeet   defs 1              ; feet before and after the vertical step
+cat_nfeet   defs 1
+shake_timer defs 1
 cat_ox      defs 1              ; where the saved background came from
 cat_oy      defs 1
 cat_ow      defs 1

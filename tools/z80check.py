@@ -610,17 +610,27 @@ class CPCIO:
         self.ppi_a_input = False
         self.ppi_c = 0
         self.psg_reg = 0
-        self.rows = [0xFF] * 10
-        for name in keys:
-            line, bit = KEY_MATRIX[name]
-            self.rows[line] &= ~(1 << bit) & 0xFF
-
+        self.keys = keys            # (name, first frame, last frame)
         self.clock = 0
         self.frame_instr = frame_instr
         self.key_reads = 0
 
     def vsync(self):
         return (self.clock % self.frame_instr) < self.frame_instr // 8
+
+    def frame(self):
+        return self.clock // self.frame_instr
+
+    def matrix_row(self, line):
+        """The keyboard line as it stands this frame. A pressed key reads 0."""
+        now = self.frame()
+        row = 0xFF
+        for name, first, last in self.keys:
+            if first <= now <= last:
+                kline, bit = KEY_MATRIX[name]
+                if kline == line:
+                    row &= ~(1 << bit) & 0xFF
+        return row
 
     def out(self, port, val):
         hi = port >> 8
@@ -655,7 +665,7 @@ class CPCIO:
                 line = self.ppi_c & 0x0F
                 if line < 10:
                     self.key_reads += 1
-                    return self.rows[line]
+                    return self.matrix_row(line)
             return 0xFF
         if hi == 0xF5:                          # PPI port B, bit 0 = VSYNC
             return 0x1E | (1 if self.vsync() else 0)
@@ -758,7 +768,13 @@ def main():
     ap.add_argument("--scale", type=int, default=2, help="PNG pixel scale (default 2)")
     ap.add_argument("--ascii", action="store_true", help="print a terminal preview")
     ap.add_argument("--keys", default="",
-                    help="comma separated keys held down, e.g. L or FIRE,RIGHT")
+                    help="keys held down, comma separated. NAME is held the "
+                         "whole run, NAME@12 from frame 12 on, NAME@12-14 for "
+                         "those frames only - e.g. FIRE@12-13,RIGHT@15")
+    ap.add_argument("--sym", help="rasm symbol file (rasm -s -sl -os ...)")
+    ap.add_argument("--watch", default="",
+                    help="comma separated symbols to print once per frame; "
+                         "suffix :w for a 16-bit value, :s for signed 16-bit")
     ap.add_argument("--frames", type=int, default=0,
                     help="stop after this many virtual frames (0 = only on a "
                          "self-jump or HALT)")
@@ -768,11 +784,43 @@ def main():
     ap.add_argument("--max-steps", type=int, default=50_000_000)
     args = ap.parse_args()
 
-    keys = [k.strip().upper() for k in args.keys.split(",") if k.strip()]
-    for k in keys:
-        if k not in KEY_MATRIX:
+    keys = []
+    for item in args.keys.split(","):
+        item = item.strip().upper()
+        if not item:
+            continue
+        name, _, when = item.partition("@")
+        if name not in KEY_MATRIX:
             sys.exit("z80check: no such key %r (have %s)"
-                     % (k, ", ".join(sorted(KEY_MATRIX))))
+                     % (name, ", ".join(sorted(KEY_MATRIX))))
+        first, last = 0, 1 << 30
+        if when:
+            lo, dash, hi = when.partition("-")
+            try:
+                first = int(lo)
+                last = int(hi) if dash else 1 << 30
+            except ValueError:
+                sys.exit("z80check: bad frame range in %r" % item)
+        keys.append((name, first, last))
+
+    symbols = {}
+    if args.sym:
+        for line in open(args.sym):
+            parts = line.split()
+            if len(parts) >= 2 and parts[1].startswith("#"):
+                symbols[parts[0].upper()] = int(parts[1][1:], 16)
+
+    watch = []
+    for item in args.watch.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        name, _, kind = item.partition(":")
+        if not args.sym:
+            sys.exit("z80check: --watch needs --sym")
+        if name.upper() not in symbols:
+            sys.exit("z80check: %r is not in %s" % (name, args.sym))
+        watch.append((name, symbols[name.upper()], kind or "b"))
 
     org = int(args.org, 0)
     code = open(args.binary, "rb").read()
@@ -790,10 +838,26 @@ def main():
     next_irq = irq_period
     irqs = 0
     reason = "instruction budget"
+    last_frame = -1
+    trace = []
 
     steps = 0
     while steps < limit:
         io.clock = steps
+        if watch:
+            f = steps // args.frame_instr
+            if f != last_frame:
+                last_frame = f
+                cells = []
+                for name, addr, kind in watch:
+                    if kind == "b":
+                        cells.append("%s=%d" % (name, mem[addr]))
+                    else:
+                        v = mem[addr] | (mem[addr + 1] << 8)
+                        if kind == "s" and v > 32767:
+                            v -= 65536
+                        cells.append("%s=%d" % (name, v))
+                trace.append("  frame %3d  %s" % (f, "  ".join(cells)))
         if steps >= next_irq:
             next_irq += irq_period
             if cpu.iff and cpu.imode == 1:
@@ -825,10 +889,21 @@ def main():
             sys.exit("z80check: still running after %d instructions" % limit)
         reason = "frame budget"
 
+    if trace:
+        print("WATCH")
+        print("\n".join(trace))
     print("stopped at #%04X after %d instructions (%s)" % (cpu.pc, steps, reason))
+    held = []
+    for name, first, last in keys:
+        if first == 0 and last > 1 << 20:
+            held.append(name)
+        elif last > 1 << 20:
+            held.append("%s@%d-" % (name, first))
+        else:
+            held.append("%s@%d-%d" % (name, first, last))
     print("SIM   %d virtual frames, %d interrupts delivered, %d key matrix reads%s"
           % (steps // args.frame_instr, irqs, io.key_reads,
-             ", holding " + "+".join(keys) if keys else ""))
+             ", holding " + " ".join(held) if held else ""))
     if io.rmr is None:
         sys.exit("z80check: the code never set a screen mode - nothing to render")
     print("CRTC  " + " ".join("R%d=%d" % (i, io.crtc[i]) for i in range(14)))

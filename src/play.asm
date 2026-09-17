@@ -1,27 +1,42 @@
 ;; ===========================================================================
-;; play.asm - the play field: a floor, some sausages, and Loukoumas walking.
+;; play.asm - the play field and Loukoumas' physics.
 ;;
-;; No physics yet. This exists to exercise the sprite engine on a real
-;; overscan screen: the cat walks over scenery and leaves it intact, because
-;; what spr_save keeps is the background as drawn, sausages included.
+;; Vertical position is 8.8 fixed point: a byte of scanline and a byte of
+;; fraction, with velocity in the same units. Whole-pixel gravity on a 50 Hz
+;; machine either falls like a brick or floats, and neither suits a cat that
+;; the design document insists is overweight.
+;;
+;; Platforms are one-way: you land on them coming down and pass through going
+;; up, which is what a single-screen platform puzzle wants and costs one
+;; comparison rather than a swept-box intersection.
 ;; ===========================================================================
 
 PLAY_TOP        EQU 12
 FLOOR_Y         EQU 236
 FLOOR_H         EQU DISPLAY_LINES-FLOOR_Y
+SHELF_H         EQU 4
 
-CAT_W           EQU SPR_CAT_STAND_W
-CAT_H           EQU SPR_CAT_STAND_H
-CAT_FLOOR_Y     EQU FLOOR_Y-CAT_H
-CAT_X_MAX       EQU BYTES_PER_LINE-CAT_W
-CAT_START_X     EQU 12
-WALK_BIT        EQU #04                 ; animation cell changes every 4 frames
+;; 8.8 fixed point, so 256 is one pixel per frame.
+GRAVITY         EQU #0040       ; 0.25 px/frame - apex in 16 frames
+JUMP_V          EQU #FB80       ; -4.5 px/frame, about 40 px up: a low jump
+FLOP_V          EQU #0800       ; +8.0 px/frame once the belly commits
+MAX_FALL        EQU #0600       ; +6.0 px/frame terminal velocity
 
-SAUSAGE_COUNT   EQU 3
-SAUSAGE_Y       EQU FLOOR_Y-SPR_SAUSAGE_H
+WALK_STEP       EQU 1           ; bytes per frame - 4 px
+ROLL_STEP       EQU 2           ; rolling is the fast way to travel
+WALK_BIT        EQU #04         ; animation cell changes every 4 frames
+FLOP_STUN       EQU 14          ; frames flat on the floor after a landing
+
+ST_GROUND       EQU 0
+ST_AIR          EQU 1
+ST_FLOP         EQU 2
+ST_ROLL         EQU 3
+
+CAT_START_X     EQU 4
+SHAKE_LEN       EQU 6
 
 ;; ---------------------------------------------------------------------------
-;; play_screen - runs until Escape, then returns to the title.
+;; play_screen - runs until Escape.
 ;; ---------------------------------------------------------------------------
 play_screen
     call play_setup
@@ -30,14 +45,21 @@ play_loop
     call read_controls
     ld a,(ctl_pressed)
     bit CTL_QUIT,a
-    ret nz
+    jr nz,play_quit
     call cat_erase
-    call cat_move
+    call cat_update
     call cat_draw
+    call shake_update
     jr play_loop
+play_quit
+    xor a                       ; leave the screen centred again
+    ld (shake_timer),a
+    ld e,CRTC_R7
+    ld a,7
+    jp crtc_set
 
 ;; ---------------------------------------------------------------------------
-;; play_setup - paint the room and place everything.
+;; play_setup
 ;; ---------------------------------------------------------------------------
 play_setup
     ld hl,pal_play
@@ -46,9 +68,20 @@ play_setup
     xor a
     ld (cat_drawn),a
     ld (cat_anim),a
+    ld (cat_yf),a
+    ld (cat_stun),a
+    ld (shake_timer),a
+    ld (cat_state),a            ; ST_GROUND
+    ld hl,0
+    ld (cat_vy),hl
+
     ld a,CAT_START_X
     ld (cat_x),a
-    ld a,CAT_FLOOR_Y
+    ld a,SPR_CAT_STAND_W
+    ld (cat_w),a
+    ld a,SPR_CAT_STAND_H
+    ld (cat_h),a
+    ld a,FLOOR_Y-SPR_CAT_STAND_H
     ld (cat_y),a
     ld hl,spr_cat_stand
     ld (cat_spr),hl
@@ -58,43 +91,479 @@ play_setup
     ld a,PEN0_BYTE
     call clear_rows
 
+    ld a,2                      ; the caption sits on the background: a glyph
+    ld (txt_x),a                ; only sets pen bit 0, so it would be invisible
+    ld hl,line_tab+2*2          ; over pen 1 or pen 3
+    ld (txt_row),hl
+    ld a,MSG_SCORE
+    call msg_small
+
+    call draw_platforms
+    jp draw_sausages
+
+;; ---------------------------------------------------------------------------
+;; draw_platforms - the floor in white, the shelves in yellow.
+;; ---------------------------------------------------------------------------
+draw_platforms
     ld hl,line_tab+FLOOR_Y*2
     ld de,FLOOR_H
     ld a,PEN3_BYTE
     call clear_rows
 
-    ld a,2                      ; the score caption sits on the background, not
-    ld (txt_x),a                ; on a band: a glyph only sets pen bit 0, so it
-    ld hl,line_tab+2*2          ; would be invisible over pen 1 or pen 3
-    ld (txt_row),hl
-    ld a,MSG_SCORE
-    call msg_small
+    ld hl,platforms+3           ; skip the floor, it is already painted
+draw_platforms_loop
+    ld a,(hl)
+    inc a
+    ret z
+    dec a
+    ld (fill_x),a
+    ld b,a
+    inc hl
+    ld a,(hl)                   ; last column
+    sub b
+    inc a                       ; width in bytes
+    push hl
+    ld l,a
+    ld h,0
+    ld (fill_w),hl
+    pop hl
+    inc hl
+    ld a,(hl)                   ; top scanline
+    inc hl
+    push hl
+    ld l,a
+    ld h,0
+    add hl,hl
+    ld de,line_tab
+    add hl,de
+    ld de,SHELF_H
+    ld a,PEN2_BYTE
+    ld (fill_b),a
+    call fill_rows
+    pop hl
+    jr draw_platforms_loop
 
-    ld hl,sausage_x
+;; ---------------------------------------------------------------------------
+;; draw_sausages
+;; ---------------------------------------------------------------------------
+draw_sausages
+    ld hl,sausages
     ld b,SAUSAGE_COUNT
-play_setup_sausage
-    push bc
+draw_sausages_loop
+    push bc                     ; loop counter
     ld a,(hl)
     ld (spr_x),a
-    push hl
+    inc hl
+    ld c,(hl)                   ; y - spr_size leaves C alone
+    inc hl
+    push hl                     ; the list
     ld hl,spr_sausage
     call spr_size
-    push hl
-    ld a,SAUSAGE_Y
+    push hl                     ; the pixel data: spr_row_ptr would trample DE
+    ld a,c
     call spr_row_ptr
     pop hl
     call spr_blit
     pop hl
-    inc hl
     pop bc
-    djnz play_setup_sausage
+    djnz draw_sausages_loop
     ret
 
-sausage_x   defb 6,44,86
+;; ---------------------------------------------------------------------------
+;; Level layout. Platforms are first column, last column, top scanline; the
+;; floor has to come first because draw_platforms paints it separately.
+;; ---------------------------------------------------------------------------
+;; Shelves are 32 scanlines apart. The jump clears about 40, so every shelf is
+;; reachable from the one below with something in hand; much more spacing and
+;; the level is impossible, much less and the jump has no weight to it.
+SHELF1          EQU FLOOR_Y-32
+SHELF2          EQU FLOOR_Y-64
+SHELF3          EQU FLOOR_Y-96
+SHELF4          EQU FLOOR_Y-128
+
+platforms
+    defb 0,  95, FLOOR_Y
+    defb 4,  34, SHELF1
+    defb 54, 86, SHELF2
+    defb 14, 44, SHELF3
+    defb 60, 90, SHELF4
+    defb #FF
+
+SAUSAGE_COUNT   EQU 5
+sausages
+    defb 46, FLOOR_Y-SPR_SAUSAGE_H
+    defb 10, SHELF1-SPR_SAUSAGE_H
+    defb 78, SHELF2-SPR_SAUSAGE_H
+    defb 20, SHELF3-SPR_SAUSAGE_H
+    defb 84, SHELF4-SPR_SAUSAGE_H
+
+;; ===========================================================================
+;; The cat
+;; ===========================================================================
 
 ;; ---------------------------------------------------------------------------
-;; cat_erase - put back the background the cat was covering. Skipped on the
-;; first frame, when there is nothing saved yet.
+;; cat_update - one frame of state machine and physics.
+;; ---------------------------------------------------------------------------
+cat_update
+    ld a,(cat_stun)
+    or a
+    jr z,cat_update_live
+    dec a                       ; flat on the floor, no input
+    ld (cat_stun),a
+    ret
+cat_update_live
+    ld a,(cat_state)
+    cp ST_ROLL
+    jp z,cat_roll
+    cp ST_GROUND
+    jp z,cat_ground
+    jp cat_air
+
+;; ---------------------------------------------------------------------------
+;; cat_ground - walking, rolling, jumping, or stepping off an edge.
+;; ---------------------------------------------------------------------------
+cat_ground
+    ld a,WALK_STEP
+    call cat_step_h
+
+    ld a,(ctl_now)
+    bit CTL_DOWN,a
+    jr z,cat_ground_jump
+    ld hl,spr_cat_roll          ; curl up
+    call cat_set_sprite
+    ld a,ST_ROLL
+    ld (cat_state),a
+    ret
+
+cat_ground_jump
+    ld a,(ctl_pressed)
+    bit CTL_FIRE,a
+    jr nz,cat_ground_leap
+    bit CTL_UP,a
+    jr z,cat_ground_support
+cat_ground_leap
+    ld hl,JUMP_V
+    ld (cat_vy),hl
+    ld a,ST_AIR
+    ld (cat_state),a
+    ld hl,spr_cat_stand
+    jp cat_set_sprite
+
+cat_ground_support
+    call cat_has_support
+    jr c,cat_ground_anim
+    ld a,ST_AIR                 ; walked off the edge
+    ld (cat_state),a
+    ld hl,0
+    ld (cat_vy),hl
+    ret
+
+cat_ground_anim
+    ld a,(cat_moved)
+    or a
+    jr z,cat_ground_stand
+    ld a,(cat_anim)
+    inc a
+    ld (cat_anim),a
+    and WALK_BIT
+    jr z,cat_ground_walk1
+    ld hl,spr_cat_walk2
+    jp cat_set_sprite
+cat_ground_walk1
+    ld hl,spr_cat_walk1
+    jp cat_set_sprite
+cat_ground_stand
+    xor a
+    ld (cat_anim),a
+    ld hl,spr_cat_stand
+    jp cat_set_sprite
+
+;; ---------------------------------------------------------------------------
+;; cat_roll - faster, and short enough to fit under things.
+;; ---------------------------------------------------------------------------
+cat_roll
+    ld a,ROLL_STEP
+    call cat_step_h
+
+    ld a,(ctl_now)
+    bit CTL_DOWN,a
+    jr nz,cat_roll_support
+    ld hl,spr_cat_stand         ; stand back up
+    call cat_set_sprite
+    xor a
+    ld (cat_state),a            ; ST_GROUND
+    ret
+
+cat_roll_support
+    call cat_has_support
+    ret c
+    ld a,ST_AIR
+    ld (cat_state),a
+    ld hl,0
+    ld (cat_vy),hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cat_air - gravity, air control, the belly-flop, and landing.
+;; ---------------------------------------------------------------------------
+cat_air
+    ld a,WALK_STEP
+    call cat_step_h
+
+    ld a,(cat_state)            ; Down plus fire commits to the belly
+    cp ST_FLOP
+    jr z,cat_air_gravity
+    ld a,(ctl_now)
+    bit CTL_DOWN,a
+    jr z,cat_air_gravity
+    ld a,(ctl_pressed)
+    bit CTL_FIRE,a
+    jr z,cat_air_gravity
+    ld hl,FLOP_V
+    ld (cat_vy),hl
+    ld a,ST_FLOP
+    ld (cat_state),a
+    ld hl,spr_cat_flat
+    call cat_set_sprite
+
+cat_air_gravity
+    ld hl,(cat_vy)
+    ld de,GRAVITY
+    add hl,de
+    bit 7,h
+    jr nz,cat_air_velocity      ; still rising
+    ld de,MAX_FALL
+    push hl
+    or a
+    sbc hl,de
+    pop hl
+    jr c,cat_air_velocity
+    ld hl,MAX_FALL
+cat_air_velocity
+    ld (cat_vy),hl
+
+    ld a,(cat_y)                ; remember where the feet were
+    ld b,a
+    ld a,(cat_h)
+    add a,b
+    ld (cat_ofeet),a
+
+    ld hl,(cat_yf)              ; 8.8: L = fraction, H = scanline
+    ld de,(cat_vy)
+    add hl,de
+    jr c,cat_air_moved          ; carry out, so no underflow
+    bit 7,d
+    jr z,cat_air_moved          ; DE was positive anyway
+    ld hl,PLAY_TOP*256          ; rose past the top of the play area
+    ld de,0
+    ld (cat_vy),de
+cat_air_moved
+    ld (cat_yf),hl
+    ld a,h
+    cp PLAY_TOP
+    jr nc,cat_air_land
+    ld hl,PLAY_TOP*256
+    ld (cat_yf),hl
+    ld hl,0
+    ld (cat_vy),hl
+
+cat_air_land
+    ld hl,(cat_vy)
+    bit 7,h
+    ret nz                      ; rising, so nothing to land on
+
+    ld a,(cat_y)
+    ld b,a
+    ld a,(cat_h)
+    add a,b
+    ld (cat_nfeet),a
+    call cat_find_landing
+    ret nc
+
+    ld b,a                      ; platform top
+    ld a,(cat_h)
+    ld c,a
+    ld a,b
+    sub c
+    ld (cat_y),a
+    xor a
+    ld (cat_yf),a
+    ld hl,0
+    ld (cat_vy),hl
+
+    ld a,(cat_state)
+    cp ST_FLOP
+    jr nz,cat_air_upright
+    ld a,SHAKE_LEN              ; the whole room feels it
+    ld (shake_timer),a
+    ld a,FLOP_STUN
+    ld (cat_stun),a
+    ld a,ST_GROUND
+    ld (cat_state),a
+    ret
+cat_air_upright
+    ld a,ST_GROUND
+    ld (cat_state),a
+    ld hl,spr_cat_stand
+    jp cat_set_sprite
+
+;; ---------------------------------------------------------------------------
+;; cat_step_h - A = steps of one byte. Sets cat_moved if anything happened.
+;; ---------------------------------------------------------------------------
+cat_step_h
+    ld b,a
+    xor a
+    ld (cat_moved),a
+cat_step_h_loop
+    push bc
+    call cat_step_one
+    pop bc
+    djnz cat_step_h_loop
+    ret
+
+cat_step_one
+    ld a,(ctl_now)
+    bit CTL_LEFT,a
+    jr z,cat_step_one_right
+    ld a,(cat_x)
+    or a
+    ret z
+    dec a
+    ld (cat_x),a
+    ld a,1
+    ld (cat_moved),a
+    ret
+cat_step_one_right
+    ld a,(ctl_now)
+    bit CTL_RIGHT,a
+    ret z
+    ld a,(cat_w)
+    ld b,a
+    ld a,BYTES_PER_LINE
+    sub b                       ; rightmost column this sprite fits at
+    ld b,a
+    ld a,(cat_x)
+    cp b
+    ret nc
+    inc a
+    ld (cat_x),a
+    ld a,1
+    ld (cat_moved),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cat_set_sprite - HL = sprite. Keeps the feet where they are when the height
+;; changes, so curling up and standing back up do not sink or hop.
+;; ---------------------------------------------------------------------------
+cat_set_sprite
+    ld (cat_spr),hl
+    ld a,(hl)
+    ld (cat_w),a
+    inc hl
+    ld b,(hl)                   ; new height
+    ld a,(cat_h)
+    cp b
+    jr z,cat_set_sprite_done
+    sub b                       ; old - new, signed
+    ld c,a
+    ld a,(cat_y)
+    add a,c
+    ld (cat_y),a
+cat_set_sprite_done
+    ld a,b
+    ld (cat_h),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cat_has_support - carry set if a platform is directly under the feet.
+;; ---------------------------------------------------------------------------
+cat_has_support
+    ld a,(cat_y)
+    ld b,a
+    ld a,(cat_h)
+    add a,b
+    ld (cat_ofeet),a
+    ld (cat_nfeet),a
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; cat_find_landing - the highest platform whose top lies between where the
+;; feet were and where they are now, and that the cat overlaps horizontally.
+;; Carry set and A = its top scanline, or carry clear.
+;; ---------------------------------------------------------------------------
+cat_find_landing
+    ld hl,platforms
+    ld c,#FF                    ; best so far
+cat_find_landing_loop
+    ld a,(hl)
+    inc a
+    jr z,cat_find_landing_done
+    dec a
+    ld b,a                      ; first column
+    inc hl
+    ld a,(hl)                   ; last column
+    inc hl
+    ld e,(hl)                   ; top scanline
+    inc hl
+    push hl
+    push bc
+    push de
+    call cat_overlap
+    pop de
+    pop bc
+    pop hl
+    jr nc,cat_find_landing_loop
+
+    ld a,(cat_ofeet)
+    cp e
+    jr z,cat_find_landing_below
+    jr nc,cat_find_landing_loop ; the feet were already past it
+cat_find_landing_below
+    ld a,(cat_nfeet)
+    cp e
+    jr c,cat_find_landing_loop  ; still above it
+    ld a,e
+    cp c
+    jr nc,cat_find_landing_loop ; something higher already found
+    ld c,a
+    jr cat_find_landing_loop
+cat_find_landing_done
+    ld a,c
+    inc a
+    jr z,cat_find_landing_none
+    ld a,c
+    scf
+    ret
+cat_find_landing_none
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cat_overlap - B = first column, A = last column. Carry set if the cat
+;; overlaps that span horizontally.
+;; ---------------------------------------------------------------------------
+cat_overlap
+    ld c,a
+    ld a,(cat_x)
+    cp c
+    jr z,cat_overlap_right
+    jr nc,cat_overlap_none      ; starts past the right end
+cat_overlap_right
+    ld a,(cat_x)
+    ld d,a
+    ld a,(cat_w)
+    add a,d
+    dec a                       ; rightmost column the cat covers
+    cp b
+    jr c,cat_overlap_none       ; ends before the left end
+    scf
+    ret
+cat_overlap_none
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cat_erase / cat_draw
 ;; ---------------------------------------------------------------------------
 cat_erase
     ld a,(cat_drawn)
@@ -111,81 +580,10 @@ cat_erase
     ld hl,cat_buf
     jp spr_restore
 
-;; ---------------------------------------------------------------------------
-;; cat_move - one step per frame: 4 pixels across, 2 scanlines up or down.
-;; C is set if the cat moved horizontally, which is what drives the waddle.
-;; ---------------------------------------------------------------------------
-cat_move
-    ld a,(ctl_now)
-    ld b,a
-    ld c,0
-
-    bit CTL_LEFT,b
-    jr z,cat_move_right
-    ld a,(cat_x)
-    or a
-    jr z,cat_move_right
-    dec a
-    ld (cat_x),a
-    ld c,1
-
-cat_move_right
-    bit CTL_RIGHT,b
-    jr z,cat_move_up
-    ld a,(cat_x)
-    cp CAT_X_MAX
-    jr nc,cat_move_up
-    inc a
-    ld (cat_x),a
-    ld c,1
-
-cat_move_up
-    bit CTL_UP,b
-    jr z,cat_move_down
-    ld a,(cat_y)
-    cp PLAY_TOP+2
-    jr c,cat_move_down
-    sub 2
-    ld (cat_y),a
-
-cat_move_down
-    bit CTL_DOWN,b
-    jr z,cat_move_anim
-    ld a,(cat_y)
-    cp CAT_FLOOR_Y-1
-    jr nc,cat_move_anim
-    add a,2
-    ld (cat_y),a
-
-cat_move_anim
-    ld a,c
-    or a
-    jr z,cat_move_stand
-    ld a,(cat_anim)
-    inc a
-    ld (cat_anim),a
-    and WALK_BIT
-    jr z,cat_move_walk1
-    ld hl,spr_cat_walk2
-    jr cat_move_set
-cat_move_walk1
-    ld hl,spr_cat_walk1
-    jr cat_move_set
-cat_move_stand
-    xor a
-    ld (cat_anim),a
-    ld hl,spr_cat_stand
-cat_move_set
-    ld (cat_spr),hl
-    ret
-
-;; ---------------------------------------------------------------------------
-;; cat_draw - save the background at the new position, then blit.
-;; ---------------------------------------------------------------------------
 cat_draw
     ld hl,(cat_spr)
     call spr_size
-    push hl                     ; the pixel data
+    push hl
 
     ld a,(spr_w)
     ld (cat_ow),a
@@ -211,13 +609,44 @@ cat_draw
     ret
 
 ;; ---------------------------------------------------------------------------
+;; shake_update - the belly-flop jolt.
+;;
+;; R7 is the VSYNC position, so moving it slides the whole picture up or down
+;; against the monitor without touching a byte of screen memory. It can only
+;; go up from 34: below R6 the VSYNC would start inside the display. Shifting
+;; R12/R13 instead would have been the obvious trick and is wrong here - the
+;; screen base is chosen so the page 2 to page 3 crossing lands exactly on a
+;; character row, and moving it scrambles the row where the pages meet.
+;;
+;; Untested on a real monitor: a CTM may take a frame to re-lock.
+;; ---------------------------------------------------------------------------
+shake_update
+    ld a,(shake_timer)
+    or a
+    ret z
+    dec a
+    ld (shake_timer),a
+    ld e,a
+    ld d,0
+    ld hl,shake_tab
+    add hl,de
+    ld a,(hl)
+    add a,CRTC_R7
+    ld e,a
+    ld a,7
+    jp crtc_set
+
+shake_tab                       ; indexed by the timer counting down
+    defb 0,1,1,2,2,1
+
+;; ---------------------------------------------------------------------------
 ;; In-game palette, in loukoumas.md's own ink order: the sprite art is drawn
 ;; against it, so pen 2 has to be the fur.
 ;; ---------------------------------------------------------------------------
 pal_play
     defb 0,   #40+4             ; pen 0 - deep navy, the room
     defb 1,   #40+7             ; pen 1 - coral: paws, nose, sausages, text
-    defb 2,   #40+10            ; pen 2 - butter yellow: fur
+    defb 2,   #40+10            ; pen 2 - butter yellow: fur and shelves
     defb 3,   #40+11            ; pen 3 - white: eyes, belly, the floor
     defb #10, #40+4
     defb #FF

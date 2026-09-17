@@ -236,7 +236,25 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   about 40 blanked scanlines before the raster reaches line 0. A big blit will still
   tear; nothing has been measured on hardware yet.
 
-## 9. Working conventions
+## 9. Physics
+
+- Vertical position and velocity are 8.8 fixed point. Whole-pixel gravity at 50 Hz has
+  no usable range between "brick" and "balloon".
+- Platforms are one-way: landing is checked only while falling, by asking whether a
+  platform top lies between where the feet were and where they now are. Going up passes
+  through. Cheap, and right for a single-screen platformer.
+- Sprite height is part of the state. `cat_set_sprite` keeps the feet anchored when it
+  changes, so rolling and standing do not sink or hop.
+- Screen shake moves R7 (VSYNC position), never R12/R13. The screen base is chosen so
+  the page 2 to page 3 crossing lands on a character row boundary; moving it scrambles
+  the row where the pages meet. R7 can only go *up* from 34, since below R6 the VSYNC
+  would begin inside the display. Untested on a real monitor - a CTM may need a frame
+  to re-lock.
+- Level geometry and the jump have to be designed together: the jump clears about 40
+  scanlines, so shelves are 32 apart. The first version had them 48 apart and nothing
+  above the floor was reachable.
+
+## 10. Working conventions
 
 - Comment every CRTC register write with the value **and the reason** — a bare
   `LD BC,&BC01 / OUT (C),C` is unreadable six months later.
@@ -250,7 +268,7 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Prefer small, individually runnable test programs over one growing demo. Each milestone
   should be its own binary that shows one thing.
 
-## 10. Confidence notes
+## 11. Confidence notes
 
 Solid and safe to build on: the address decoding in section 2, the 1024-character limit,
 the 312-line/64 us frame arithmetic, the 52-line interrupt cadence, the port numbers.

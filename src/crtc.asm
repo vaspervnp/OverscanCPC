@@ -83,3 +83,16 @@ pal_main
                             ;         cross out into the overscan region
     defb #10, #40+20        ; border - black, so what little is left shows up
     defb #FF
+
+;; ---------------------------------------------------------------------------
+;; crtc_set - write one register. A = register number, E = value.
+;; Destroys AF, BC.
+;; ---------------------------------------------------------------------------
+crtc_set
+    ld b,#BC
+    ld c,a
+    out (c),c
+    ld b,#BD
+    ld c,e
+    out (c),c
+    ret
