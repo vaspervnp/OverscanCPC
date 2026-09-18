@@ -683,6 +683,37 @@ class Z80:
             if reg != 6:
                 self.s8(reg, v)                         # the undocumented copy
             return
+        # With a DD/FD prefix, a register code of 4 or 5 is not H or L but the
+        # high or low half of the index register. Undocumented, but every Z80
+        # ever made does it, and the Arkos player is one of the many things
+        # that uses it.
+        def half(i, v=None):
+            cur = getattr(self, name)
+            if i not in (4, 5):
+                if v is None:
+                    return self.r[i]
+                self.r[i] = v & 0xFF
+                return None
+            if v is None:
+                return (cur >> 8) if i == 4 else (cur & 0xFF)
+            if i == 4:
+                setattr(self, name, ((v & 0xFF) << 8) | (cur & 0xFF))
+            else:
+                setattr(self, name, (cur & 0xFF00) | (v & 0xFF))
+            return None
+
+        dst, src = (op >> 3) & 7, op & 7
+        if op & 0xC7 == 0x06 and dst != 6:                      # ld ixh/ixl,n
+            return half(dst, self.fetch())
+        if op >> 6 == 1 and dst != 6 and src != 6:              # ld r,r'
+            return half(dst, half(src))
+        if op & 0xC7 == 0x04 and dst != 6:                      # inc ixh/ixl
+            return half(dst, self.inc8(half(dst)))
+        if op & 0xC7 == 0x05 and dst != 6:                      # dec ixh/ixl
+            return half(dst, self.dec8(half(dst)))
+        if op >> 6 == 2 and src != 6:                           # alu a,ixh/ixl
+            return self.alu(dst, half(src))
+
         raise Unsupported("opcode #%02X%02X at #%04X" % (prefix, op, self.pc - 2))
 
 
@@ -919,6 +950,11 @@ def main():
     ap.add_argument("--frame-instr", type=int, default=12000,
                     help="instructions per virtual frame (default 12000, roughly "
                          "what a 19968 us CPC frame gets through)")
+    ap.add_argument("--save-mem", action="append", default=[],
+                    metavar="ADDR:LEN=FILE",
+                    help="write a range of memory out when the run ends, so a "
+                         "table the program built or unpacked can be compared "
+                         "with what it was built from")
     ap.add_argument("--beam", action="store_true",
                     help="where the beam is when each sprite is drawn (needs "
                          "--sym). Every sprite has to be back on the screen "
@@ -1112,6 +1148,14 @@ def main():
         if not args.frames:
             sys.exit("z80check: still running after %d instructions" % limit)
         reason = "instruction ceiling"
+
+    for spec in args.save_mem:
+        where, _, path = spec.partition("=")
+        addr, _, length = where.partition(":")
+        addr = int(addr, 0)
+        length = int(length, 0)
+        open(path, "wb").write(bytes(mem[addr:addr + length]))
+        print("wrote %s (%d bytes from #%04X)" % (path, length, addr))
 
     if cpu.sp_hit:
         print("STACK SP reached #%04X on frame %d, at PC #%04X"

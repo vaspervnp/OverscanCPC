@@ -58,7 +58,11 @@ BLINK_BIT       EQU #20                 ; frame_count bit: ~0.64 s each way
 ;; reads it: rooms.asm names sprites and messages, and play.asm indexes room
 ;; records with IY, so all of that has to be defined before either is read.
 ;; ---------------------------------------------------------------------------
-    ORG DATA_ORG,DATA_STORE
+;; Assembled where it runs, and NOT where the file carries it: the file
+;; carries tablepack.asm instead, which is the same bytes packed. The bytes
+;; laid down here are never saved - every SAVE in this file starts at
+;; loukoumas_start - so all this block leaves behind is its labels.
+    ORG DATA_ORG
 data_start
     include "font.asm"
     include "strings.asm"
@@ -77,6 +81,11 @@ DATA_LEN        EQU data_end-data_start
     ORG PIC_STORE
     include "titlepic.asm"
 
+;; And the tables themselves, packed, which is what the file actually holds.
+;; tools/mkpack.py builds it from a pass of its own over the six files above.
+    ORG DATA_STORE
+    include "tablepack.asm"
+
     ORG #4000
 
 ;; ---------------------------------------------------------------------------
@@ -87,10 +96,9 @@ loukoumas_start
     ld bc,#7F8C                 ; mode 0, both ROMs disabled
     out (c),c
 
-    ld hl,DATA_STORE            ; #0000-#3FFF is RAM now the ROMs are off, so
+    ld hl,table_packed          ; #0000-#3FFF is RAM now the ROMs are off, so
     ld de,DATA_ORG              ; the tables can go where they were built for
-    ld bc,DATA_LEN
-    ldir
+    call unpack_tables
 
     ld hl,pal_blank             ; build the screen unseen
     call set_pal
@@ -131,12 +139,22 @@ main_loop
 ;; title_loop - one pass per 50 Hz frame; returns when FIRE is pressed.
 ;; ---------------------------------------------------------------------------
 title_loop
+    ld hl,loukmus_song
+    xor a                       ; the first and only subsong
+    di
+    call PLY_AKG_Init
+    ei
+
+title_frame
     call wait_frame
+    di
+    call PLY_AKG_Play           ; one tick a frame, and the player wants the
+    ei                          ; interrupts off while it has the stack
     call read_controls
 
     ld a,(ctl_pressed)
     bit CTL_FIRE,a
-    ret nz
+    jr nz,title_done
 
     bit CTL_LANG,a
     jr z,title_no_lang
@@ -151,7 +169,13 @@ title_lang_store
 
 title_no_lang
     call blink_press
-    jr title_loop
+    jr title_frame
+
+title_done
+    di
+    call PLY_AKG_Stop           ; hand the chip back to the game's effects
+    ei
+    jp sfx_init
 
 ;; ---------------------------------------------------------------------------
 ;; blink_press - flash the "press fire" line, and prove the heartbeat runs at
@@ -330,6 +354,25 @@ pal_title
     include "enemy.asm"
     include "play.asm"
 
+;; ---------------------------------------------------------------------------
+;; The title tune: Arkos Tracker 3's own AKG player, and the song it exported.
+;;
+;; src/playerakg.asm is Targhan's player, copied in from the tracker's own
+;; distribution so a build needs nothing outside this repository. It is three
+;; kilobytes of self-modifying code and it uses the stack for its own ends, so
+;; it saves and restores SP itself - but it must be called with interrupts
+;; disabled, which is why every call to it here sits between di and ei.
+;;
+;; It owns all three channels, so it only ever runs on the title screen; the
+;; game's own effects in sound.asm have the chip to themselves once play
+;; starts. Nothing in the two ever runs at the same time.
+;; ---------------------------------------------------------------------------
+PLY_AKG_REMOVE_HOOKS = 1
+    include "playerakg.asm"
+
+loukmus_song
+    include "loukmus.asm"
+
 ;; ASSERT evaluates immediately, so this has to come after the generated
 ;; sprite sizes exist.
     ASSERT SPR_ROBOT_W*SPR_ROBOT_H <= ENEMY_BUF
@@ -441,6 +484,7 @@ game_end
 ;; The workspace is uninitialised RAM, but it is still addresses: it must stop
 ;; before the file's copy of the low block, or it would be built on top of the
 ;; tables before they are moved down.
+    ASSERT DATA_LEN == TABLE_RAW_LEN   ; the packed copy is of these tables
     ASSERT DATA_ORG+DATA_LEN <= PICK_BUFS
     ASSERT PICK_BUFS+(SAUSAGE_MAX+1)*PICK_BUF <= #4000
     ASSERT game_end <= PIC_STORE
@@ -449,7 +493,7 @@ game_end
 
 ;; What the file has to hold: the code, the gap the workspace will use, and
 ;; the low block riding along at the end of it.
-IMAGE_LEN       EQU DATA_STORE+DATA_LEN-loukoumas_start
+IMAGE_LEN       EQU DATA_STORE+TABLE_PACKED_LEN-loukoumas_start
 
 ;; AMSDOS keeps its own buffers from #A67B up, which is why HIMEM drops when a
 ;; disc drive is attached. The file may run over the screen at #8000 - nothing
@@ -458,6 +502,13 @@ IMAGE_LEN       EQU DATA_STORE+DATA_LEN-loukoumas_start
 
     IF TARGET==1
 RUN loukoumas_start
+    ENDIF
+
+;; The raw binary the tools read. It has to be an explicit SAVE and not -ob,
+;; because the low block above is assembled at #0100 and -ob would write the
+;; sixteen kilobytes of nothing in between. The Makefile renames it.
+    IF TARGET==3
+    SAVE "build/out.bin",loukoumas_start,IMAGE_LEN
     ENDIF
 
     IF TARGET==2

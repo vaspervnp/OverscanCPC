@@ -67,7 +67,6 @@ INVUL_FRAMES    EQU 100         ; two seconds of grace after a respawn
 MILK_POINTS     EQU #05         ; BCD, into the hundreds digit
 MILK_FLASH_LEN  EQU 12          ; frames the border flashes to say it counted
 MILK_FLASH_COL  EQU 3           ; pale yellow, hardware colour 3
-NO_MILK         EQU 255         ; in the R_MILKX of a room that has none
 
 ;; ---------------------------------------------------------------------------
 ;; play_screen - walk the flat, one room at a time. Returns on Escape.

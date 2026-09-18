@@ -184,3 +184,54 @@ unp_dest_row
     ld d,(hl)
     ld (unp_dp),de
     ret
+
+;; ---------------------------------------------------------------------------
+;; unpack_tables - HL = the packed tables, DE = where they go.
+;;
+;; The other decompressor in this file walks the screen, because a screen is
+;; not linear. The tables are, and they always land at the same address, so a
+;; match carries the address it is copied from rather than a distance back -
+;; which makes the whole of what has already been unpacked the window, and
+;; makes the copy an LDIR with no arithmetic in front of it.
+;;
+;; Flag byte, most significant bit first: 1 is a literal, 0 is a match of
+;; length, address low, address high. A length of zero is the end.
+;;
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+unpack_tables
+    ld a,(hl)                   ; the next eight flags
+    inc hl
+    ld c,a
+    ld b,8
+unpack_tables_bit
+    sla c
+    jr nc,unpack_tables_match
+    ld a,(hl)                   ; a literal
+    inc hl
+    ld (de),a
+    inc de
+    djnz unpack_tables_bit
+    jr unpack_tables
+
+unpack_tables_match
+    ld a,(hl)                   ; how many bytes, and zero ends the stream
+    or a
+    ret z
+    push bc                     ; the flags and what is left of the eight
+    ld c,a
+    ld b,0
+    inc hl
+    inc hl
+    inc hl
+    push hl                     ; the stream, three bytes on
+    dec hl
+    ld a,(hl)                   ; where it is copied from
+    dec hl
+    ld l,(hl)
+    ld h,a
+    ldir
+    pop hl
+    pop bc
+    djnz unpack_tables_bit
+    jr unpack_tables

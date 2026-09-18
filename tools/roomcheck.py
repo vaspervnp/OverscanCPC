@@ -37,13 +37,14 @@ class Build:
     """The binary as the Z80 sees it once the game has started.
 
     The tables are assembled to run at DATA_ORG but travel in the file at
-    DATA_STORE, because AMSDOS cannot load into the sixteen kilobytes the
-    lower ROM sits over - see config.asm. The game moves them down in its
-    first dozen instructions, so this does the same before reading anything:
-    the symbols are all low-block addresses.
+    DATA_STORE packed, because AMSDOS cannot load into the sixteen kilobytes
+    the lower ROM sits over and because twelve and a half kilobytes carried
+    verbatim is more than the file can spare - see config.asm. The game
+    unpacks them in its first instruction; this reads the unpacked copy the
+    build already made, which is the same bytes and saves decoding them twice.
     """
 
-    def __init__(self, binpath, sympath, org=0x4000):
+    def __init__(self, binpath, sympath, tablepath, org=0x4000):
         self.mem = bytearray(0x10000)
         code = open(binpath, "rb").read()
         self.mem[org:org + len(code)] = code
@@ -52,10 +53,12 @@ class Build:
             m = re.match(r"^(\S+)\s+#([0-9A-Fa-f]+)\s", line)
             if m:
                 self.sym[m.group(1).upper()] = int(m.group(2), 16)
-        store = self.c("DATA_STORE")
+        tables = open(tablepath, "rb").read()
         dest = self.c("DATA_ORG")
-        size = self.c("DATA_LEN")
-        self.mem[dest:dest + size] = self.mem[store:store + size]
+        if len(tables) != self.c("DATA_LEN"):
+            sys.exit("roomcheck: %s is %d bytes, the build says %d"
+                     % (tablepath, len(tables), self.c("DATA_LEN")))
+        self.mem[dest:dest + len(tables)] = tables
 
     def __getitem__(self, addr):
         return self.mem[addr]
@@ -166,9 +169,9 @@ def reachable(plats, start):
 
 
 def main():
-    if len(sys.argv) < 3:
-        sys.exit("usage: roomcheck.py <binary> <symbols>")
-    b = Build(sys.argv[1], sys.argv[2])
+    if len(sys.argv) < 4:
+        sys.exit("usage: roomcheck.py <binary> <symbols> <tables.bin>")
+    b = Build(sys.argv[1], sys.argv[2], sys.argv[3])
 
     floor_y = b.c("FLOOR_Y")
     cat_h = b.c("SPR_CAT_STAND_H")

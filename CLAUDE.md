@@ -219,14 +219,23 @@ assume an effect that works in one emulator works on another type.
 - The file may run over the screen at #8000 while it is loading, because nothing has
   looked at the screen yet. It must not run over AMSDOS's own buffers, which start at
   #A67B; that is why HIMEM drops when a disc drive is attached.
-- **There is almost nothing left.** The file is code from #4000 to `PIC_STORE`, the
-  packed title picture from there to `DATA_STORE`, and the tables after it, and it
-  ends 43 bytes below #A67B. `PIC_STORE` sits 11 bytes above `game_end` and
-  `DATA_STORE` 5 bytes above `PIC_STORE + TITLE_PACKED_LEN`, so the gaps are gone
-  too: growing the code means moving both constants up, and moving both up eats the
-  43. Any real growth from here has to come out of the title picture - it is 7,275
-  bytes, more than a quarter of the file, and the only thing in it that is not
-  load-bearing.
+- **The tables are packed too, and that is where the room came from.** Twelve and a
+  half kilobytes of font, strings, sprites, artwork and rooms was carried verbatim
+  for no reason: it is read-only and it goes into place before anything else runs.
+  `tools/mkpack.py` packs it to eight and a half and `unpack_tables` in
+  `src/unpack.asm` - forty bytes - puts it back, which paid for the music with
+  change. It costs about a fifth of a second at boot.
+- That needs a build pass of its own: `src/lowblock.asm` assembles the same six
+  files at the address they run at and saves them raw, the tool packs that, and the
+  game includes the packed copy. The game still assembles the six files as well, at
+  `ORG DATA_ORG` - but only for their labels. Their bytes are never saved, because
+  every SAVE in `loukoumas.asm` starts at `loukoumas_start`, which is why the raw
+  binary the tools read is an explicit SAVE and not `-ob`: `-ob` would write the
+  sixteen kilobytes of nothing between #0100 and #4000.
+- **The file is code from #4000 to `PIC_STORE`, the packed title picture from there
+  to `DATA_STORE`, and the packed tables after it.** It ends 58 bytes below #A67B.
+  All three regions are set by hand in `config.asm` and all three are nearly tight;
+  growing any of them means moving the two constants and watching that last number.
 
 ---
 
