@@ -11,6 +11,13 @@ TITLE2    = THE GREAT SAUSAGE CHASE
 PRESS     = PRESS FIRE TO START
 LANGNAME  = ENGLISH
 LANGHINT  = PRESS L FOR GREEK
+# DIFFEASY, DIFFMED and DIFFHARD are read as one run: the chooser adds the
+# setting to the id of the first, so they must stay in this order.
+DIFFICULTY = HOW HARD DO YOU WANT IT
+DIFFEASY  = EASY
+DIFFMED   = MEDIUM
+DIFFHARD  = HARD
+DIFFHINT  = LEFT AND RIGHT, THEN FIRE
 # The credit is a name, so it is the same in both languages.
 CREDIT    = REVIVE8BIT - 2026 - VASPER
 SCORE     = SCORE

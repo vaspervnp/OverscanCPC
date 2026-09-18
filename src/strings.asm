@@ -12,44 +12,49 @@ MSG_TITLE2     EQU 1
 MSG_PRESS      EQU 2
 MSG_LANGNAME   EQU 3
 MSG_LANGHINT   EQU 4
-MSG_CREDIT     EQU 5
-MSG_SCORE      EQU 6
-MSG_LIVES      EQU 7
-MSG_SAUSAGES   EQU 8
-MSG_LEVEL      EQU 9
-MSG_PAUSED     EQU 10
-MSG_GAMEOVER   EQU 11
-MSG_WELLDONE   EQU 12
-MSG_ROOM1      EQU 13
-MSG_ROOM2      EQU 14
-MSG_ROOM3      EQU 15
-MSG_ROOM4      EQU 16
-MSG_ROOM5      EQU 17
-MSG_ROOM6      EQU 18
-MSG_ROOM7      EQU 19
-MSG_ROOM8      EQU 20
-MSG_ROOM9      EQU 21
-MSG_ROOM10     EQU 22
-MSG_ROOM11     EQU 23
-MSG_ROOM12     EQU 24
-MSG_ROOM13     EQU 25
-MSG_ROOM14     EQU 26
-MSG_ROOM15     EQU 27
-MSG_ROOM16     EQU 28
-MSG_ROOM17     EQU 29
-MSG_ROOM18     EQU 30
-MSG_ROOM19     EQU 31
-MSG_ROOM20     EQU 32
-MSG_ROOM21     EQU 33
-MSG_ROOM22     EQU 34
-MSG_ROOM23     EQU 35
-MSG_ROOM24     EQU 36
-MSG_ROOM25     EQU 37
-MSG_ROOM26     EQU 38
-MSG_ROOM27     EQU 39
-MSG_ROOM28     EQU 40
-MSG_ROOM29     EQU 41
-MSG_COUNT EQU 42
+MSG_DIFFICULTY EQU 5
+MSG_DIFFEASY   EQU 6
+MSG_DIFFMED    EQU 7
+MSG_DIFFHARD   EQU 8
+MSG_DIFFHINT   EQU 9
+MSG_CREDIT     EQU 10
+MSG_SCORE      EQU 11
+MSG_LIVES      EQU 12
+MSG_SAUSAGES   EQU 13
+MSG_LEVEL      EQU 14
+MSG_PAUSED     EQU 15
+MSG_GAMEOVER   EQU 16
+MSG_WELLDONE   EQU 17
+MSG_ROOM1      EQU 18
+MSG_ROOM2      EQU 19
+MSG_ROOM3      EQU 20
+MSG_ROOM4      EQU 21
+MSG_ROOM5      EQU 22
+MSG_ROOM6      EQU 23
+MSG_ROOM7      EQU 24
+MSG_ROOM8      EQU 25
+MSG_ROOM9      EQU 26
+MSG_ROOM10     EQU 27
+MSG_ROOM11     EQU 28
+MSG_ROOM12     EQU 29
+MSG_ROOM13     EQU 30
+MSG_ROOM14     EQU 31
+MSG_ROOM15     EQU 32
+MSG_ROOM16     EQU 33
+MSG_ROOM17     EQU 34
+MSG_ROOM18     EQU 35
+MSG_ROOM19     EQU 36
+MSG_ROOM20     EQU 37
+MSG_ROOM21     EQU 38
+MSG_ROOM22     EQU 39
+MSG_ROOM23     EQU 40
+MSG_ROOM24     EQU 41
+MSG_ROOM25     EQU 42
+MSG_ROOM26     EQU 43
+MSG_ROOM27     EQU 44
+MSG_ROOM28     EQU 45
+MSG_ROOM29     EQU 46
+MSG_COUNT EQU 47
 
 ;; language -> table of message pointers
 lang_tables
@@ -62,6 +67,11 @@ msgtab_en
     defw str_en_PRESS
     defw str_en_LANGNAME
     defw str_en_LANGHINT
+    defw str_en_DIFFICULTY
+    defw str_en_DIFFEASY
+    defw str_en_DIFFMED
+    defw str_en_DIFFHARD
+    defw str_en_DIFFHINT
     defw str_en_CREDIT
     defw str_en_SCORE
     defw str_en_LIVES
@@ -106,6 +116,11 @@ msgtab_el
     defw str_el_PRESS
     defw str_el_LANGNAME
     defw str_el_LANGHINT
+    defw str_el_DIFFICULTY
+    defw str_el_DIFFEASY
+    defw str_el_DIFFMED
+    defw str_el_DIFFHARD
+    defw str_el_DIFFHINT
     defw str_el_CREDIT
     defw str_el_SCORE
     defw str_el_LIVES
@@ -162,6 +177,23 @@ str_en_LANGHINT
     defb 17
     defb 16,18,5,19,19,0,12,0,6,15,18,0,7,18,5,5
     defb 11
+str_en_DIFFICULTY
+    defb 23
+    defb 8,15,23,0,8,1,18,4,0,4,15,0,25,15,21,0
+    defb 23,1,14,20,0,9,20
+str_en_DIFFEASY
+    defb 4
+    defb 5,1,19,25
+str_en_DIFFMED
+    defb 6
+    defb 13,5,4,9,21,13
+str_en_DIFFHARD
+    defb 4
+    defb 8,1,18,4
+str_en_DIFFHINT
+    defb 25
+    defb 12,5,6,20,0,1,14,4,0,18,9,7,8,20,48,0
+    defb 20,8,5,14,0,6,9,18,5
 str_en_CREDIT
     defb 26
     defb 18,5,22,9,22,5,45,2,9,20,0,52,0,39,37,39
@@ -293,6 +325,23 @@ str_el_LANGHINT
     defb 18
     defb 32,1,20,1,0,12,0,27,9,1,0,1,27,27,30,9
     defb 11,1
+str_el_DIFFICULTY
+    defb 22
+    defb 32,15,33,15,0,28,25,33,11,15,30,1,0,20,15,0
+    defb 29,5,30,5,9,33
+str_el_DIFFEASY
+    defb 6
+    defb 5,25,11,15,30,15
+str_el_DIFFMED
+    defb 6
+    defb 13,5,33,1,9,15
+str_el_DIFFHARD
+    defb 7
+    defb 28,25,33,11,15,30,15
+str_el_DIFFHINT
+    defb 29
+    defb 1,16,9,33,20,5,16,1,0,11,1,9,0,28,5,31
+    defb 9,1,48,0,13,5,20,1,0,6,9,18,5
 str_el_CREDIT
     defb 26
     defb 18,5,22,9,22,5,45,2,9,20,0,52,0,39,37,39

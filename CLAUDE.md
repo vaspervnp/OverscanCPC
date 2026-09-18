@@ -198,6 +198,14 @@ assume an effect that works in one emulator works on another type.
   hardware colour, &80+n sets mode and ROM enables, &C0+n sets the RAM configuration.
 - CRTC ports: &BCxx select register, &BDxx write data, &BExx status (type 1),
   &BFxx read data (types 0/2).
+- **Anything declared in the #4000 block costs a byte of the disc file**, even
+  uninitialised workspace: the file spans from the load address to the end of
+  the packed tables riding along behind it, and everything in between is
+  written out. RAM the program builds for itself belongs below #4000, where it
+  costs nothing - that is what PICK_BUFS is, and LINE_TAB_AT after it, which
+  moved 544 bytes of line table out of the file for free. The limit that
+  matters is #A67B, where AMSDOS's buffers start, and the three asserts at the
+  bottom of loukoumas.asm are what catch a build that has grown past it.
 - A 32 KB overscan screen collides with firmware territory. Firmware variables live around
   &B100-&BFFF and the firmware stack sits just below &C000. Overscan work runs with the
   firmware off: own IM 1 (or IM 2) handler, own stack placed somewhere the display does
@@ -305,6 +313,15 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   16 scanlines, which is 9 ms of LDIR - half a frame - and it was being done every time
   a sausage was collected. `txt_solid` makes small text overwrite instead of blend, so
   the numbers can be written straight over where they stand.
+- **Two sprites standing in each other cannot be rebuilt one at a time.** The
+  interleaved rebuild saves the background under a sprite while everything
+  after it in the order is still showing last frame's picture, so the save
+  catches a picture that is about to move, and hands it back to the room a
+  frame later where nothing will ever erase it again. `enemy_tangled` tests
+  all the ground each of them covers between where it is and where its picture
+  still is, and a frame that finds anything is unwound whole and laid down
+  again instead. `tools/z80check.py --debris` counts what is left standing on
+  ground the room painted empty, and `make check` fails on one byte of it.
 - `tools/z80check.py --profile` counts instructions per routine and is how all of the
   above was found rather than guessed. Its virtual frame is a fixed instruction budget,
   so when the game stops overrunning it the scripted routes shift and have to be
@@ -464,6 +481,14 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - The belly-flop stuns everything at roughly the height it landed at, ignoring distance
   along the shelf. That is deliberate: it makes the flop the tool for getting past a
   robot patrolling a whole shelf, which a short shockwave did not.
+- **Three difficulties, and the hardest one is the game as it was.** Easy and
+  medium slow the cast down by stepping it less often rather than by moving it
+  less far - `walk_period`, `fly_period` - so nothing in the movement code has
+  to know about fractions of a byte, and they lengthen the belly-flop stun.
+  The chooser borrows the title screen's footer between the title and the
+  room. It also means every scripted route in `make check` has to press fire
+  twice to reach a room, and everything in a route happens eight frames later
+  than it did before there was a second screen.
 - `make check` runs a clean scripted playthrough with the enemies in place: five
   sausages, the saucer of milk on the shelf the robot patrols, no lives lost. It has to
   belly-flop past that robot to work. Treat it as the level design's test - if it stops

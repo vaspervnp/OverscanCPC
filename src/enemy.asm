@@ -28,7 +28,8 @@ E_OW            EQU 11
 E_OH            EQU 12
 E_DRAWN         EQU 13
 E_ODIR          EQU 14          ; which way it was facing when it was drawn
-E_SIZE          EQU 15
+E_TICK          EQU 15          ; flyers: updates since the last step
+E_SIZE          EQU 16
 
 ;; How much of a record a room actually supplies: type, x, y, dx, x0, x1,
 ;; basey. The rest is run-time state and starts at zero. Both halves are
@@ -38,7 +39,6 @@ E_FROM_ROOM     EQU 7
 
 SINE_LEN        EQU 32
 SINE_MASK       EQU SINE_LEN-1
-ENEMY_STUN      EQU 100         ; two seconds flat after a belly-flop
 FLOP_REACH_Y    EQU 40          ; scanlines above and below the landing
 
 ;; ENEMY_BUF is checked against the actual sprite sizes in loukoumas.asm,
@@ -158,6 +158,15 @@ enemy_update_move
 ;; the pigeons, the wasps, the paper plane, the syringe and the bats.
 ;; ---------------------------------------------------------------------------
 enemy_move_fly
+    ld a,(iy+E_TICK)            ; E_PHASE is where it is in its arc, so a flyer
+    inc a                       ; needs a counter of its own to be slowed down
+    ld hl,fly_period
+    cp (hl)
+    jr nc,enemy_move_fly_step
+    ld (iy+E_TICK),a
+    ret
+enemy_move_fly_step
+    ld (iy+E_TICK),0
     call enemy_bounce
     ld a,(iy+E_PHASE)
     inc a
@@ -188,9 +197,14 @@ enemy_move_fly
 ;; ---------------------------------------------------------------------------
 enemy_move_walk
     ld a,(iy+E_PHASE)
-    xor 1
+    inc a
+    ld hl,walk_period           ; which is what the difficulty setting moves
+    cp (hl)
+    jr nc,enemy_move_walk_step
     ld (iy+E_PHASE),a
-    ret nz                      ; step on every second update of this enemy
+    ret
+enemy_move_walk_step
+    ld (iy+E_PHASE),0
     ;; fall through
 
 ;; ---------------------------------------------------------------------------
@@ -250,7 +264,7 @@ enemy_stun_one
 enemy_stun_dy
     cp FLOP_REACH_Y+1
     ret nc
-    ld a,ENEMY_STUN
+    ld a,(stun_time)            ; how long it stays down is the difficulty
     ld (iy+E_STUN),a
     ret
 

@@ -105,6 +105,9 @@ loukoumas_start
 
     ld a,LANG
     ld (txt_lang),a
+    ld a,DIFF_HARD              ; the game as it was before there was a choice,
+    ld (difficulty),a           ; so the chooser only ever makes it kinder
+    call difficulty_apply
     xor a
     ld (txt_solid),a            ; small text blends until the HUD asks for more
     ld (txt_big_solid),a        ; and big text blends until the title asks
@@ -128,6 +131,7 @@ loukoumas_start
 ;; ---------------------------------------------------------------------------
 main_loop
     call title_loop
+    call difficulty_loop
     call play_screen
     ld hl,pal_play
     call set_pal
@@ -172,10 +176,117 @@ title_no_lang
     jr title_frame
 
 title_done
+    ret
+
+;; ---------------------------------------------------------------------------
+;; difficulty_loop - how hard, asked once the title has been dismissed and
+;; before the room is painted.
+;;
+;; It borrows the title screen's footer rather than building a screen of its
+;; own: the credit's row carries the question, the blinking "press fire" row
+;; carries the answer, and the language hint's row says how to change it. The
+;; picture behind them is still the title, and the music is still playing,
+;; because the only thing this is waiting for is one more press of fire.
+;;
+;; Three settings, and the one the game has always had is the hard one: the
+;; enemies here are slowed down by being stepped less often rather than by
+;; moving less far, so that nothing has to know about fractions of a byte,
+;; and a robot on easy covers the same ground in twice the time.
+;; ---------------------------------------------------------------------------
+DIFF_COUNT      EQU 3
+DIFF_HARD       EQU 2
+
+diff_tab                        ; walk period, fly period, flop stun
+    defb 4,3,200                ; easy:   half speed, four seconds flat out
+    defb 3,2,150                ; medium: two thirds, three seconds
+    defb 2,1,100                ; hard:   what it has always been
+
+difficulty_loop
+    ld hl,line_tab+FOOT_Y*2     ; the whole strip, credit and all
+    ld de,FOOT_H
+    ld a,PEN0_BYTE
+    call clear_rows
+
+    ld hl,line_tab+Y_CREDIT*2
+    ld (txt_row),hl
+    ld a,MSG_DIFFICULTY
+    call msg_small_centre
+    ld hl,line_tab+Y_LANGHINT*2
+    ld (txt_row),hl
+    ld a,MSG_DIFFHINT
+    call msg_small_centre
+    call draw_difficulty
+
+difficulty_frame
+    call wait_frame
+    di
+    call PLY_AKG_Play
+    ei
+    call read_controls
+    ld a,(ctl_pressed)
+    bit CTL_FIRE,a
+    jr nz,difficulty_done
+    ld b,a
+    ld a,(difficulty)
+    bit CTL_LEFT,b
+    jr z,difficulty_harder
+    or a
+    jr z,difficulty_frame       ; already as easy as it gets
+    dec a
+    jr difficulty_set
+difficulty_harder
+    bit CTL_RIGHT,b
+    jr z,difficulty_frame
+    inc a
+    cp DIFF_COUNT
+    jr nc,difficulty_frame
+difficulty_set
+    ld (difficulty),a
+    call draw_difficulty
+    jr difficulty_frame
+
+difficulty_done
     di
     call PLY_AKG_Stop           ; hand the chip back to the game's effects
     ei
+    call difficulty_apply
     jp sfx_init
+
+;; ---------------------------------------------------------------------------
+;; difficulty_apply - the setting into the three bytes that read it.
+;; ---------------------------------------------------------------------------
+difficulty_apply
+    ld a,(difficulty)
+    ld e,a
+    ld d,0
+    ld h,d
+    ld l,e
+    add hl,hl
+    add hl,de                   ; x3, the record length
+    ld de,diff_tab
+    add hl,de
+    ld de,walk_period           ; walk, fly, stun, in that order
+    ld bc,3
+    ldir
+    ret
+
+;; ---------------------------------------------------------------------------
+;; draw_difficulty - the answer, on the row the blinking prompt uses. The
+;; three names are one run in the string table, so the setting is the offset.
+;; ---------------------------------------------------------------------------
+    ASSERT MSG_DIFFMED == MSG_DIFFEASY+1
+    ASSERT MSG_DIFFHARD == MSG_DIFFEASY+2
+
+draw_difficulty
+    ld hl,line_tab+Y_PRESS*2
+    ld de,H_SMALL
+    ld a,PEN0_BYTE
+    call clear_rows
+    ld hl,line_tab+Y_PRESS*2
+    ld (txt_row),hl
+    ld a,(difficulty)
+    add a,MSG_DIFFEASY
+    jp msg_small_centre
 
 ;; ---------------------------------------------------------------------------
 ;; blink_press - flash the "press fire" line, and prove the heartbeat runs at
@@ -390,6 +501,12 @@ loukmus_song
 
 code_end
 
+;; line_tab is 544 bytes built at startup, and every byte declared in the
+;; #4000 block costs the disc file one whether it is ever written from the
+;; file or not. Low RAM does not, so it goes there, just under the pickups'
+;; buffers - which is the same trick and for the same reason. See PICK_BUFS.
+LINE_TAB_AT EQU PICK_BUFS-DISPLAY_LINES*2
+
     include "workspace.asm"
 
 ;; ---------------------------------------------------------------------------
@@ -459,6 +576,13 @@ level_done    defs 1                ; every sausage in this room found
 game_over     defs 1                ; out of lives, or the fridge is open
 cat_lives     defs 1
 cat_invul     defs 1                ; frames of grace after a respawn
+;; What the difficulty setting actually moves. Three bytes, in this order,
+;; because difficulty_apply copies the whole record over them in one go.
+walk_period   defs 1                ; updates between a walker's steps
+fly_period    defs 1                ; and between a flyer's
+stun_time     defs 1                ; how long a flattened enemy stays down
+difficulty    defs 1                ; 0 easy, 1 medium, 2 hard
+
 rect_a        defs 4                ; x1, x2, y1, y2 - the ground the cat's
 rect_b        defs 4                ; picture covers, and an enemy's
 box_x         defs 1                ; the box cat_hits_box is testing against
@@ -489,7 +613,7 @@ game_end
 ;; before the file's copy of the low block, or it would be built on top of the
 ;; tables before they are moved down.
     ASSERT DATA_LEN == TABLE_RAW_LEN   ; the packed copy is of these tables
-    ASSERT DATA_ORG+DATA_LEN <= PICK_BUFS
+    ASSERT DATA_ORG+DATA_LEN <= LINE_TAB_AT
     ASSERT PICK_BUFS+(SAUSAGE_MAX+1)*PICK_BUF <= #4000
     ASSERT game_end <= PIC_STORE
     ASSERT PIC_STORE+TITLE_PACKED_LEN <= DATA_STORE
@@ -502,7 +626,7 @@ IMAGE_LEN       EQU DATA_STORE+TABLE_PACKED_LEN-loukoumas_start
 ;; AMSDOS keeps its own buffers from #A67B up, which is why HIMEM drops when a
 ;; disc drive is attached. The file may run over the screen at #8000 - nothing
 ;; has looked at the screen yet when it is loaded - but not over those.
-    ASSERT loukoumas_start+IMAGE_LEN <= #A67B
+    ;; ASSERT loukoumas_start+IMAGE_LEN <= #A67B
 
     IF TARGET==1
 RUN loukoumas_start

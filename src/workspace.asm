@@ -10,7 +10,19 @@
 ;; by the program before first use.
 ;; ===========================================================================
 
+;; line_tab is 544 bytes of it, and a game with somewhere cheaper to keep
+;; that says so by defining LINE_TAB_AT before including this file. Nothing
+;; else changes: it is built at run time either way, and the only difference
+;; is whether its address is inside the block the disc file has to span.
+ws_start    EQU $
+    IFDEF LINE_TAB_AT
+    ORG LINE_TAB_AT
 line_tab    defs DISPLAY_LINES*2    ; start address of every scanline
+    ORG ws_start
+    ELSE
+line_tab    defs DISPLAY_LINES*2    ; start address of every scanline
+    ENDIF
+
 dg_pat      defs GLYPH_MAX_BYTES    ; one expanded glyph row
 
 txt_solid   defs 1              ; small text overwrites instead of blending

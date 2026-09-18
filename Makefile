@@ -15,7 +15,11 @@
 # at the near end of that same shelf, so it tests the extra life too. It is the
 # level design's own test - change a shelf, the jump height or an enemy's patrol
 # and it stops passing.
-LOUNGE_ROUTE := FIRE@22-26,RIGHT@45-83,LEFT@84-106,FIRE@107-109,LEFT@135-143,RIGHT@145-189,FIRE@160-162,FIRE@192-194,DOWN@196-221,FIRE@198-200,RIGHT@209-231,LEFT@234-293,FIRE@254-256,RIGHT@296-376,FIRE@320-322
+# Two screens stand between a scripted run and the game now - the title and
+# the difficulty chooser behind it - so every route starts with two presses
+# of fire, and everything that used to happen at frame n happens at n+8.
+START := FIRE@22-26,FIRE@30-34
+LOUNGE_ROUTE := $(START),RIGHT@53-91,LEFT@92-114,FIRE@115-117,LEFT@143-151,RIGHT@153-197,FIRE@168-170,FIRE@200-202,DOWN@204-229,FIRE@206-208,RIGHT@217-239,LEFT@242-301,FIRE@262-264,RIGHT@304-384,FIRE@328-330
 
 RASM   ?= rasm
 PYTHON ?= python3
@@ -180,25 +184,40 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 34 --keys L --ascii | sed -n '1,2p;15,20p'
 	@echo "=== loukoumas, play field after walking right ==="
 	@echo "    every sausage must survive the cat walking over one"
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 90 --keys FIRE,RIGHT --ascii | sed -n '1,2p;33,38p'
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 98 --keys "$(START),RIGHT@36-98" --ascii | sed -n '1,2p;33,38p'
 	@echo "=== loukoumas, physics: stand, jump, land on the shelf above ==="
-	@echo "    50 on the floor at 212, 51 leaves at -1088, 67 apex at 173,"
-	@echo "    75 landed on the rack's lower shelf at 180 and back in state 0"
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 80 \
-		--keys "FIRE@22-26,FIRE@50-53" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_y,cat_state,cat_vy:s" | grep -E "frame ( 50| 51| 67| 75)"
+	@echo "    58 on the floor at 212, 59 leaves at -1088, 75 apex at 173,"
+	@echo "    83 landed on the rack's lower shelf at 180 and back in state 0"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 88 \
+		--keys "$(START),FIRE@58-61" --sym $(BUILD)/loukoumas_el.sym \
+		--watch "cat_y,cat_state,cat_vy:s" | grep -E "frame ( 58| 59| 75| 83)"
 	@echo "=== loukoumas, belly-flop: terminal velocity, screen shake, stun ==="
-	@echo "    61 commits at 1536 and curls up, 65 lands flat and sets the"
+	@echo "    69 commits at 1536 and curls up, 73 lands flat and sets the"
 	@echo "    shake and the stun"
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 80 \
-		--keys "FIRE@22-26,FIRE@50-53,DOWN@55-99,FIRE@60-63" \
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 88 \
+		--keys "$(START),FIRE@58-61,DOWN@63-107,FIRE@68-71" \
 		--sym $(BUILD)/loukoumas_el.sym \
 		--watch "cat_y,cat_state,cat_vy:s,cat_h,cat_stun,shake_timer" \
-		| grep -E "frame ( 59| 61| 65| 67)"
+		| grep -E "frame ( 67| 69| 73| 75)"
 	@echo "=== loukoumas, a robot costs a life and respawns the cat ==="
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 200 \
-		--keys "FIRE@22-26,RIGHT@40-200" --sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame (105|107)"
+	@echo "    118 walking into it at column 74, 119 back at the start with"
+	@echo "    two lives and a hundred frames of grace"
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 208 \
+		--keys "$(START),RIGHT@48-208" --sym $(BUILD)/loukoumas_el.sym \
+		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame (118|119)"
+	@echo "=== loukoumas, the same walk into the same robot, on easy ==="
+	@echo "    two presses of left in the chooser, and the three bytes that"
+	@echo "    pace the cast come out 4, 3 and 200 instead of 2, 1 and 100: a"
+	@echo "    step every fourth update instead of every second, a wingbeat"
+	@echo "    every third instead of every one, and four seconds flat on its"
+	@echo "    back after a belly-flop instead of two. The robot has covered"
+	@echo "    half the ground by the time the cat reaches it, so the cat is"
+	@echo "    caught at column 50 rather than 74."
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
+		--keys "FIRE@22-26,LEFT@28-30,LEFT@32-34,FIRE@38-42,RIGHT@56-120" \
+		--sym $(BUILD)/loukoumas_el.sym \
+		--watch "cat_x,cat_lives,walk_period,fly_period,stun_time" \
+		| grep -E "frame (102|103)"
 	@echo "=== loukoumas, nothing of the cast is left behind in the room ==="
 	@echo "    every sprite saves the ground it is about to cover and puts it"
 	@echo "    back before it moves. Two of them standing in each other save"
@@ -206,16 +225,16 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@echo "    leaves it in the room for good - which is what the cat dying on"
 	@echo "    a robot used to do. This walks it into one and counts the ink"
 	@echo "    left standing on ground the room painted empty."
-	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 260 \
-		--keys "FIRE@22-26,RIGHT@40-260" --sym $(BUILD)/loukoumas_el.sym \
+	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 268 \
+		--keys "$(START),RIGHT@48-268" --sym $(BUILD)/loukoumas_el.sym \
 		--debris | tail -1
 	@echo "=== loukoumas, clean run of the lounge and out through the vent ==="
-	@echo "    a sausage at 82, 144, 226, 292 and 356, the saucer of milk at 188"
-	@echo "    for a fourth life, then cur_room 8 -> 9 at 358 into the vent"
-	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 390 --keys "$(LOUNGE_ROUTE)" \
+	@echo "    a sausage at 91, 149, 237, 295 and 367, the saucer of milk at"
+	@echo "    225 for a fourth life, then cur_room 8 -> 9 at 369 into the vent"
+	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 398 --keys "$(LOUNGE_ROUTE)" \
 		--sym $(BUILD)/loukoumas_lounge.sym \
 		--watch "cur_room,cat_lives,sausages_got,milk_alive,level_done" \
-		| grep -E "frame ( 82|144|188|226|292|356|358)"
+		| grep -E "frame ( 91|149|225|237|295|367|369)"
 	@echo "=== loukoumas, the tables unpacked by the Z80 itself ==="
 	@echo "    twelve and a half kilobytes of font, sprites, artwork and rooms"
 	@echo "    packed to eight and a half and unpacked into #0100 before the"
@@ -239,7 +258,7 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@echo "    before its own. Every one of these is that, and every one of"
 	@echo "    them is a frame the cat is inside something. A sixteenth of the"
 	@echo "    run, and the budget says it stays that way."
-	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 390 \
+	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 398 \
 		--keys "$(LOUNGE_ROUTE)" --sym $(BUILD)/loukoumas_lounge.sym \
 		--beam --beam-from 20 | tail -1 | tee $(BUILD)/beam.txt
 	@$(PYTHON) -c "import re,sys; n,t = map(int, re.search(r'(\d+) of (\d+)', \
@@ -249,9 +268,9 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@echo "=== loukoumas, a room is lit by one pen, and it is pen 0 ==="
 	@echo "    the back yard must report pen0=23, sky blue; the rooftops pen0=20,"
 	@echo "    black; every room in the flat is pen0=4, navy"
-	@./tools/z80check.py $(BUILD)/loukoumas_yard.bin --frames 70 --keys FIRE@22-26 \
+	@./tools/z80check.py $(BUILD)/loukoumas_yard.bin --frames 78 --keys "$(START)" \
 		| grep -o "pen0=[0-9]* " | sed 's/^/    back yard  /'
-	@./tools/z80check.py $(BUILD)/loukoumas_roof.bin --frames 70 --keys FIRE@22-26 \
+	@./tools/z80check.py $(BUILD)/loukoumas_roof.bin --frames 78 --keys "$(START)" \
 		| grep -o "pen0=[0-9]* " | sed 's/^/    rooftops   /'
 	@echo "=== loukoumas, the title picture unpacked onto the overscan screen ==="
 	@echo "    26,112 bytes of screen, packed to about seven and unpacked by the"

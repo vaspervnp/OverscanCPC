@@ -24,6 +24,8 @@ one that can answer some of the questions this project has been carrying:
     packed.
   * The keyboard really is read through the PPI the way keys.asm assumes,
     with the PSG being driven by the music at the same time.
+  * The difficulty chooser answers the cursor keys and its setting reaches
+    the three bytes the enemies actually read.
 
 What it still cannot answer is whether the beam catches a sprite: the
 framebuffer here is what the gate array emitted, so it is the truth, but
@@ -129,11 +131,40 @@ def main():
           "rows 54-235")
     c.screenshot(png_prefix + "-title.png", scale=1, aspect=True)
 
-    # Fire starts the game. The room takes a moment to paint.
+    # Fire leaves the title for the difficulty chooser, which borrows the
+    # footer of the same screen and is the last thing between here and a room.
+    c.key_down(0x20)
+    c.run_frames(6)
+    c.key_up(0x20)
+    c.run_frames(20)
+    start = c.peek(sym["DIFFICULTY"])
+    for _ in range(2):                      # cursor left, twice
+        c.key_down(0x08)
+        c.run_frames(6)
+        c.key_up(0x08)
+        c.run_frames(6)
+    easiest = c.peek(sym["DIFFICULTY"])
+    check("the chooser starts on hard and left makes it kinder",
+          start == 2 and easiest == 0, "%d -> %d" % (start, easiest))
+    c.screenshot(png_prefix + "-difficulty.png", scale=1, aspect=True)
+
+    c.key_down(0x09)                        # and one step back up
+    c.run_frames(6)
+    c.key_up(0x09)
+    c.run_frames(6)
+    check("and right puts it back up one",
+          c.peek(sym["DIFFICULTY"]) == 1, "%d" % c.peek(sym["DIFFICULTY"]))
+
+    # Fire again: the setting goes into the three bytes that read it, and the
+    # room is painted.
     c.key_down(0x20)
     c.run_frames(6)
     c.key_up(0x20)
     c.run_frames(60)
+    got = (c.peek(sym["WALK_PERIOD"]), c.peek(sym["FLY_PERIOD"]),
+           c.peek(sym["STUN_TIME"]))
+    check("medium slowed the cast down and lengthened the flop",
+          got == (3, 2, 150), "walk %d, fly %d, stun %d" % got)
     lives = c.peek(sym["CAT_LIVES"])
     room = c.peek(sym["CUR_ROOM"])
     cat_y = c.peek(sym["CAT_Y"])
