@@ -459,6 +459,8 @@ level_done    defs 1                ; every sausage in this room found
 game_over     defs 1                ; out of lives, or the fridge is open
 cat_lives     defs 1
 cat_invul     defs 1                ; frames of grace after a respawn
+rect_a        defs 4                ; x1, x2, y1, y2 - the ground the cat's
+rect_b        defs 4                ; picture covers, and an enemy's
 box_x         defs 1                ; the box cat_hits_box is testing against
 box_y         defs 1
 box_w         defs 1
@@ -474,6 +476,8 @@ e_bufp        defs 2                ; buffer cursor while walking the array
 SPRITE_MAX    EQU ENEMY_COUNT+1
 ord_n         defs 1
 ord_y         defs SPRITE_MAX
+ord_id        defs SPRITE_MAX       ; what sprites_order worked out, which is
+                                    ; not yet what is on the screen
 draw_order    defs SPRITE_MAX       ; ids: 0 is the cat, an enemy is index+1
 draw_n        defs 1                ; how many of them were drawn last frame
 

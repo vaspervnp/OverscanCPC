@@ -1138,10 +1138,12 @@ check_enemies
     jr z,check_enemies_scan
     dec a
     ld (cat_invul),a
-    ret
 check_enemies_scan
-    call enemies_hit_cat
+    call enemies_hit_cat        ; which flags the touch for sprites_resync
     ret nc
+    ld a,(cat_invul)
+    or a
+    ret nz                      ; touched, but it costs nothing yet
     ;; fall through
 
 ;; ---------------------------------------------------------------------------
@@ -1683,9 +1685,6 @@ sprite_erase_id
     jp z,cat_erase
     dec a
     call enemy_ptr
-    ld a,(iy+E_DRAWN)
-    or a
-    ret z
     jp enemy_erase_one
 
 sprite_draw_id
@@ -1710,7 +1709,7 @@ ord_add
     ld hl,ord_y
     add hl,de
     ld (hl),a
-    ld hl,draw_order
+    ld hl,ord_id
     add hl,de
     ld (hl),c
     ret
@@ -1759,7 +1758,7 @@ ord_sort_pass
     dec a
     ld b,a
     ld hl,ord_y
-    ld de,draw_order
+    ld de,ord_id
 ord_sort_cmp
     ld a,(hl)
     inc hl
@@ -1834,10 +1833,20 @@ sprites_erase_loop
 ;; just been caught, which costs a life and moves it anyway.
 ;; ---------------------------------------------------------------------------
 sprites_update
+    ld a,(sprites_dirty)
+    or a
+    call nz,sprites_resync
+
     ld a,(ord_n)                ; sprites_order ran at the end of the thinking,
     ld (draw_n),a               ; where it costs the beam nothing
     or a
     ret z
+    ld c,a                      ; draw_order is the order things go down in,
+    ld b,0                      ; and stays that until they are lifted again
+    ld hl,ord_id
+    ld de,draw_order
+    ldir
+    ld a,(draw_n)
     ld b,a
     ld hl,draw_order
 sprites_update_loop
@@ -1871,6 +1880,203 @@ sprites_update_next
     inc hl
     pop bc
     djnz sprites_update_loop
+    ret
+
+;; ---------------------------------------------------------------------------
+;; sprites_resync - put the screen back exactly, before drawing on it again.
+;;
+;; Lifting each sprite off and putting it straight back is only sound while no
+;; two of them touch. When they do, the second one down saves the first into
+;; its background, and next frame it hands that piece of it back to the room -
+;; where it stays, because nothing ever saved it and nothing will erase it. It
+;; is why the cat left bits of itself wherever a robot caught it.
+;;
+;; Unwinding in the exact reverse of the order things were drawn does not have
+;; that problem: the upper sprite's background goes back first, piece of the
+;; lower one and all, and then the lower one's own clean background covers it.
+;; So on the frame after anything touched, that is what happens - one pass to
+;; take everything off, and then everything is drawn again with nothing to
+;; lift first. It costs the one frame its flicker, and the frame something ran
+;; into the cat is not a frame anyone is looking at the scenery.
+;; Destroys AF, BC, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+sprites_resync
+    ld a,(sprites_dirty)
+    dec a
+    ld (sprites_dirty),a
+    call sprites_erase          ; over draw_order, which is still last frame's
+    xor a
+    ld (cat_drawn),a            ; nothing is on the screen, so nothing has to
+    ld iy,enemies               ; come off it before it goes back on
+    ld b,ENEMY_COUNT
+sprites_resync_loop
+    ld (iy+E_DRAWN),a
+    ld de,E_SIZE
+    add iy,de
+    djnz sprites_resync_loop
+    ret
+
+;; ---------------------------------------------------------------------------
+;; Whether two sprites are about to stand in each other, which is the one
+;; question sprites_resync exists to answer.
+;;
+;; The test is not on where the two of them are. It is on all the ground each
+;; of them covers between where it is and where its picture still is, because
+;; the interleaved rebuild saves the background under a sprite while
+;; everything after it in the order is still showing last frame's picture. Any
+;; of that picture the save catches is handed back a frame later, by which
+;; time the thing it was a picture of has moved on, and the piece stays in the
+;; room for good.
+;;
+;; Two things standing still in each other are not that. Each hands the other
+;; back exactly where it still is, frame after frame, and the screen is right
+;; every time - which is worth knowing, because the cat spends two seconds
+;; standing on a robot it has just flattened, and a rebuild every frame of it
+;; would be two seconds of flicker bought for nothing.
+;;
+;; A rectangle here is x1, x2, y1, y2 - edges, not width and height, because
+;; every one of these is a comparison and none of them is a blit.
+;; ---------------------------------------------------------------------------
+cat_rect                        ; rect_a = the ground the cat's picture covers
+    ld a,(cat_x)
+    ld b,a
+    ld a,(cat_w)
+    add a,b
+    ld c,a
+    ld a,(cat_y)
+    ld d,a
+    ld a,(cat_h)
+    add a,d
+    ld e,a
+    call rect_set
+    ld a,(cat_drawn)
+    or a
+    jr z,cat_rect_keep
+    ld hl,cat_ox                ; ox, oy, ow, oh, in that order
+    call rect_widen
+cat_rect_keep
+    ld hl,rect_b                ; rect_b is the one everything is built in, so
+    ld de,rect_a                ; the cat's has to be moved out of the way
+    ld bc,4
+    ldir
+    ret
+
+;; ---------------------------------------------------------------------------
+;; enemy_tangled - IY = an enemy. Flag the pair if its picture and the cat's
+;; are going to stand in each other. cat_rect must have run this frame.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+enemy_tangled
+    ld a,(iy+E_X)               ; neither of them going anywhere is the common
+    cp (iy+E_OX)                ; case, and the cheap one
+    jr nz,enemy_tangled_move
+    ld a,(iy+E_Y)
+    cp (iy+E_OY)
+    jr nz,enemy_tangled_move
+    ld hl,cat_ox
+    ld a,(cat_x)
+    cp (hl)
+    jr nz,enemy_tangled_move
+    inc hl
+    ld a,(cat_y)
+    cp (hl)
+    ret z
+enemy_tangled_move
+    call enemy_sprite           ; the picture it is about to be drawn in
+    ld b,(iy+E_X)
+    ld a,(hl)
+    add a,b
+    ld c,a
+    inc hl
+    ld d,(iy+E_Y)
+    ld a,(hl)
+    add a,d
+    ld e,a
+    call rect_set
+    ld a,(iy+E_DRAWN)
+    or a
+    jr z,enemy_tangled_test
+    push iy                     ; and the ground its picture is still standing
+    pop hl                      ; on, which is the half that leaves the mess
+    ld bc,E_OX
+    add hl,bc
+    call rect_widen
+enemy_tangled_test
+    call rect_hits
+    ret nc
+    ld a,2                      ; two frames, not one: what a buffer holds is
+    ld (sprites_dirty),a        ; a frame behind, so the frame after the last
+    ret                         ; one either of them moved is still tangled
+
+;; ---------------------------------------------------------------------------
+;; rect_set - B,C,D,E = x1, x2, y1, y2 -> rect_b.
+;; rect_widen - HL -> x, y, w, h: widen rect_b until it holds that as well.
+;; rect_hits - carry if rect_a and rect_b share any ground at all.
+;; ---------------------------------------------------------------------------
+rect_set
+    ld hl,rect_b
+    ld (hl),b
+    inc hl
+    ld (hl),c
+    inc hl
+    ld (hl),d
+    inc hl
+    ld (hl),e
+    ret
+
+rect_widen
+    ld b,(hl)                   ; x
+    inc hl
+    ld c,(hl)                   ; y
+    inc hl
+    ld a,(hl)
+    add a,b
+    ld d,a                      ; x + w
+    inc hl
+    ld a,(hl)
+    add a,c
+    ld e,a                      ; y + h
+    ld hl,rect_b
+    ld a,(hl)                   ; x1: whichever starts further left
+    cp b
+    jr c,rect_widen_x2
+    ld (hl),b
+rect_widen_x2
+    inc hl
+    ld a,(hl)                   ; x2: whichever ends further right
+    cp d
+    jr nc,rect_widen_y1
+    ld (hl),d
+rect_widen_y1
+    inc hl
+    ld a,(hl)
+    cp c
+    jr c,rect_widen_y2
+    ld (hl),c
+rect_widen_y2
+    inc hl
+    ld a,(hl)
+    cp e
+    ret nc
+    ld (hl),e
+    ret
+
+rect_hits
+    ld a,(rect_a)               ; carry from cp is "A is the smaller", so each
+    ld hl,rect_b+1              ; of these is one edge being past the other
+    cp (hl)
+    ret nc
+    ld a,(rect_b)
+    ld hl,rect_a+1
+    cp (hl)
+    ret nc
+    ld a,(rect_a+2)
+    ld hl,rect_b+3
+    cp (hl)
+    ret nc
+    ld a,(rect_b+2)
+    ld hl,rect_a+3
+    cp (hl)
     ret
 
 ;; ---------------------------------------------------------------------------

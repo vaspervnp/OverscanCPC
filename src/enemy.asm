@@ -256,8 +256,16 @@ enemy_stun_dy
 
 ;; ---------------------------------------------------------------------------
 ;; enemies_hit_cat - carry set if anything awake is touching the cat.
+;;
+;; It is also where every overlap on the screen is noticed, awake or not and
+;; whether or not it costs anything: enemy_tangled decides whether the two
+;; pictures are about to be saved into each other's backgrounds, which is a
+;; different question from whether the robot is a threat. A stunned one costs
+;; no life and still has to be untangled - the cat walking through a robot it
+;; has just flattened is the commonest overlap in the game.
 ;; ---------------------------------------------------------------------------
 enemies_hit_cat
+    call cat_rect               ; once: it is the same cat for all of them
     ld iy,enemies
     ld b,ENEMY_COUNT
 enemies_hit_loop
@@ -265,9 +273,7 @@ enemies_hit_loop
     ld a,(iy+E_TYPE)
     or a
     jr z,enemies_hit_next
-    ld a,(iy+E_STUN)
-    or a
-    jr nz,enemies_hit_next
+    call enemy_tangled          ; which is about the pictures, not the game
     call enemy_sprite
     ld a,(hl)
     ld (box_w),a
@@ -280,6 +286,9 @@ enemies_hit_loop
     ld (box_y),a
     call cat_hits_box
     jr nc,enemies_hit_next
+    ld a,(iy+E_STUN)
+    or a
+    jr nz,enemies_hit_next      ; flat on its back: scenery, not a threat
     pop bc
     scf
     ret
@@ -348,6 +357,9 @@ enemy_moved_yes
 
 ;; ---------------------------------------------------------------------------
 enemy_erase_one
+    ld a,(iy+E_DRAWN)           ; nothing of it is on the screen, so its buffer
+    or a                        ; holds whatever was under it two frames ago -
+    ret z                       ; putting that back stamps the cast on the room
     ld a,(iy+E_OW)
     ld (spr_w),a
     ld a,(iy+E_OH)

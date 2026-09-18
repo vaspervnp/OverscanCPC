@@ -31,6 +31,7 @@ run means the code really did execute.
 
 import argparse
 import bisect
+import os
 import sys
 
 PARITY = [bin(i).count("1") % 2 == 0 for i in range(256)]
@@ -918,6 +919,83 @@ def write_ascii(rows, io, cols, aspect=1):
 
 # ---------------------------------------------------------------------------
 
+def debris_rows(mem, d):
+    """The play area, read the way the game addresses it - through the line
+    table it built, so the 2048-byte stride and the page crossing stay the
+    machine's business."""
+    tab, bpl = d["line_tab"], d["bytes_per_line"]
+    out = []
+    for y in range(d["play_top"], d["display_lines"]):
+        a = mem[tab + y * 2] | (mem[tab + y * 2 + 1] << 8)
+        out.append(bytes(mem[a:a + bpl]))
+    return out
+
+
+def debris_rects(mem, d):
+    """Where every sprite's picture is standing at this instant, which is what
+    E_OX and cat_ox mean: not where it is going, where it already is."""
+    out = []
+    if mem[d["cat_drawn"]]:
+        out.append((mem[d["cat_ox"]], mem[d["cat_oy"]],
+                    mem[d["cat_ow"]], mem[d["cat_oh"]]))
+    for i in range(d["enemy_count"]):
+        b = d["enemies"] + i * d["e_size"]
+        if mem[b + d["e_type"]] and mem[b + d["e_drawn"]]:
+            out.append((mem[b + d["e_ox"]], mem[b + d["e_oy"]],
+                        mem[b + d["e_ow"]], mem[b + d["e_oh"]]))
+    return out
+
+
+def debris_scan(mem, d, frame):
+    """Ink standing on ground the room painted empty, where nothing is.
+
+    The room is the reference: whatever it looked like once it was drawn. A
+    sausage disappearing is a byte going back to the background, which is the
+    game working; a byte going the other way, outside every sprite, is a piece
+    of something that was lifted off in the wrong order and left there."""
+    room = mem[d["cur_room"]]
+    if room != d["room"]:                   # a new room takes a while to paint
+        d.update(room=room, skip=16, ref=None)
+        return
+    if d["skip"]:
+        d["skip"] -= 1
+        return
+    if d["ref"] is None:
+        d["ref"] = debris_rows(mem, d)
+        d["ref_rects"] = debris_rects(mem, d)
+        return
+
+    now = debris_rows(mem, d)
+    rects = debris_rects(mem, d) + list(d["ref_rects"])
+    stray = []
+    for i, row in enumerate(now):
+        was = d["ref"][i]
+        if row == was:
+            continue
+        y = d["play_top"] + i
+        for x in range(d["bytes_per_line"]):
+            if was[x] or not row[x]:
+                continue                    # the room's own ink, or ink going
+            if any(rx <= x < rx + rw and ry <= y < ry + rh
+                   for rx, ry, rw, rh in rects):
+                continue
+            stray.append((x, y))
+    d["frames"] += 1
+    if stray and os.environ.get("DEBRIS_VERBOSE"):
+        tab = d["line_tab"]
+        vals = []
+        for x, y in stray[:12]:
+            a = mem[tab + y * 2] | (mem[tab + y * 2 + 1] << 8)
+            vals.append("%d,%d=%02X" % (x, y, mem[a + x]))
+        print("  frame %3d  %d stray  %s  rects %s"
+              % (frame, len(stray), " ".join(vals), debris_rects(mem, d)))
+    if len(stray) > d["worst"]:
+        xs = [x for x, _ in stray]
+        ys = [y for _, y in stray]
+        d.update(worst=len(stray), worst_frame=frame,
+                 where=(min(xs), max(xs), min(ys), max(ys)))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -962,6 +1040,14 @@ def main():
                          "it was")
     ap.add_argument("--beam-from", type=int, default=40,
                     help="first frame to report for --beam")
+    ap.add_argument("--debris", action="store_true",
+                    help="watch for ink left behind on ground the room "
+                         "painted empty (needs --sym). A sprite whose saved "
+                         "background is put back out of turn stamps a piece "
+                         "of another one into the room, and nothing will ever "
+                         "erase it")
+    ap.add_argument("--debris-from", type=int, default=30,
+                    help="first frame to watch for --debris")
     ap.add_argument("--trap", help="symbol or address; report the first write "
                                    "to it and where it came from")
     ap.add_argument("--trap-value", help="only trap a write of this byte value")
@@ -1078,6 +1164,22 @@ def main():
                 "line_tab": symbols["LINE_TAB"], "spr_h": symbols["SPR_H"],
                 "open": None, "y": 0, "h": 0, "units": []}
 
+    failed = False
+    debris = None
+    if args.debris:
+        if not symbols:
+            sys.exit("--debris needs --sym")
+        want = ("LINE_TAB", "CAT_DRAWN", "CAT_OX", "CAT_OY", "CAT_OW", "CAT_OH",
+                "ENEMIES", "ENEMY_COUNT", "E_SIZE", "E_TYPE", "E_DRAWN",
+                "E_OX", "E_OY", "E_OW", "E_OH", "CUR_ROOM", "PLAY_TOP",
+                "DISPLAY_LINES", "BYTES_PER_LINE")
+        for w in want:
+            if w not in symbols:
+                sys.exit("--debris needs the symbol %s" % w)
+        debris = {w.lower(): symbols[w] for w in want}
+        debris.update(room=None, skip=0, ref=None, ref_rects=(), worst=0,
+                      worst_frame=0, where=None, frames=0)
+
     steps = 0
     while steps < limit:
         io.clock = cpu.us
@@ -1094,6 +1196,12 @@ def main():
                 beam["units"].append((beam["y"], beam["h"],
                                       beam["open"], cpu.us))
                 beam["open"] = None
+        if debris is not None:
+            f = cpu.us // CPCIO.FRAME_US
+            if f != debris.get("last"):
+                debris["last"] = f
+                if f >= args.debris_from:
+                    debris_scan(mem, debris, f)
         prof_in = None
         if prof is not None and cpu.us >= prof_start:
             i = bisect.bisect_right(prof_addr, cpu.pc) - 1
@@ -1206,6 +1314,26 @@ def main():
         " (%d wide on the tube)" % (len(rows[0]) * aspect) if aspect != 1 else "",
         io.crtc[1] * 2, ((io.crtc[12] & 0x3F) << 8) | io.crtc[13]))
 
+    if debris is not None:
+        print()
+        print("DEBRIS  every sprite's background is saved before it is drawn "
+              "and put back")
+        print("        before it moves. Two of them standing in each other "
+              "save pieces of")
+        print("        each other, and whichever hands its piece back last "
+              "leaves it in the")
+        print("        room for good. This is that, counted: ink on ground "
+              "the room")
+        print("        painted empty, where no sprite is.")
+        if debris["worst"]:
+            x0, x1, y0, y1 = debris["where"]
+            print("    %d bytes left behind, worst at frame %d, x %d-%d y %d-%d"
+                  % (debris["worst"], debris["worst_frame"], x0, x1, y0, y1))
+            failed = True
+        else:
+            print("    %d frames watched, and the room came through every one "
+                  "of them clean" % debris["frames"])
+
     if beam is not None:
         lines = (io.crtc[4] + 1) * (io.crtc[9] + 1) + io.crtc[5]
         print()
@@ -1232,7 +1360,9 @@ def main():
                 k += lines * 64
             if hit is not None:
                 bad += 1
-            if shown < 12:
+            if os.environ.get("BEAM_HITS") and hit is None:
+                pass
+            elif shown < 12:
                 shown += 1
                 print("      rows %3d-%-3d rebuilt over %6d us, beam at %3d "
                       "when it started - %s"
@@ -1281,6 +1411,8 @@ def main():
         open(args.dump, "wb").write(bytes(out))
         print("wrote %s (%d bytes of screen)" % (args.dump, len(out)))
 
+    return 1 if failed else 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

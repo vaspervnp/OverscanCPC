@@ -22,6 +22,8 @@ txt_ys      defs 1                  ; big text: scanlines per source row
 txt_big_pen defs 1                  ; big text: the byte a set pixel is drawn in
 txt_big_solid defs 1                ; big text: write where set, rather than OR
 
+sprites_dirty defs 1            ; two sprites touched: unwind properly
+
 pick_pend_n defs 1              ; pickups eaten and not yet rubbed out
 pick_pend   defs 4*4              ; x, scanline, and where its background went
 
