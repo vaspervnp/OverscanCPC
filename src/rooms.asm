@@ -974,8 +974,8 @@ rooms
     defw r10_enem
     defb 3
     defw r10_props
-    ;; only the lower half of the Pitsos counts: the whole game ends with the
-    ;; cat walking into it, not standing on top of it
+    ;; only the lower half of the Pitsos counts: the first act ends with the
+    ;; cat walking into it, not standing on top of it - and finding it empty
     defb 78, FLOOR_Y-136
     defb 78, 170, 12, 66, PROP_FRIDGE, PROP_FRIDGEOPEN
     defb 4, CAT_FLOOR

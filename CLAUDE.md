@@ -403,9 +403,11 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - A room record names its platforms, sausages, enemies, props, start position and exit.
   `play.asm` knows none of that - it walks whatever `room_load` points it at, so adding
   a room means adding a record, not editing the playing code.
-- Furniture is masked sprites blitted once into the background. Outlined in white, not
-  solid: solid white means a platform, outlined means scenery. That distinction is the
-  level's visual grammar, so keep it.
+- Furniture is drawn once into the background and outlined in white. Outlined means
+  scenery; anything the cat can stand on is pen 2, which is the level's visual grammar
+  and does not change from room to room. It stopped being masked sprites early: drawn
+  at the size these things should be - a sofa is two metres, a fridge is taller than a
+  person - the lot came to about 30 KB.
 - Props are shared across rooms, so a new room is usually free. Twenty-nine rooms come
   to about four kilobytes of tables between them.
 - Furniture is boxes because boxes are almost free and a fridge is a box. A tree, a
