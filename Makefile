@@ -45,7 +45,7 @@ define add_loader
 	@iDSK $(1) -i assets/revive8b.scr -t 1 -c C000 -e C000 -f > /dev/null
 endef
 
-.PHONY: all hello loukoumas assets check clean
+.PHONY: all hello loukoumas assets covers check clean
 
 all: hello loukoumas
 
@@ -74,6 +74,16 @@ src/artwork.asm: $(wildcard assets/art/sprite/*.png) $(wildcard assets/art/decal
 # straight into a screen. Needs Pillow, which is why the .asm is committed.
 src/titlepic.asm build/title.bin: assets/art/title.jpg tools/mkscreen.py
 	$(PYTHON) tools/mkscreen.py assets/art/title.jpg title
+
+# The disc inlay, in both languages: the artwork, a screen shot pasted into the
+# corner of it, and the bands a 1986 cover had around them. Committed, because
+# the fonts it wants are not everywhere.
+COVERS := docs/cover-en.png docs/cover-el.png
+
+covers: $(COVERS)
+
+docs/cover-%.png: assets/art/title.jpg docs/loukoumas-lounge.png tools/mkcover.py
+	$(PYTHON) tools/mkcover.py assets/art/title.jpg docs/loukoumas-lounge.png $* $@
 
 # The tables - font, strings, sprites, artwork, enemy kinds, rooms - assembled
 # at the address they run at and saved raw, then packed. Twelve and a half

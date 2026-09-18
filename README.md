@@ -37,8 +37,12 @@ Target machine: **Amstrad CPC 6128** (128 KB, CRTC types 0/1/2 as shipped).
 
 ## Status
 
-First milestone done: a 384x272 full-overscan screen with HELLO WORLD in 64x96-pixel
-letters. See [CLAUDE.md](CLAUDE.md) for the technical groundwork it is built on.
+The overscan screen works, and there is a game on it. The first milestone was a
+384x272 display with HELLO WORLD in 64x96-pixel letters; what is on it now is
+**ΛΟΥΚΟΥΜΑΣ / LOUKOUMAS**, twenty-nine rooms in two languages with music, sound and
+three difficulties, which boots and plays on an emulated 6128 with the real ROMs as
+part of `make check`. See [CLAUDE.md](CLAUDE.md) for the technical groundwork it is
+built on.
 
 ## Building
 
@@ -79,8 +83,27 @@ addressing, not a capture from an emulator or real hardware.
 
 ## ΛΟΥΚΟΥΜΑΣ / LOUKOUMAS
 
-The first game built on the engine, from [loukoumas.md](loukoumas.md). Twenty-nine rooms
-in three acts: the flat at a quarter past three in the morning, the neighbourhood and the
+<img src="docs/cover-en.png" width="300" align="right" alt="the disc inlay">
+
+The first game built on the engine, and the reason most of what is above exists.
+
+| | English | Ελληνικά |
+|---|---|---|
+| **Player's manual** — loading, controls, what is chasing you | [MANUAL.en.md](MANUAL.en.md) | [MANUAL.el.md](MANUAL.el.md) |
+| **The game: story, design and how it is built** | [loukoumas.en.md](loukoumas.en.md) | [loukoumas.md](loukoumas.md) |
+| **Disc inlay** | [docs/cover-en.png](docs/cover-en.png) | [docs/cover-el.png](docs/cover-el.png) |
+
+The inlay is drawn by `tools/mkcover.py` out of the title artwork and a screen shot,
+in the sixteen pens the game itself uses — `make covers`. Like everything else here it
+is generated rather than drawn once and lost:
+
+```bash
+make covers
+```
+
+<br clear="right">
+
+Twenty-nine rooms in three acts: the flat at a quarter past three in the morning, the neighbourhood and the
 school in daylight, and the vet's and the rooftops home. Title screen, in Greek and
 English - one picture, and the name drawn over it in whichever language you are in:
 
@@ -110,10 +133,10 @@ two rooms of bitmap art would not fit, let alone a flat's worth. Each room in
 the way out is — and costs a few dozen bytes plus whatever props it names. Props are
 shared between rooms, so the kitchen's window is the same bytes as the lounge's.
 
-Furniture is drawn as white outlines rather than solid shapes, which also makes the
-level readable: anything solid white is a platform you can stand on, anything outlined is
-scenery you cannot. It is blitted once into the background through the ordinary sprite
-path, so a sprite walking over it restores it for free.
+Furniture is outlined in white rather than filled with it, which is also what makes a
+room readable: outlined means scenery, and anything the cat can stand on is pen 2 - the
+same butter yellow in all twenty-nine rooms, whatever the floor is made of. It is drawn
+once into the background, so a sprite walking over it restores it for free.
 
 Boxes are almost free, and a fridge is a box. A tree, a cloud, a slide and a street lamp
 are not, so those are **decals** — bitmaps drawn in Aseprite by `assets/aseprite/*.lua`,
@@ -228,9 +251,12 @@ the flop's terminal velocity and the shake and stun it sets.
 
 ### Enemies
 
-Two Skoupo-Terminator robots patrol at half the cat's speed and the Tweety-Boxer canary
-crosses the room on a sine, from a 32-entry table of unsigned offsets so nothing has to
-be signed. Touching either costs a life; the cat respawns with two seconds of grace.
+There are two behaviours - something that patrols a platform and something that crosses
+the room on a sine, from a 32-entry table of unsigned offsets so nothing has to be
+signed - and twelve creatures driven by them, because a robot vacuum patrolling a park
+bench is not a joke that survives nineteen rooms. `src/enemykind.asm` maps a type byte to
+a picture and one of the two behaviours, so a new creature costs three bytes and its art.
+Touching any of them costs a life; the cat respawns with two seconds of grace.
 
 The belly-flop is the answer to a robot that patrols a whole shelf. Landing on your belly
 stuns everything at roughly the height you landed at, however far along the shelf it is —
@@ -261,7 +287,12 @@ sausage can leave the background without the cat's save buffer putting it back.
 
 The title screen runs on a real 50 Hz loop. The Gate Array interrupts every 52 scanlines,
 which is *six* times per frame, so `src/irq.asm` installs a handler at `#0038` (plain RAM
-once the ROMs are off), counts the six, and bumps a frame counter once per frame. The
+once the ROMs are off) and bumps a frame counter once per frame. It does not count to six
+to find the frame: VSYNC is eight scanlines and the interrupts are fifty-two apart, so
+exactly one of the six falls inside VSYNC, and the handler reads PPI port B and takes that
+one as the top of the frame. Counting is the fallback. Getting that wrong does not show up
+in a debugger - the game still runs at 50 Hz - it just puts every frame's work at an
+arbitrary offset into the picture, and the sprite work is half a frame long. The
 "press fire" line blinks off that counter — driving anything straight from `HALT` would
 run it six times too fast. `src/keys.asm` reads the key matrix through the PPI and the
 AY-3-8912, and reports both held keys and the ones that went down this frame.
@@ -287,11 +318,19 @@ frame, the VSYNC bit on PPI port B, and the key matrix through the PPI, which is
 to prove a main loop turns over and reacts to input. `make check` uses that to assert the
 Greek build comes out in English when L is held.
 
-It has **no cycle timing**. A virtual frame is a fixed number of *instructions*, not
-19968 microseconds, so the six-interrupts-per-frame relationship is real but raster
-position and how long a routine takes are not. No ROMs, no banking, and the picture is
-one static frame taken at the end of the run — rupture and raster splits are invisible to
-it. It aborts on any opcode it does not implement rather than guessing.
+It charges every instruction the CPC's own microseconds — one per machine cycle, plus a
+table for the rest — so a virtual frame is 19,968 us and not a number of instructions.
+That is what makes `--beam` possible: it pairs each sprite's erase with its redraw and
+says where the beam was while the sprite was off the screen, which is the only way to
+measure flicker without a camera. `--debris` takes the room as drawn for a reference and
+counts ink left standing on ground the room painted empty, which is what a piece of a
+sprite stamped into the background looks like. Both are budgeted in `make check`.
+
+No ROMs and no banking, and the picture is one static frame taken at the end of the run —
+rupture and raster splits are invisible to it. It aborts on any opcode it does not
+implement rather than guessing. For the things a model cannot answer there is
+`tools/emucheck.py`, which boots floooh/chips' 6128 with the real ROMs, types `RUN"LOUK`
+at the disc image and asks the machine what came out.
 
 ## Layout
 
