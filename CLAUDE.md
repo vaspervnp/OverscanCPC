@@ -486,12 +486,27 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 
 ## 13. Confidence notes
 
-Solid and safe to build on: the address decoding in section 2, the 1024-character limit,
-the 312-line/64 us frame arithmetic, the 52-line interrupt cadence, the port numbers.
-The screen layout in src/ is checked end to end by `make check`.
+**It runs.** `tools/emucheck.py` boots floooh/chips' CPC 6128 - Z80, AM40010 gate
+array, MC6845 CRTC, i8255 PPI, uPD765 - with the machine's own ROMs, types
+`RUN"LOUK` at the disc image and asks what came out. `make check` runs it, and it
+fails the build if the answers are wrong. It is not part of this repository
+(`~/repos/CPCTools/cpcemu`), so a build without it says "skipped" rather than
+failing.
 
-Needs verification on hardware or an accurate emulator before being treated as fact:
-the specific overscan register values in section 3 (particularly R2 and R7 centring, which
-vary by monitor), the exact VSYNC-width behaviour per CRTC type, and every per-type
-difference listed in section 5. Nothing in this repository has yet run on an emulator
-or on real hardware. Measure, then update this file with what was found.
+What that has settled, on the machine rather than on paper: AMSDOS loads the file
+where and how the build thinks; the packed tables come back byte for byte at #0100;
+the CRTC really does put a 384x272 overscan picture up from the registers in
+crtc.asm and the picture that arrives is the one that was packed; and the keyboard
+is read through the PPI the way keys.asm assumes, while the music is driving the
+PSG through the same chip.
+
+Solid and safe to build on: the address decoding in section 2, the 1024-character
+limit, the 312-line/64 us frame arithmetic, the 52-line interrupt cadence, the port
+numbers, and now the whole load-and-draw path above.
+
+Still not verified, and still worth being careful about: the overscan register
+values in section 3 on a **real monitor** - an emulator is happy with a centring a
+CTM might not be; the per-CRTC-type differences in section 5, because the emulator
+is one type and there are five; whether the beam catches a sprite, which
+`z80check.py --beam` measures in a model of the timing rather than in silicon; and
+the screen shake, which moves R7 and may need a frame to re-lock on a real set.

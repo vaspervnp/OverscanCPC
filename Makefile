@@ -102,7 +102,8 @@ $(BUILD)/loukoumas_en.dsk: $(DEPS) | $(BUILD)
 
 $(BUILD)/loukoumas_el.dsk: $(DEPS) | $(BUILD)
 	rm -f $@
-	$(RASM) src/loukoumas.asm -DTARGET=2 -DLANG=1 -eo
+	$(RASM) src/loukoumas.asm -DTARGET=2 -DLANG=1 -eo \
+		-s -sa -os $(BUILD)/loukoumas_el_dsk.sym
 
 # The raw builds also emit a symbol file, which is what lets z80check watch
 # named variables frame by frame - and, with -sa, lets roomcheck read the EQUs
@@ -226,6 +227,14 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		--dump $(BUILD)/title-screen.bin | tail -1
 	@cmp -i 5184 -n 17472 $(BUILD)/title-screen.bin $(BUILD)/title.bin \
 		&& echo "    the picture came back byte for byte"
+	@echo "=== loukoumas, on a real 6128 ==="
+	@echo "    everything above reasons about the machine. This runs it:"
+	@echo "    floooh/chips' 6128 with the real ROMs, booted, RUN\"LOUK off the"
+	@echo "    disc image through AMSDOS, and then asked what actually came out"
+	@echo "    - the tables, the overscan picture, the keyboard and the game."
+	@./tools/emucheck.py $(BUILD)/loukoumas_el.dsk $(BUILD)/loukoumas_el_dsk.sym \
+		$(BUILD)/tables.bin $(BUILD)/title.bin $(BUILD)/emu; \
+		s=$$?; test $$s -eq 0 -o $$s -eq 2
 	@echo "=== what you can actually run ==="
 	@ls -l $(BUILD)/*.sna $(BUILD)/*.dsk | awk '{printf "    %-28s %8s bytes  %s %s %s\n", $$9, $$5, $$6, $$7, $$8}'
 
