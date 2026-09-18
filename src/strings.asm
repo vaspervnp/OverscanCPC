@@ -12,43 +12,44 @@ MSG_TITLE2     EQU 1
 MSG_PRESS      EQU 2
 MSG_LANGNAME   EQU 3
 MSG_LANGHINT   EQU 4
-MSG_SCORE      EQU 5
-MSG_LIVES      EQU 6
-MSG_SAUSAGES   EQU 7
-MSG_LEVEL      EQU 8
-MSG_PAUSED     EQU 9
-MSG_GAMEOVER   EQU 10
-MSG_WELLDONE   EQU 11
-MSG_ROOM1      EQU 12
-MSG_ROOM2      EQU 13
-MSG_ROOM3      EQU 14
-MSG_ROOM4      EQU 15
-MSG_ROOM5      EQU 16
-MSG_ROOM6      EQU 17
-MSG_ROOM7      EQU 18
-MSG_ROOM8      EQU 19
-MSG_ROOM9      EQU 20
-MSG_ROOM10     EQU 21
-MSG_ROOM11     EQU 22
-MSG_ROOM12     EQU 23
-MSG_ROOM13     EQU 24
-MSG_ROOM14     EQU 25
-MSG_ROOM15     EQU 26
-MSG_ROOM16     EQU 27
-MSG_ROOM17     EQU 28
-MSG_ROOM18     EQU 29
-MSG_ROOM19     EQU 30
-MSG_ROOM20     EQU 31
-MSG_ROOM21     EQU 32
-MSG_ROOM22     EQU 33
-MSG_ROOM23     EQU 34
-MSG_ROOM24     EQU 35
-MSG_ROOM25     EQU 36
-MSG_ROOM26     EQU 37
-MSG_ROOM27     EQU 38
-MSG_ROOM28     EQU 39
-MSG_ROOM29     EQU 40
-MSG_COUNT EQU 41
+MSG_CREDIT     EQU 5
+MSG_SCORE      EQU 6
+MSG_LIVES      EQU 7
+MSG_SAUSAGES   EQU 8
+MSG_LEVEL      EQU 9
+MSG_PAUSED     EQU 10
+MSG_GAMEOVER   EQU 11
+MSG_WELLDONE   EQU 12
+MSG_ROOM1      EQU 13
+MSG_ROOM2      EQU 14
+MSG_ROOM3      EQU 15
+MSG_ROOM4      EQU 16
+MSG_ROOM5      EQU 17
+MSG_ROOM6      EQU 18
+MSG_ROOM7      EQU 19
+MSG_ROOM8      EQU 20
+MSG_ROOM9      EQU 21
+MSG_ROOM10     EQU 22
+MSG_ROOM11     EQU 23
+MSG_ROOM12     EQU 24
+MSG_ROOM13     EQU 25
+MSG_ROOM14     EQU 26
+MSG_ROOM15     EQU 27
+MSG_ROOM16     EQU 28
+MSG_ROOM17     EQU 29
+MSG_ROOM18     EQU 30
+MSG_ROOM19     EQU 31
+MSG_ROOM20     EQU 32
+MSG_ROOM21     EQU 33
+MSG_ROOM22     EQU 34
+MSG_ROOM23     EQU 35
+MSG_ROOM24     EQU 36
+MSG_ROOM25     EQU 37
+MSG_ROOM26     EQU 38
+MSG_ROOM27     EQU 39
+MSG_ROOM28     EQU 40
+MSG_ROOM29     EQU 41
+MSG_COUNT EQU 42
 
 ;; language -> table of message pointers
 lang_tables
@@ -61,6 +62,7 @@ msgtab_en
     defw str_en_PRESS
     defw str_en_LANGNAME
     defw str_en_LANGHINT
+    defw str_en_CREDIT
     defw str_en_SCORE
     defw str_en_LIVES
     defw str_en_SAUSAGES
@@ -104,6 +106,7 @@ msgtab_el
     defw str_el_PRESS
     defw str_el_LANGNAME
     defw str_el_LANGHINT
+    defw str_el_CREDIT
     defw str_el_SCORE
     defw str_el_LIVES
     defw str_el_SAUSAGES
@@ -159,6 +162,10 @@ str_en_LANGHINT
     defb 17
     defb 16,18,5,19,19,0,12,0,6,15,18,0,7,18,5,5
     defb 11
+str_en_CREDIT
+    defb 26
+    defb 18,5,22,9,22,5,45,2,9,20,0,52,0,39,37,39
+    defb 43,0,52,0,22,1,19,16,5,18
 str_en_SCORE
     defb 5
     defb 19,3,15,18,5
@@ -286,6 +293,10 @@ str_el_LANGHINT
     defb 18
     defb 32,1,20,1,0,12,0,27,9,1,0,1,27,27,30,9
     defb 11,1
+str_el_CREDIT
+    defb 26
+    defb 18,5,22,9,22,5,45,2,9,20,0,52,0,39,37,39
+    defb 43,0,52,0,22,1,19,16,5,18
 str_el_SCORE
     defb 4
     defb 33,11,15,16

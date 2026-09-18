@@ -219,6 +219,14 @@ assume an effect that works in one emulator works on another type.
 - The file may run over the screen at #8000 while it is loading, because nothing has
   looked at the screen yet. It must not run over AMSDOS's own buffers, which start at
   #A67B; that is why HIMEM drops when a disc drive is attached.
+- **There is almost nothing left.** The file is code from #4000 to `PIC_STORE`, the
+  packed title picture from there to `DATA_STORE`, and the tables after it, and it
+  ends 43 bytes below #A67B. `PIC_STORE` sits 11 bytes above `game_end` and
+  `DATA_STORE` 5 bytes above `PIC_STORE + TITLE_PACKED_LEN`, so the gaps are gone
+  too: growing the code means moving both constants up, and moving both up eats the
+  43. Any real growth from here has to come out of the title picture - it is 7,275
+  bytes, more than a quarter of the file, and the only thing in it that is not
+  load-bearing.
 
 ---
 

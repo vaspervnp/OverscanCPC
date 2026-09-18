@@ -151,7 +151,7 @@ PAL_NIGHT       EQU 20      ; black - the rooftops, at the end of it all
 ;; game does after turning the ROMs off is move them. Nothing in the low block
 ;; is ever executed, only read, so it never has to be there before then.
 DATA_ORG        EQU #0100   ; clear of the #0038 interrupt jump
-DATA_STORE      EQU #75C0   ; where the file carries it, until it is moved
+DATA_STORE      EQU #7590   ; where the file carries it, until it is moved
 
 ;; The title screen is a picture of the whole overscan window: 96 bytes by 272
 ;; scanlines, 26,112 of them, and there is nowhere in this machine to keep
@@ -159,7 +159,7 @@ DATA_STORE      EQU #75C0   ; where the file carries it, until it is moved
 ;; stay where it is - the title is redrawn every time the player comes back to
 ;; it - so it sits between the workspace and the travelling copy of the tables
 ;; and is never moved. See tools/mkscreen.py and src/unpack.asm.
-PIC_STORE       EQU #5940
+PIC_STORE       EQU #5910
 
 ;; Where the pickups keep the background they are standing on. Low RAM, above
 ;; the tables the game moved down there and below #4000: it is uninitialised,

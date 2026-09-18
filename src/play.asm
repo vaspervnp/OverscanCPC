@@ -73,6 +73,7 @@ NO_MILK         EQU 255         ; in the R_MILKX of a room that has none
 ;; play_screen - walk the flat, one room at a time. Returns on Escape.
 ;; ---------------------------------------------------------------------------
 play_screen
+    call sfx_init               ; whatever was playing when it ended stops here
     xor a
     ld (score),a
     ld (score+1),a
@@ -124,8 +125,14 @@ play_think
 
     ld a,(game_over)
     or a
-    jr nz,play_over
+    jr z,play_alive
 
+    ld a,(ctl_pressed)          ; the banner is up: fire starts a new game, and
+    bit CTL_FIRE,a              ; it has to be a press, so holding fire through
+    jp nz,play_screen           ; the last life does not restart it at once
+    jr play_over
+
+play_alive
     ld b,FRAMES_PER_RENDER
 play_step
     push bc

@@ -41,8 +41,10 @@ PANEL_X         EQU 0           ; the top-left panel, clear of the wall clock
 PANEL_W         EQU 78
 PANEL_Y         EQU 6
 PANEL_H         EQU 48
-FOOT_Y          EQU 244         ; and the strip along the bottom
-FOOT_H          EQU 26
+FOOT_Y          EQU 236         ; and the strip along the bottom
+FOOT_H          EQU DISPLAY_LINES-FOOT_Y
+Y_CREDIT        EQU 236         ; three rows in it: who made it, press fire,
+                                ; and the language
 
 H_SMALL         EQU 8                   ; one small text row
 BLINK_BIT       EQU #20                 ; frame_count bit: ~0.64 s each way
@@ -273,6 +275,11 @@ draw_title_text
     and BLINK_BIT
     xor BLINK_BIT
     ld (press_state),a
+
+    ld hl,line_tab+Y_CREDIT*2
+    ld (txt_row),hl
+    ld a,MSG_CREDIT
+    call msg_small_centre
 
     ld hl,line_tab+Y_LANGHINT*2
     ld (txt_row),hl

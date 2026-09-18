@@ -187,11 +187,12 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		| grep -o "pen0=[0-9]* " | sed 's/^/    rooftops   /'
 	@echo "=== loukoumas, the title picture unpacked onto the overscan screen ==="
 	@echo "    26,112 bytes of screen, packed to about seven and unpacked by the"
-	@echo "    Z80 itself. Every byte of it outside the two text panels has to"
-	@echo "    come back identical to the picture tools/mkscreen.py made."
+	@echo "    Z80 itself. Every byte of it outside the two text panels - rows"
+	@echo "    54 to 235 - has to come back identical to the picture that"
+	@echo "    tools/mkscreen.py made."
 	@./tools/z80check.py $(BUILD)/loukoumas_title.bin --frames 200 \
 		--dump $(BUILD)/title-screen.bin | tail -1
-	@cmp -i 5184 -n 18240 $(BUILD)/title-screen.bin $(BUILD)/title.bin \
+	@cmp -i 5184 -n 17472 $(BUILD)/title-screen.bin $(BUILD)/title.bin \
 		&& echo "    the picture came back byte for byte"
 	@echo "=== what you can actually run ==="
 	@ls -l $(BUILD)/*.sna $(BUILD)/*.dsk | awk '{printf "    %-28s %8s bytes  %s %s %s\n", $$9, $$5, $$6, $$7, $$8}'

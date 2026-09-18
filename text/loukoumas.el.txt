@@ -11,6 +11,8 @@ TITLE2    = ΤΟ ΚΥΝΗΓΙ ΤΟΥ ΛΟΥΚΑΝΙΚΟΥ
 PRESS     = ΠΑΤΑ FIRE ΓΙΑ ΕΚΚΙΝΗΣΗ
 LANGNAME  = ΕΛΛΗΝΙΚΑ
 LANGHINT  = ΠΑΤΑ L ΓΙΑ ΑΓΓΛΙΚΑ
+# The credit is a name, so it is the same in both languages.
+CREDIT    = REVIVE8BIT - 2026 - VASPER
 SCORE     = ΣΚΟΡ
 LIVES     = ΖΩΕΣ
 SAUSAGES  = ΛΟΥΚΑΝΙΚΑ
