@@ -484,6 +484,28 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Prefer small, individually runnable test programs over one growing demo. Each milestone
   should be its own binary that shows one thing.
 
+## 12b. What is on the disc
+
+Three files, and rasm can only write one of them:
+
+- `LOUK.BIN` - the game, saved by rasm with an AMSDOS header.
+- `LOUK.BAS` - the loader, `src/louk.bas`, put on by iDSK as ASCII. It sets
+  mode 0 and the sixteen inks from `assets/revive8b.txt`, loads the screen,
+  and starts the game on space or after ten seconds - `TIME` counts three
+  hundred to the second, and space is key 47.
+- `REVIVE8B.SCR` - a 16 KB mode 0 screen, put on by iDSK with a header that
+  loads it at &C000.
+
+**A BASIC file on a CPC disc wants carriage returns at the end of its lines.**
+`src/louk.bas` is kept with ordinary newlines so it reads like source; the
+Makefile converts it on the way in. Without that the machine reads the whole
+file as one line and says `Line too long`, which is not a helpful clue.
+
+The splash is the firmware's 16 KB screen at &C000, and the game's overscan
+screen covers it - so it is visible while BASIC waits and while AMSDOS loads,
+and goes when the game blanks the palette to draw the title unseen. That is
+about two seconds of black between the two pictures.
+
 ## 13. Confidence notes
 
 **It runs.** `tools/emucheck.py` boots floooh/chips' CPC 6128 - Z80, AM40010 gate

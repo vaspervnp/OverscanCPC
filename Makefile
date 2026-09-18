@@ -28,6 +28,19 @@ DEPS   := $(wildcard src/*.asm)
 LOWDEPS := src/lowblock.asm src/config.asm src/font.asm src/strings.asm \
            src/sprites.asm src/artwork.asm src/enemykind.asm src/rooms.asm
 
+# rasm can only put what it assembles on a disc, so iDSK adds the rest: the
+# BASIC loader as ASCII - with the carriage returns the CPC wants at the end
+# of a line, which is why it goes through sed - and the REVIVE8BIT screen with
+# a header that loads it at &C000.
+define add_loader
+	@command -v iDSK >/dev/null || \
+		(echo "    the disc needs iDSK to carry the loader - " \
+		      "http://github.com/cpcsdk" && false)
+	@$(PYTHON) -c "import sys; open(sys.argv[2],'wb').write(open(sys.argv[1],'rb').read().replace(b'\n', b'\r\n'))" src/louk.bas $(BUILD)/louk.bas
+	@iDSK $(1) -i $(BUILD)/louk.bas -t 0 -f > /dev/null
+	@iDSK $(1) -i assets/revive8b.scr -t 1 -c C000 -e C000 -f > /dev/null
+endef
+
 .PHONY: all hello loukoumas assets check clean
 
 all: hello loukoumas
@@ -96,14 +109,16 @@ $(BUILD)/loukoumas_en.sna: $(DEPS) | $(BUILD)
 $(BUILD)/loukoumas_el.sna: $(DEPS) | $(BUILD)
 	$(RASM) src/loukoumas.asm -DTARGET=1 -DLANG=1 -oi $@
 
-$(BUILD)/loukoumas_en.dsk: $(DEPS) | $(BUILD)
+$(BUILD)/loukoumas_en.dsk: $(DEPS) src/louk.bas assets/revive8b.scr | $(BUILD)
 	rm -f $@
 	$(RASM) src/loukoumas.asm -DTARGET=2 -DLANG=0 -eo
+	$(call add_loader,$@)
 
-$(BUILD)/loukoumas_el.dsk: $(DEPS) | $(BUILD)
+$(BUILD)/loukoumas_el.dsk: $(DEPS) src/louk.bas assets/revive8b.scr | $(BUILD)
 	rm -f $@
 	$(RASM) src/loukoumas.asm -DTARGET=2 -DLANG=1 -eo \
 		-s -sa -os $(BUILD)/loukoumas_el_dsk.sym
+	$(call add_loader,$@)
 
 # The raw builds also emit a symbol file, which is what lets z80check watch
 # named variables frame by frame - and, with -sa, lets roomcheck read the EQUs
@@ -233,7 +248,8 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@echo "    disc image through AMSDOS, and then asked what actually came out"
 	@echo "    - the tables, the overscan picture, the keyboard and the game."
 	@./tools/emucheck.py $(BUILD)/loukoumas_el.dsk $(BUILD)/loukoumas_el_dsk.sym \
-		$(BUILD)/tables.bin $(BUILD)/title.bin $(BUILD)/emu; \
+		$(BUILD)/tables.bin $(BUILD)/title.bin assets/revive8b.scr \
+		$(BUILD)/emu; \
 		s=$$?; test $$s -eq 0 -o $$s -eq 2
 	@echo "=== what you can actually run ==="
 	@ls -l $(BUILD)/*.sna $(BUILD)/*.dsk | awk '{printf "    %-28s %8s bytes  %s %s %s\n", $$9, $$5, $$6, $$7, $$8}'

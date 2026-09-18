@@ -7,11 +7,14 @@ a uPD765 with .DSK support - with the 6128's own ROMs, driven headless through
 ~/repos/CPCTools/cpcemu.
 
     tools/emucheck.py build/loukoumas_el.dsk build/loukoumas_el_dsk.sym \\
-                      build/tables.bin build/title.bin build/emu
+                      build/tables.bin build/title.bin assets/revive8b.scr \\
+                      build/emu
 
 That is a different kind of test from tools/z80check.py, and it is the only
 one that can answer some of the questions this project has been carrying:
 
+  * The BASIC loader on the disc really does put the REVIVE8BIT screen up and
+    hand over to the game, both on space and on running out of time.
   * AMSDOS really does load the file, at the address and the length the build
     thinks it does.
   * The tables really do come back out of the packer, on a machine whose
@@ -72,10 +75,11 @@ def screen_rows(c, sym):
 
 
 def main():
-    if len(sys.argv) != 6:
+    if len(sys.argv) != 7:
         sys.exit("usage: emucheck.py <dsk> <sym> <tables.bin> <title.bin> "
-                 "<png prefix>")
-    dsk, symfile, tables_path, title_path, png_prefix = sys.argv[1:]
+                 "<splash.scr> <png prefix>")
+    (dsk, symfile, tables_path, title_path, splash_path,
+     png_prefix) = sys.argv[1:]
 
     try:
         from cpc import CPC
@@ -88,8 +92,21 @@ def main():
     c = CPC()
     c.run_frames(150)                       # to the BASIC prompt
     c.insert_disc(dsk)
-    c.type_text('RUN"LOUK\n')
-    c.run_frames(400)                       # load, unpack, draw the title
+    c.type_text('RUN"LOUK.BAS\n')
+    c.run_frames(330)                       # mode, inks, and the screen off disc
+
+    splash = open(splash_path, "rb").read()
+    check("the loader put the REVIVE8BIT screen up",
+          bytes(c.read_ram(0xC000, len(splash))) == splash,
+          "%d bytes at &C000" % len(splash))
+    c.screenshot(png_prefix + "-splash.png", scale=1, aspect=True)
+
+    # Space rather than the ten second wait, so both the key and the game's
+    # own loading get tested and the check does not sit here for ten seconds.
+    c.key_down(0x20)
+    c.run_frames(8)
+    c.key_up(0x20)
+    c.run_frames(420)                       # load, unpack, draw the title
 
     check("the disc loaded and the game is running",
           0x4000 <= c.pc < 0x6800, "PC #%04X" % c.pc)
