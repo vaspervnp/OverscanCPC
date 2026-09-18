@@ -410,8 +410,12 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   15, so everything fades out without costing a byte of state. Noise effects
   carry the noise pitch in the period's low byte, which the tone effects do not
   mind because their noise is switched off in the mixer.
-- `sfx_update` is stepped with the game logic, not with the picture, so an
-  effect lasts the same length of time whatever the render rate is.
+- `sfx_update` is stepped once per 50 Hz logic step, so an effect lasts the same
+  length of time whatever the render rate is - but it is stepped in `play_over`,
+  the one place every path through a rendered frame goes past, and **not** with
+  the rest of the logic. The logic steps are skipped once the game is over, and
+  an effect that stops being stepped never reaches its last frame, which is the
+  frame that shuts the channel up. The death effect held its note for ever.
 - There is no music. Three channels and a tracker replay is a different job and
   there are about ninety bytes left between `game_end` and `PIC_STORE`.
 

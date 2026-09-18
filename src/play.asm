@@ -134,9 +134,8 @@ play_step
     call check_sausages         ; what has been eaten is worked out here; the
                                 ; hole it leaves is filled in by sprites_update
     call check_enemies
-    call shake_update           ; all three are 50 Hz timers, so they are
-    call flash_update           ; stepped with the logic, not with the picture
-    call sfx_update
+    call shake_update           ; both are 50 Hz timers, so they are stepped
+    call flash_update           ; with the logic, not with the picture
     ld a,(game_over)            ; a robot may just have ended it
     or a
     jr nz,play_step_over
@@ -149,11 +148,11 @@ play_step
 
     call update_hud             ; above the play area, so it is never in the way
     call sprites_order          ; who is where, before the clock starts running
-    jr play_loop
+    jr play_over
 
 play_step_over
     pop bc
-    jr play_loop
+    jr play_over
 
 play_step_exit
     pop bc
@@ -169,10 +168,23 @@ play_finished
     ld (game_over),a
     ld a,MSG_WELLDONE
     call big_banner
+;; The sound is stepped here and not with the rest of the logic, because this
+;; is the one place every path through a rendered frame goes past. The logic
+;; steps are skipped once the game is over, and an effect that stops being
+;; stepped never reaches its last frame - which is the frame that shuts the
+;; channel up. The death effect would then hold its note for ever, which is
+;; exactly what it did.
 play_over
+    ld b,FRAMES_PER_RENDER
+play_over_sfx
+    push bc
+    call sfx_update
+    pop bc
+    djnz play_over_sfx
     jr play_loop
 
 play_quit
+    call sfx_init               ; nothing carries on into the menu
     xor a                       ; leave the screen centred again
     ld (shake_timer),a
     ld e,CRTC_R7
