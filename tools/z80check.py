@@ -1053,6 +1053,10 @@ def main():
     ap.add_argument("--trap-value", help="only trap a write of this byte value")
     ap.add_argument("--sp-floor", help="report the first push below this address")
     ap.add_argument("--trap-frame", type=int, help="ignore trap hits before this frame")
+    ap.add_argument("--poke", action="append", default=[], metavar="SYM=N@FRAME",
+                    help="write a byte into memory at the top of a frame, so a "
+                         "branch can be reached without a route that walks all "
+                         "the way to it: --poke cat_lives=7@200")
     ap.add_argument("--max-steps", type=int, default=50_000_000)
     args = ap.parse_args()
 
@@ -1164,6 +1168,16 @@ def main():
                 "line_tab": symbols["LINE_TAB"], "spr_h": symbols["SPR_H"],
                 "open": None, "y": 0, "h": 0, "units": []}
 
+    #: frame -> [(address, byte)], applied as that frame starts.
+    pokes = {}
+    for item in args.poke:
+        where, _, when = item.partition("@")
+        name, _, value = where.partition("=")
+        addr = symbols.get(name.upper(), None)
+        if addr is None:
+            addr = int(name, 0)
+        pokes.setdefault(int(when), []).append((addr, int(value, 0) & 0xFF))
+
     failed = False
     debris = None
     if args.debris:
@@ -1196,6 +1210,11 @@ def main():
                 beam["units"].append((beam["y"], beam["h"],
                                       beam["open"], cpu.us))
                 beam["open"] = None
+        if pokes:
+            f = cpu.us // CPCIO.FRAME_US
+            for addr, value in pokes.pop(f, ()):
+                mem[addr] = value
+                print("  frame %3d  poked #%04X = %d" % (f, addr, value))
         if debris is not None:
             f = cpu.us // CPCIO.FRAME_US
             if f != debris.get("last"):

@@ -56,14 +56,18 @@ WELLDONE_Y      EQU 40
 BANNER_PAD      EQU 6           ; clear space above and below the message
 WELLDONE_YS     EQU 3
 
-LIVES_START     EQU 3
-LIVES_MAX       EQU 5           ; the HUD has one digit, and five is generous
+;; Nine, because he is a cat. The HUD prints the lives with print_digit, so
+;; nine is also the most that can be shown - which is why it is the ceiling as
+;; well as the start: the saucer of milk tops him back up rather than taking
+;; him past it.
+LIVES_START     EQU 9
+LIVES_MAX       EQU 9
 INVUL_FRAMES    EQU 100         ; two seconds of grace after a respawn
 
-;; A saucer of milk, in every third room. Twenty-nine rooms on three lives is
-;; not a game, it is an endurance test, so there is a way to earn them back -
-;; but it is only ever one, it is always on the awkward shelf, and the room
-;; still has five sausages to find whether the cat goes for it or not.
+;; A saucer of milk, in every third room. Twenty-nine rooms is a long way even
+;; with nine lives, so there is a way to earn one back - but it is only ever
+;; one, it is always on the awkward shelf, and while he still has all nine it
+;; is worth points instead. The room has five sausages to find either way.
 MILK_POINTS     EQU #05         ; BCD, into the hundreds digit
 MILK_FLASH_LEN  EQU 12          ; frames the border flashes to say it counted
 MILK_FLASH_COL  EQU 3           ; pale yellow, hardware colour 3

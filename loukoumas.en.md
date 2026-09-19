@@ -123,9 +123,9 @@ movement code: a new creature costs three bytes there plus its picture.
 
 ### 2.4. The saucer of milk
 
-The design had it as a speed power-up. With 29 rooms and 3 lives something more
-basic was wanted: **one life back, up to five** (and points instead, if the
-lives are already full). There is one in **every third room** (3, 6, 9, 12, 15,
+The design had it as a speed power-up. Over 29 rooms something more basic was
+wanted: **one life back, up to the nine he starts with** (and points instead,
+while he still has all of them). There is one in **every third room** (3, 6, 9, 12, 15,
 18, 21, 24, 27), always on the most awkward shelf - usually the one something is
 patrolling - and the way out does not wait for it: a room can be finished
 without it.
@@ -160,7 +160,7 @@ stunned enemy neither dies nor hurts: it is scenery, until it gets up.
 
 * **Sausages:** 5 per room. Take all five and the door or the vent **changes
   picture** and becomes a way through. Each one is worth points.
-* **Saucer of milk:** a life back, up to five - see 2.4.
+* **Saucer of milk:** a life back, up to nine - see 2.4.
 * **Enemies:** three per room. Contact costs a life, Loukoumas restarts at the
   beginning of the room with **two seconds of grace**, and the room does not
   refill: what you collected stays collected.
@@ -174,8 +174,11 @@ stunned enemy neither dies nor hurts: it is scenery, until it gets up.
   loads. They carry no mask, because the screen underneath has just been cleared
   to pen 0 and ORing 0 changes nothing: half the bytes of a masked sprite, and
   the cost is paid once.
-* **Lives and score:** 3 lives to start, 5 at most. The score is packed BCD, so
-  the arithmetic is `DAA` and printing is two digits a byte - no division.
+* **Lives and score:** **nine lives**, because he is a cat, and nine is also
+  the ceiling - the HUD prints them with one digit, so nine is as high as the
+  number can go, and the saucer of milk tops him back up rather than past it.
+  The score is packed BCD, so the arithmetic is `DAA` and printing is two
+  digits a byte - no division.
 * **HUD:** two rows above the play field - score, lives, sausages, room name -
   and it only repaints when something has changed.
 

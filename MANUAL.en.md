@@ -57,7 +57,7 @@ nineteen rooms: out through the back yard, across the neighbourhood, through
 the whole school, into the vet's — and home over the rooftops and down the
 chimney into his own fireplace, where Myrto has left him a bowl of milk.
 
-**Twenty-nine rooms. Three lives. One sausage.**
+**Twenty-nine rooms. Nine lives. One sausage.**
 
 ---
 
@@ -100,14 +100,14 @@ Two rows across the top, and they are the only part of the screen that is not
 the game:
 
 ```
-SCORE     001700          LIVES   3
+SCORE     001700          LIVES   9
 SAUSAGES  3/5             KITCHEN
 ```
 
 | | |
 |---|---|
 | **SCORE** | Six digits. It does not reset between rooms |
-| **LIVES** | You start with three. Five is the most you can hold |
+| **LIVES** | You start with nine, because you are a cat. Nine is also the most you can hold |
 | **SAUSAGES** | How many of this room's five you have found |
 | **Room name** | Where you are. All twenty-nine have one |
 
@@ -126,9 +126,10 @@ You do not have to find them in any order, and nothing comes back if you lose
 a life, so a room only ever gets easier.
 
 **THE SAUCER OF MILK — every third room.**
-Rooms 3, 6, 9, 12, 15, 18, 21, 24 and 27 have one, and it is **an extra life**,
-up to a maximum of five. If your lives are already full it is worth 500 points
-instead.
+Rooms 3, 6, 9, 12, 15, 18, 21, 24 and 27 have one, and it is **a life back**,
+up to your original nine. If you still have all nine it is worth 500 points
+instead, so it is never wasted — but it is worth a great deal more once you
+have started losing them.
 
 It is always on the most awkward shelf in the room, and usually on the one
 something is patrolling. The way out does not wait for it: you can finish the
@@ -188,7 +189,7 @@ the same place.
 | | |
 |---|---|
 | Sausage | 100 |
-| Saucer of milk | an extra life — or 500 if you already have five |
+| Saucer of milk | a life back — or 500 if you still have all nine |
 
 There is no time bonus and no end-of-room bonus. The score is what you picked
 up.
@@ -197,7 +198,7 @@ up.
 
 ## WHEN IT ENDS
 
-Lose your third life and the room stops where it stands with **GAME OVER**
+Lose your ninth life and the room stops where it stands with **GAME OVER**
 across it. Press `SPACE` (or fire) to start again from the first room at the
 same difficulty, or `ESC` to go back to the title screen — and to the language
 and difficulty menus with it.
@@ -217,8 +218,9 @@ considered generous.
   cannot walk around.
 * **The flop is a key, not a weapon.** Nothing in this game dies. A shelf you
   cannot cross is a shelf you have not flopped on yet.
-* **Take the milk early.** It is on the hardest shelf in the room and you will
-  not want to go back for it on your last life.
+* **Take the milk when you are down a life or two.** With all nine it is only
+  points; with seven it is the way back up. It is on the hardest shelf in the
+  room either way, and you will not want to go back for it on your last one.
 * **Learn where the canary turns.** Everything that flies bounces between the
   same two walls for ever. Stand where it has just been.
 * **Rolling under something is usually faster than jumping over it**, and it is

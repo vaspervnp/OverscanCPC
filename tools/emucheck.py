@@ -168,7 +168,7 @@ def main():
     lives = c.peek(sym["CAT_LIVES"])
     room = c.peek(sym["CUR_ROOM"])
     cat_y = c.peek(sym["CAT_Y"])
-    check("fire started the game", lives == 3 and room == 0,
+    check("fire started the game", lives == 9 and room == 0,
           "room %d, %d lives" % (room, lives))
     check("the cat is standing on the floor", cat_y == 212, "y %d" % cat_y)
 

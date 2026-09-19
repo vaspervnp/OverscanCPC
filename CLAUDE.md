@@ -473,7 +473,12 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   robot vacuum patrolling a park bench is not a joke that survives being told
   nineteen times. `src/enemykind.asm` maps the type byte to a sprite and a behaviour;
   adding one costs three bytes there plus its picture.
-- Every third room has a saucer of milk in it, worth one life up to five. It is not
+- **The cat starts with nine lives, and nine is also the ceiling** - the HUD prints
+  them with `print_digit`, so the number cannot go past one digit, and the saucer of
+  milk tops him back up rather than past it. That means a clean scripted run never
+  sees the saucer give a life at all, only the points it is worth instead, which is
+  why `make check` pokes a life away first.
+- Every third room has a saucer of milk in it, worth one life up to nine. It is not
   one of the sausages and the way out does not wait for it, so a room can be finished
   without it - and it is always on the awkward shelf, usually one something is
   patrolling. Collecting it flashes the border, because the lives digit in the corner

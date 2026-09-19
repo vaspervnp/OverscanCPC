@@ -240,11 +240,21 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		--debris | tail -1
 	@echo "=== loukoumas, clean run of the lounge and out through the vent ==="
 	@echo "    a sausage at 91, 149, 237, 295 and 367, the saucer of milk at"
-	@echo "    225 for a fourth life, then cur_room 8 -> 9 at 369 into the vent"
+	@echo "    225 - which he has all nine lives for, so it is worth points"
+	@echo "    instead - then cur_room 8 -> 9 at 369 into the vent"
 	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 398 --keys "$(LOUNGE_ROUTE)" \
 		--sym $(BUILD)/loukoumas_lounge.sym \
 		--watch "cur_room,cat_lives,sausages_got,milk_alive,level_done" \
 		| grep -E "frame ( 91|149|225|237|295|367|369)"
+	@echo "=== loukoumas, and the saucer when a life is missing ==="
+	@echo "    a cat starts with nine and cannot hold more, so the clean run"
+	@echo "    above never sees the saucer do the thing it is there for."
+	@echo "    Seven lives poked in before he reaches it, and 225 gives one"
+	@echo "    back instead of points."
+	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 240 \
+		--keys "$(LOUNGE_ROUTE)" --sym $(BUILD)/loukoumas_lounge.sym \
+		--poke "cat_lives=7@200" --watch "cat_lives,milk_alive" \
+		| grep -E "poked|frame (224|225)"
 	@echo "=== loukoumas, the tables unpacked by the Z80 itself ==="
 	@echo "    twelve and a half kilobytes of font, sprites, artwork and rooms"
 	@echo "    packed to eight and a half and unpacked into #0100 before the"
