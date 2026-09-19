@@ -2,8 +2,8 @@
 """The disc inlay, drawn the way one would have been in 1986.
 
     tools/mkcover.py assets/art/title.jpg en docs/cover-en.png \\
-                     docs/loukoumas-lounge.png docs/loukoumas-park.png \\
-                     docs/loukoumas-rooftops.png docs/loukoumas-gameover.png
+                     docs/loukoumas-lounge-en.png docs/loukoumas-park-en.png \\
+                     docs/loukoumas-rooftops-en.png docs/loukoumas-gameover-en.png
 
 A CPC game came in a 3" disc case with a printed card wrapped round the inside
 of it - back, spine and front in one piece, folded twice - and they all had the

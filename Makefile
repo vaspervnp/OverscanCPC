@@ -4,6 +4,7 @@
 #   make hello        the overscan proof of concept
 #   make loukoumas    ΛΟΥΚΟΥΜΑΣ title screen, English and Greek
 #   make assets       regenerate the font, strings and sprites (needs python3)
+#   make shots        retake every screen shot in docs/, both languages
 #   make check        run each binary on a Z80 interpreter and decode the screen
 #   make clean
 #
@@ -45,7 +46,7 @@ define add_loader
 	@iDSK $(1) -i assets/revive8b.scr -t 1 -c C000 -e C000 -f > /dev/null
 endef
 
-.PHONY: all hello loukoumas assets covers manuals check clean
+.PHONY: all hello loukoumas assets shots covers manuals check clean
 
 all: hello loukoumas
 
@@ -75,11 +76,22 @@ src/artwork.asm: $(wildcard assets/art/sprite/*.png) $(wildcard assets/art/decal
 src/titlepic.asm build/title.bin: assets/art/title.jpg tools/mkscreen.py
 	$(PYTHON) tools/mkscreen.py assets/art/title.jpg title
 
+# The screen shots the manuals and the inlay are made of, in both languages -
+# the HUD and the room name are text, so an English booklet cannot carry a
+# Greek screen. Each one is a build that starts in the room it wants and a
+# scripted route to the frame worth keeping, taken off the same Z80
+# interpreter make check reads the screen with. Committed, because taking
+# them needs rasm and Pillow; `make shots` takes the lot again.
+SCENES := title difficulty lounge kitchen backyard park rooftops gameover
+SHOTS  := $(foreach s,$(SCENES),docs/loukoumas-$(s)-en.png docs/loukoumas-$(s)-el.png)
+COVER_SCENES := lounge park rooftops gameover
+
+shots:
+	$(PYTHON) tools/mkshots.py
+
 # The disc inlay, in both languages: back, spine and front in one piece, the
 # way it was printed and folded into a 3" case, plus the front on its own.
 # Committed, because the fonts it wants are not everywhere.
-COVER_SHOTS := docs/loukoumas-lounge.png docs/loukoumas-park.png \
-               docs/loukoumas-rooftops.png docs/loukoumas-gameover.png
 COVERS := docs/cover-en.png docs/cover-el.png
 
 covers: $(COVERS)
@@ -90,17 +102,12 @@ MANUALS := docs/manual-en.pdf docs/manual-el.pdf
 
 manuals: $(MANUALS)
 
-MANUAL_SHOTS := docs/loukoumas-title-en.png docs/loukoumas-title-el.png \
-                docs/loukoumas-difficulty-en.png docs/loukoumas-difficulty-el.png \
-                docs/loukoumas-lounge.png docs/loukoumas-kitchen.png \
-                docs/loukoumas-backyard.png docs/loukoumas-rooftops.png \
-                docs/loukoumas-gameover.png
-
-docs/manual-%.pdf: MANUAL.%.md docs/cover-%-front.png $(MANUAL_SHOTS) tools/mkmanual.py
+docs/manual-%.pdf: MANUAL.%.md docs/cover-%-front.png $(SHOTS) tools/mkmanual.py
 	$(PYTHON) tools/mkmanual.py $< $@
 
-docs/cover-%.png: assets/art/title.jpg $(COVER_SHOTS) tools/mkcover.py
-	$(PYTHON) tools/mkcover.py assets/art/title.jpg $* $@ $(COVER_SHOTS)
+docs/cover-%.png: assets/art/title.jpg $(SHOTS) tools/mkcover.py
+	$(PYTHON) tools/mkcover.py assets/art/title.jpg $* $@ \
+		$(foreach s,$(COVER_SCENES),docs/loukoumas-$(s)-$*.png)
 
 # The tables - font, strings, sprites, artwork, enemy kinds, rooms - assembled
 # at the address they run at and saved raw, then packed. Twelve and a half

@@ -120,15 +120,22 @@ walk, FIRE or up to jump, down to roll, down plus FIRE in mid-air to belly-flop.
 room's sausages and the way out opens — the vent at the top of the bookshelf, then the
 Pitsos itself:
 
-![the lounge](docs/loukoumas-lounge.png)
-![the kitchen](docs/loukoumas-kitchen.png)
-![game over](docs/loukoumas-gameover.png)
+![the lounge](docs/loukoumas-lounge-en.png)
+![the kitchen](docs/loukoumas-kitchen-en.png)
+![game over](docs/loukoumas-gameover-en.png)
 
 Then out of the flat, and the light changes with it:
 
-![the back yard](docs/loukoumas-backyard.png)
-![the park](docs/loukoumas-park.png)
-![the rooftops](docs/loukoumas-rooftops.png)
+![the back yard](docs/loukoumas-backyard-en.png)
+![the park](docs/loukoumas-park-en.png)
+![the rooftops](docs/loukoumas-rooftops-en.png)
+
+Every one of those is taken by `make shots`, in both languages, off the same Z80
+interpreter `make check` reads the screen with: a build that starts in the room it wants,
+a scripted route to the frame worth keeping, and screen RAM decoded through the CRTC's
+addressing. They are the picture the hardware would put up rather than a photograph of an
+emulator window. The Greek set is what
+[the Greek manual](docs/manual-el.pdf) is made of.
 
 ### Rooms
 

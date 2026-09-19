@@ -61,9 +61,9 @@ nineteen rooms: out through the back yard, across the neighbourhood, through
 the whole school, into the vet's — and home over the rooftops and down the
 chimney into his own fireplace, where Myrto has left him a bowl of milk.
 
-![Act two: out of the flat and into the back yard, in daylight.](docs/loukoumas-backyard.png)
+![Act two: out of the flat and into the back yard, in daylight.](docs/loukoumas-backyard-en.png)
 
-![Act three: home over the rooftops, and down the chimney.](docs/loukoumas-rooftops.png)
+![Act three: home over the rooftops, and down the chimney.](docs/loukoumas-rooftops-en.png)
 
 **Twenty-nine rooms. Nine lives — or three, if you ask for them. One sausage.**
 
@@ -119,7 +119,7 @@ SAUSAGES  3/5             KITCHEN
 | **SAUSAGES** | How many of this room's five you have found |
 | **Room name** | Where you are. All twenty-nine have one |
 
-![The lounge: the HUD on top, five sausages, and a robot patrolling the shelf.](docs/loukoumas-lounge.png)
+![The lounge: the HUD on top, five sausages, and a robot patrolling the shelf.](docs/loukoumas-lounge-en.png)
 
 The **border of the screen flashes** when something good happens. It is the
 only thing on a screen this size that you cannot miss while you are being
@@ -142,7 +142,7 @@ one yet it is worth 500 points instead, so it is never wasted; it is worth a
 great deal more once you have started losing them, and on hard, where you only
 ever had three, it is worth more still.
 
-![The Pitsos in the kitchen, open at last — and empty.](docs/loukoumas-kitchen.png)
+![The Pitsos in the kitchen, open at last — and empty.](docs/loukoumas-kitchen-en.png)
 
 It is always on the most awkward shelf in the room, and usually on the one
 something is patrolling. The way out does not wait for it: you can finish the
@@ -219,7 +219,7 @@ across it. Press `SPACE` (or fire) to start again from the first room at the
 same difficulty, or `ESC` to go back to the title screen — and to the language
 and difficulty menus with it.
 
-![Out of lives. FIRE starts a new game, ESC goes back to the title.](docs/loukoumas-gameover.png)
+![Out of lives. FIRE starts a new game, ESC goes back to the title.](docs/loukoumas-gameover-en.png)
 
 Get through all twenty-nine and you get **WELL DONE!**, which in 1986 was
 considered generous.
