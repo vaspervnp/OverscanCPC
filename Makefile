@@ -45,7 +45,7 @@ define add_loader
 	@iDSK $(1) -i assets/revive8b.scr -t 1 -c C000 -e C000 -f > /dev/null
 endef
 
-.PHONY: all hello loukoumas assets covers check clean
+.PHONY: all hello loukoumas assets covers manuals check clean
 
 all: hello loukoumas
 
@@ -75,15 +75,32 @@ src/artwork.asm: $(wildcard assets/art/sprite/*.png) $(wildcard assets/art/decal
 src/titlepic.asm build/title.bin: assets/art/title.jpg tools/mkscreen.py
 	$(PYTHON) tools/mkscreen.py assets/art/title.jpg title
 
-# The disc inlay, in both languages: the artwork, a screen shot pasted into the
-# corner of it, and the bands a 1986 cover had around them. Committed, because
-# the fonts it wants are not everywhere.
+# The disc inlay, in both languages: back, spine and front in one piece, the
+# way it was printed and folded into a 3" case, plus the front on its own.
+# Committed, because the fonts it wants are not everywhere.
+COVER_SHOTS := docs/loukoumas-lounge.png docs/loukoumas-park.png \
+               docs/loukoumas-rooftops.png docs/loukoumas-gameover.png
 COVERS := docs/cover-en.png docs/cover-el.png
 
 covers: $(COVERS)
 
-docs/cover-%.png: assets/art/title.jpg docs/loukoumas-lounge.png tools/mkcover.py
-	$(PYTHON) tools/mkcover.py assets/art/title.jpg docs/loukoumas-lounge.png $* $@
+# The manuals as the printed booklet, A5, out of the same markdown anybody
+# reads on the web. Needs fpdf2 (pip install fpdf2), so they are committed.
+MANUALS := docs/manual-en.pdf docs/manual-el.pdf
+
+manuals: $(MANUALS)
+
+MANUAL_SHOTS := docs/loukoumas-title-en.png docs/loukoumas-title-el.png \
+                docs/loukoumas-difficulty-en.png docs/loukoumas-difficulty-el.png \
+                docs/loukoumas-lounge.png docs/loukoumas-kitchen.png \
+                docs/loukoumas-backyard.png docs/loukoumas-rooftops.png \
+                docs/loukoumas-gameover.png
+
+docs/manual-%.pdf: MANUAL.%.md docs/cover-%-front.png $(MANUAL_SHOTS) tools/mkmanual.py
+	$(PYTHON) tools/mkmanual.py $< $@
+
+docs/cover-%.png: assets/art/title.jpg $(COVER_SHOTS) tools/mkcover.py
+	$(PYTHON) tools/mkcover.py assets/art/title.jpg $* $@ $(COVER_SHOTS)
 
 # The tables - font, strings, sprites, artwork, enemy kinds, rooms - assembled
 # at the address they run at and saved raw, then packed. Twelve and a half

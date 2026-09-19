@@ -2,11 +2,13 @@
 ## THE GREAT SAUSAGE CHASE
 
 **AMSTRAD CPC 6128 · 3" DISK · 128K**
+
 *A REVIVE8BIT production · © 2026*
 
-![the cover](docs/cover-en.png)
+![The disc inlay — the front of it.](docs/cover-en-front.png)
 
-> Ελληνικά: [MANUAL.el.md](MANUAL.el.md)
+> Ελληνικά: [MANUAL.el.md](MANUAL.el.md) · Booklet:
+> [English PDF](docs/manual-en.pdf), [Greek PDF](docs/manual-el.pdf)
 
 ---
 
@@ -30,6 +32,8 @@
 
 *A 464 or a 664 will not load it. The game wants 128K: it uses one whole half
 of the machine as a screen.*
+
+![The title screen. FIRE goes on, L switches to Greek.](docs/loukoumas-title-en.png)
 
 ---
 
@@ -56,6 +60,10 @@ From there it stops being a raid and becomes a chase, and it lasts another
 nineteen rooms: out through the back yard, across the neighbourhood, through
 the whole school, into the vet's — and home over the rooftops and down the
 chimney into his own fireplace, where Myrto has left him a bowl of milk.
+
+![Act two: out of the flat and into the back yard, in daylight.](docs/loukoumas-backyard.png)
+
+![Act three: home over the rooftops, and down the chimney.](docs/loukoumas-rooftops.png)
 
 **Twenty-nine rooms. Nine lives — or three, if you ask for them. One sausage.**
 
@@ -111,6 +119,8 @@ SAUSAGES  3/5             KITCHEN
 | **SAUSAGES** | How many of this room's five you have found |
 | **Room name** | Where you are. All twenty-nine have one |
 
+![The lounge: the HUD on top, five sausages, and a robot patrolling the shelf.](docs/loukoumas-lounge.png)
+
 The **border of the screen flashes** when something good happens. It is the
 only thing on a screen this size that you cannot miss while you are being
 chased.
@@ -131,6 +141,8 @@ but never more than the number you started the game on. If you have not lost
 one yet it is worth 500 points instead, so it is never wasted; it is worth a
 great deal more once you have started losing them, and on hard, where you only
 ever had three, it is worth more still.
+
+![The Pitsos in the kitchen, open at last — and empty.](docs/loukoumas-kitchen.png)
 
 It is always on the most awkward shelf in the room, and usually on the one
 something is patrolling. The way out does not wait for it: you can finish the
@@ -172,6 +184,8 @@ small and you are not fast.
 After the title screen, and before the first room, the game asks. Use `←` and
 `→` to change it and `SPACE` to accept.
 
+![It borrows the title screen's footer: the question, the answer, and the keys.](docs/loukoumas-difficulty-en.png)
+
 | | Lives | Enemies | The belly-flop stun lasts |
 |---|:---:|---|---|
 | **EASY** | 9 | Half speed | Four seconds |
@@ -204,6 +218,8 @@ Lose your last life and the room stops where it stands with **GAME OVER**
 across it. Press `SPACE` (or fire) to start again from the first room at the
 same difficulty, or `ESC` to go back to the title screen — and to the language
 and difficulty menus with it.
+
+![Out of lives. FIRE starts a new game, ESC goes back to the title.](docs/loukoumas-gameover.png)
 
 Get through all twenty-nine and you get **WELL DONE!**, which in 1986 was
 considered generous.

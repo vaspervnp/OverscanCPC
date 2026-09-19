@@ -90,15 +90,20 @@ The first game built on the engine, and the reason most of what is above exists.
 | | English | Ελληνικά |
 |---|---|---|
 | **Player's manual** — loading, controls, what is chasing you | [MANUAL.en.md](MANUAL.en.md) | [MANUAL.el.md](MANUAL.el.md) |
+| **The same manual as the printed booklet** | [docs/manual-en.pdf](docs/manual-en.pdf) | [docs/manual-el.pdf](docs/manual-el.pdf) |
 | **The game: story, design and how it is built** | [loukoumas.en.md](loukoumas.en.md) | [loukoumas.md](loukoumas.md) |
-| **Disc inlay** | [docs/cover-en.png](docs/cover-en.png) | [docs/cover-el.png](docs/cover-el.png) |
+| **Disc inlay** — back, spine and front | [docs/cover-en.png](docs/cover-en.png) | [docs/cover-el.png](docs/cover-el.png) |
+| **Just the front of it** | [docs/cover-en-front.png](docs/cover-en-front.png) | [docs/cover-el-front.png](docs/cover-el-front.png) |
 
-The inlay is drawn by `tools/mkcover.py` out of the title artwork and a screen shot,
-in the sixteen pens the game itself uses — `make covers`. Like everything else here it
-is generated rather than drawn once and lost:
+The inlay is drawn by `tools/mkcover.py` out of the title artwork and the screen shots,
+in the sixteen pens the game itself uses: one 208x128 mm wrap for a 3" disc case, back
+panel, 9 mm spine and front panel in a row, with fold marks. `tools/mkmanual.py` sets
+the A5 booklet from the same markdown anybody reads above, so there is no second copy of
+the text to keep in step. Like everything else here both are generated rather than drawn
+once and lost:
 
 ```bash
-make covers
+make covers manuals
 ```
 
 <br clear="right">
