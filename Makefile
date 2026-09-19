@@ -211,7 +211,8 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		| grep -E "frame ( 67| 69| 73| 75)"
 	@echo "=== loukoumas, a robot costs a life and respawns the cat ==="
 	@echo "    118 walking into it at column 74, 119 back at the start with"
-	@echo "    two lives and a hundred frames of grace"
+	@echo "    a life gone and a hundred frames of grace. Three to begin with,"
+	@echo "    because the chooser was left on hard"
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 208 \
 		--keys "$(START),RIGHT@48-208" --sym $(BUILD)/loukoumas_el.sym \
 		--watch "cat_x,cat_lives,cat_invul" | grep -E "frame (118|119)"
@@ -220,13 +221,14 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 	@echo "    pace the cast come out 4, 3 and 200 instead of 2, 1 and 100: a"
 	@echo "    step every fourth update instead of every second, a wingbeat"
 	@echo "    every third instead of every one, and four seconds flat on its"
-	@echo "    back after a belly-flop instead of two. The robot has covered"
-	@echo "    half the ground by the time the cat reaches it, so the cat is"
-	@echo "    caught at column 50 rather than 74."
+	@echo "    back after a belly-flop instead of two - and nine lives to lose"
+	@echo "    rather than three. The robot has covered half the ground by the"
+	@echo "    time the cat reaches it, so the cat is caught at column 50"
+	@echo "    rather than 74."
 	@./tools/z80check.py $(BUILD)/loukoumas_el.bin --frames 120 \
 		--keys "FIRE@22-26,LEFT@28-30,LEFT@32-34,FIRE@38-42,RIGHT@56-120" \
 		--sym $(BUILD)/loukoumas_el.sym \
-		--watch "cat_x,cat_lives,walk_period,fly_period,stun_time" \
+		--watch "cat_x,cat_lives,start_lives,walk_period,fly_period,stun_time" \
 		| grep -E "frame (102|103)"
 	@echo "=== loukoumas, nothing of the cast is left behind in the room ==="
 	@echo "    every sprite saves the ground it is about to cover and puts it"
@@ -247,13 +249,13 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		--watch "cur_room,cat_lives,sausages_got,milk_alive,level_done" \
 		| grep -E "frame ( 91|149|225|237|295|367|369)"
 	@echo "=== loukoumas, and the saucer when a life is missing ==="
-	@echo "    a cat starts with nine and cannot hold more, so the clean run"
-	@echo "    above never sees the saucer do the thing it is there for."
-	@echo "    Seven lives poked in before he reaches it, and 225 gives one"
-	@echo "    back instead of points."
+	@echo "    the saucer never takes him past the number the difficulty"
+	@echo "    started him on, so a clean run - which loses nothing - always"
+	@echo "    takes the points and never the life. One life poked in before"
+	@echo "    he reaches it, and 225 has to hand one back instead."
 	@./tools/z80check.py $(BUILD)/loukoumas_lounge.bin --frames 240 \
 		--keys "$(LOUNGE_ROUTE)" --sym $(BUILD)/loukoumas_lounge.sym \
-		--poke "cat_lives=7@200" --watch "cat_lives,milk_alive" \
+		--poke "cat_lives=1@200" --watch "cat_lives,start_lives,milk_alive" \
 		| grep -E "poked|frame (224|225)"
 	@echo "=== loukoumas, the tables unpacked by the Z80 itself ==="
 	@echo "    twelve and a half kilobytes of font, sprites, artwork and rooms"

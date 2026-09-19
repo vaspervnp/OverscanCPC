@@ -56,18 +56,16 @@ WELLDONE_Y      EQU 40
 BANNER_PAD      EQU 6           ; clear space above and below the message
 WELLDONE_YS     EQU 3
 
-;; Nine, because he is a cat. The HUD prints the lives with print_digit, so
-;; nine is also the most that can be shown - which is why it is the ceiling as
-;; well as the start: the saucer of milk tops him back up rather than taking
-;; him past it.
-LIVES_START     EQU 9
-LIVES_MAX       EQU 9
+;; How many lives he starts with is the difficulty setting - nine, six or
+;; three - and it lives in start_lives, next to the three bytes that pace the
+;; cast. LIVES_CEILING in config.asm is as high as any of them may go.
 INVUL_FRAMES    EQU 100         ; two seconds of grace after a respawn
 
-;; A saucer of milk, in every third room. Twenty-nine rooms is a long way even
-;; with nine lives, so there is a way to earn one back - but it is only ever
-;; one, it is always on the awkward shelf, and while he still has all nine it
-;; is worth points instead. The room has five sausages to find either way.
+;; A saucer of milk, in every third room. Twenty-nine rooms is a long way on
+;; any setting, so there is a way to earn one back - but it is only ever one,
+;; it is always on the awkward shelf, and it never takes him past the number he
+;; started with: full up, it is worth points instead. The room has five
+;; sausages to find either way.
 MILK_POINTS     EQU #05         ; BCD, into the hundreds digit
 MILK_FLASH_LEN  EQU 12          ; frames the border flashes to say it counted
 MILK_FLASH_COL  EQU 3           ; pale yellow, hardware colour 3
@@ -82,7 +80,7 @@ play_screen
     ld (score+1),a
     ld (score+2),a
     ld (game_over),a
-    ld a,LIVES_START
+    ld a,(start_lives)          ; nine, six or three - see diff_tab
     ld (cat_lives),a
     ld a,STARTROOM              ; 0 in a real build; the tests start elsewhere
     ld (cur_room),a
@@ -961,8 +959,9 @@ check_milk
     xor a
     ld (milk_alive),a
     call erase_milk
-    ld a,(cat_lives)
-    cp LIVES_MAX
+    ld hl,start_lives           ; back up to what this difficulty started him
+    ld a,(cat_lives)            ; on, and no further
+    cp (hl)
     jr nc,check_milk_score      ; already full: it is worth points instead
     inc a
     ld (cat_lives),a

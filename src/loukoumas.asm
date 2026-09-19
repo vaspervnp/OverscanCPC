@@ -195,11 +195,24 @@ title_done
 ;; ---------------------------------------------------------------------------
 DIFF_COUNT      EQU 3
 DIFF_HARD       EQU 2
+DIFF_SIZE       EQU 4
 
-diff_tab                        ; walk period, fly period, flop stun
-    defb 4,3,200                ; easy:   half speed, four seconds flat out
-    defb 3,2,150                ; medium: two thirds, three seconds
-    defb 2,1,100                ; hard:   what it has always been
+;; Named rather than written into the table, so the assert below is about the
+;; numbers the game actually uses: none of them may be more than the HUD's one
+;; digit can print.
+LIVES_EASY      EQU 9
+LIVES_MEDIUM    EQU 6
+LIVES_HARD      EQU 3
+    ASSERT LIVES_EASY <= LIVES_CEILING
+    ASSERT LIVES_MEDIUM <= LIVES_CEILING
+    ASSERT LIVES_HARD <= LIVES_CEILING
+
+diff_tab                        ; walk period, fly period, flop stun, lives
+    defb 4,3,200,LIVES_EASY     ; easy:   half speed, four seconds flat out
+    defb 3,2,150,LIVES_MEDIUM   ; medium: two thirds, three seconds
+    defb 2,1,100,LIVES_HARD     ; hard:   what it has always been
+diff_tab_end
+    ASSERT diff_tab_end-diff_tab == DIFF_COUNT*DIFF_SIZE
 
 difficulty_loop
     ld hl,line_tab+FOOT_Y*2     ; the whole strip, credit and all
@@ -257,16 +270,14 @@ difficulty_done
 ;; ---------------------------------------------------------------------------
 difficulty_apply
     ld a,(difficulty)
-    ld e,a
-    ld d,0
-    ld h,d
-    ld l,e
+    ld l,a
+    ld h,0
     add hl,hl
-    add hl,de                   ; x3, the record length
+    add hl,hl                   ; x4, the record length
     ld de,diff_tab
     add hl,de
-    ld de,walk_period           ; walk, fly, stun, in that order
-    ld bc,3
+    ld de,walk_period           ; walk, fly, stun, lives, in that order
+    ld bc,DIFF_SIZE
     ldir
     ret
 
@@ -581,6 +592,7 @@ cat_invul     defs 1                ; frames of grace after a respawn
 walk_period   defs 1                ; updates between a walker's steps
 fly_period    defs 1                ; and between a flyer's
 stun_time     defs 1                ; how long a flattened enemy stays down
+start_lives   defs 1                ; and how many lives he gets to lose
 difficulty    defs 1                ; 0 easy, 1 medium, 2 hard
 
 rect_a        defs 4                ; x1, x2, y1, y2 - the ground the cat's

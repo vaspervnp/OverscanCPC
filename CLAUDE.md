@@ -473,12 +473,14 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   robot vacuum patrolling a park bench is not a joke that survives being told
   nineteen times. `src/enemykind.asm` maps the type byte to a sprite and a behaviour;
   adding one costs three bytes there plus its picture.
-- **The cat starts with nine lives, and nine is also the ceiling** - the HUD prints
-  them with `print_digit`, so the number cannot go past one digit, and the saucer of
-  milk tops him back up rather than past it. That means a clean scripted run never
-  sees the saucer give a life at all, only the points it is worth instead, which is
-  why `make check` pokes a life away first.
-- Every third room has a saucer of milk in it, worth one life up to nine. It is not
+- **How many lives he starts with is the difficulty**: nine, six or three, out of
+  the same `diff_tab` record as the three bytes that pace the cast. The number he
+  started on is also his ceiling, because the HUD prints the lives with
+  `print_digit` and ten would print whatever follows 9 - so the saucer of milk tops
+  him back up rather than past it. That means a clean scripted run never sees the
+  saucer give a life at all, only the points it is worth instead, which is why
+  `make check` pokes a life away first (`z80check.py --poke`).
+- Every third room has a saucer of milk in it, worth one life back. It is not
   one of the sausages and the way out does not wait for it, so a room can be finished
   without it - and it is always on the awkward shelf, usually one something is
   patrolling. Collecting it flashes the border, because the lives digit in the corner
@@ -492,8 +494,8 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   medium slow the cast down by stepping it less often rather than by moving it
   less far - `walk_period`, `fly_period` - so nothing in the movement code has
   to know about fractions of a byte, and they lengthen the belly-flop stun.
-  The chooser borrows the title screen's footer between the title and the
-  room. It also means every scripted route in `make check` has to press fire
+  It sets the starting lives as well - nine, six and three. The chooser borrows
+  the title screen's footer between the title and the room. It also means every scripted route in `make check` has to press fire
   twice to reach a room, and everything in a route happens eight frames later
   than it did before there was a second screen.
 - `make check` runs a clean scripted playthrough with the enemies in place: five

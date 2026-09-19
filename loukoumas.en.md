@@ -124,8 +124,8 @@ movement code: a new creature costs three bytes there plus its picture.
 ### 2.4. The saucer of milk
 
 The design had it as a speed power-up. Over 29 rooms something more basic was
-wanted: **one life back, up to the nine he starts with** (and points instead,
-while he still has all of them). There is one in **every third room** (3, 6, 9, 12, 15,
+wanted: **one life back, and never past the number the difficulty started him
+on** (points instead, while he still has all of them). There is one in **every third room** (3, 6, 9, 12, 15,
 18, 21, 24, 27), always on the most awkward shelf - usually the one something is
 patrolling - and the way out does not wait for it: a room can be finished
 without it.
@@ -160,7 +160,7 @@ stunned enemy neither dies nor hurts: it is scenery, until it gets up.
 
 * **Sausages:** 5 per room. Take all five and the door or the vent **changes
   picture** and becomes a way through. Each one is worth points.
-* **Saucer of milk:** a life back, up to nine - see 2.4.
+* **Saucer of milk:** a life back, up to what he started with - see 2.4.
 * **Enemies:** three per room. Contact costs a life, Loukoumas restarts at the
   beginning of the room with **two seconds of grace**, and the room does not
   refill: what you collected stays collected.
@@ -174,11 +174,11 @@ stunned enemy neither dies nor hurts: it is scenery, until it gets up.
   loads. They carry no mask, because the screen underneath has just been cleared
   to pen 0 and ORing 0 changes nothing: half the bytes of a masked sprite, and
   the cost is paid once.
-* **Lives and score:** **nine lives**, because he is a cat, and nine is also
-  the ceiling - the HUD prints them with one digit, so nine is as high as the
-  number can go, and the saucer of milk tops him back up rather than past it.
-  The score is packed BCD, so the arithmetic is `DAA` and printing is two
-  digits a byte - no division.
+* **Lives and score:** nine, six or three, from the difficulty - see 3.3. The
+  number he started on is also his ceiling, so the saucer of milk tops him back
+  up rather than past it, and nine is as high as any of them goes because the
+  HUD prints the lives with one digit. The score is packed BCD, so the
+  arithmetic is `DAA` and printing is two digits a byte - no division.
 * **HUD:** two rows above the play field - score, lives, sausages, room name -
   and it only repaints when something has changed.
 
@@ -188,15 +188,20 @@ Chosen **after the title screen**, in the footer of the same picture, with left
 and right and fire. Hard is the game exactly as it was before there was a
 choice - the chooser only ever makes it kinder.
 
-| | Walker's step | Flyer's wingbeat | Stun after a flop |
-|---|:---:|:---:|:---:|
-| **Easy** | every 4th update | every 3rd | four seconds |
-| **Medium** | every 3rd | every 2nd | three seconds |
-| **Hard** | every 2nd | every one | two seconds |
+| | Lives | Walker's step | Flyer's wingbeat | Stun after a flop |
+|---|:---:|:---:|:---:|:---:|
+| **Easy** | 9 | every 4th update | every 3rd | four seconds |
+| **Medium** | 6 | every 3rd | every 2nd | three seconds |
+| **Hard** | 3 | every 2nd | every one | two seconds |
 
 The cast is slowed down by taking **fewer steps**, not smaller ones: nothing in
 the movement code has to know about fractions of a byte, and a robot on easy
 covers the same shelf in twice the time.
+
+The four numbers are one record in `diff_tab`, copied over `walk_period`,
+`fly_period`, `stun_time` and `start_lives` when fire accepts the setting -
+which is why adding a fifth thing for the difficulty to move is a byte in a
+table rather than a branch anywhere.
 
 ---
 

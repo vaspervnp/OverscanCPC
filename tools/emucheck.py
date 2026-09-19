@@ -168,8 +168,10 @@ def main():
     lives = c.peek(sym["CAT_LIVES"])
     room = c.peek(sym["CUR_ROOM"])
     cat_y = c.peek(sym["CAT_Y"])
-    check("fire started the game", lives == 9 and room == 0,
-          "room %d, %d lives" % (room, lives))
+    # Medium was chosen above, and medium is six lives: this is the setting
+    # reaching the game, not just the byte the chooser wrote.
+    check("fire started the game on medium, which is six lives",
+          lives == 6 and room == 0, "room %d, %d lives" % (room, lives))
     check("the cat is standing on the floor", cat_y == 212, "y %d" % cat_y)
 
     # And it answers the keyboard while the game is running.

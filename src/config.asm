@@ -165,6 +165,11 @@ DATA_STORE      EQU #8380   ; where the file carries it, until it is moved
 ;; and is never moved. See tools/mkscreen.py and src/unpack.asm.
 PIC_STORE       EQU #6700
 
+;; The HUD prints the lives with print_digit, one character, so ten would come
+;; out as whatever follows 9 in the font. Every difficulty's starting count is
+;; checked against this where the table is.
+LIVES_CEILING   EQU 9
+
 ;; Where the pickups keep the background they are standing on. Low RAM, above
 ;; the tables the game moved down there and below #4000: it is uninitialised,
 ;; so unlike anything declared in the #4000 block it costs nothing at all in

@@ -57,7 +57,7 @@ nineteen rooms: out through the back yard, across the neighbourhood, through
 the whole school, into the vet's — and home over the rooftops and down the
 chimney into his own fireplace, where Myrto has left him a bowl of milk.
 
-**Twenty-nine rooms. Nine lives. One sausage.**
+**Twenty-nine rooms. Nine lives — or three, if you ask for them. One sausage.**
 
 ---
 
@@ -107,7 +107,7 @@ SAUSAGES  3/5             KITCHEN
 | | |
 |---|---|
 | **SCORE** | Six digits. It does not reset between rooms |
-| **LIVES** | You start with nine, because you are a cat. Nine is also the most you can hold |
+| **LIVES** | Nine, six or three, depending on the difficulty you chose. That number is also the most you can hold |
 | **SAUSAGES** | How many of this room's five you have found |
 | **Room name** | Where you are. All twenty-nine have one |
 
@@ -126,10 +126,11 @@ You do not have to find them in any order, and nothing comes back if you lose
 a life, so a room only ever gets easier.
 
 **THE SAUCER OF MILK — every third room.**
-Rooms 3, 6, 9, 12, 15, 18, 21, 24 and 27 have one, and it is **a life back**,
-up to your original nine. If you still have all nine it is worth 500 points
-instead, so it is never wasted — but it is worth a great deal more once you
-have started losing them.
+Rooms 3, 6, 9, 12, 15, 18, 21, 24 and 27 have one, and it is **a life back** —
+but never more than the number you started the game on. If you have not lost
+one yet it is worth 500 points instead, so it is never wasted; it is worth a
+great deal more once you have started losing them, and on hard, where you only
+ever had three, it is worth more still.
 
 It is always on the most awkward shelf in the room, and usually on the one
 something is patrolling. The way out does not wait for it: you can finish the
@@ -171,14 +172,15 @@ small and you are not fast.
 After the title screen, and before the first room, the game asks. Use `←` and
 `→` to change it and `SPACE` to accept.
 
-| | Enemies | The belly-flop stun lasts |
-|---|---|---|
-| **EASY** | Half speed | Four seconds |
-| **MEDIUM** | Two thirds | Three seconds |
-| **HARD** | Full speed | Two seconds |
+| | Lives | Enemies | The belly-flop stun lasts |
+|---|:---:|---|---|
+| **EASY** | 9 | Half speed | Four seconds |
+| **MEDIUM** | 6 | Two thirds | Three seconds |
+| **HARD** | 3 | Full speed | Two seconds |
 
-**HARD is the game as it was designed.** Easy and medium do not make Loukoumas
-faster or the rooms kinder — they only give you longer to think. The jump is
+**HARD is the game as it was designed** — three lives, and everything moving at
+the speed it was drawn to move at. Easy and medium do not make Loukoumas faster
+or the rooms kinder: they give you more lives and longer to think. The jump is
 the same jump, the shelves are the same distance apart, and every sausage is in
 the same place.
 
@@ -189,7 +191,7 @@ the same place.
 | | |
 |---|---|
 | Sausage | 100 |
-| Saucer of milk | a life back — or 500 if you still have all nine |
+| Saucer of milk | a life back — or 500 if you have not lost one yet |
 
 There is no time bonus and no end-of-room bonus. The score is what you picked
 up.
@@ -198,7 +200,7 @@ up.
 
 ## WHEN IT ENDS
 
-Lose your ninth life and the room stops where it stands with **GAME OVER**
+Lose your last life and the room stops where it stands with **GAME OVER**
 across it. Press `SPACE` (or fire) to start again from the first room at the
 same difficulty, or `ESC` to go back to the title screen — and to the language
 and difficulty menus with it.
@@ -218,8 +220,8 @@ considered generous.
   cannot walk around.
 * **The flop is a key, not a weapon.** Nothing in this game dies. A shelf you
   cannot cross is a shelf you have not flopped on yet.
-* **Take the milk when you are down a life or two.** With all nine it is only
-  points; with seven it is the way back up. It is on the hardest shelf in the
+* **Take the milk when you are down a life or two.** Untouched it is only
+  points; one short, it is the way back up. It is on the hardest shelf in the
   room either way, and you will not want to go back for it on your last one.
 * **Learn where the canary turns.** Everything that flies bounces between the
   same two walls for ever. Stand where it has just been.
