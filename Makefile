@@ -66,12 +66,12 @@ src/font.asm src/strings.asm: $(TEXTSRC)
 src/sprites.asm: assets/sprites.txt tools/mksprite.py
 	$(PYTHON) tools/mksprite.py
 
-# Mitsos, drawn in Aseprite through its MCP server - the master with every
-# frame in it is assets/aseprite/mitsos.aseprite, and the PNGs beside it are
-# what the converter reads. Four pens and four pixels to a byte, because that
-# game is in mode 1.
-src/mitsosart.asm: $(wildcard assets/art/mitsos/*.png) tools/mkmitsos.py tools/cpcpng.py
-	$(PYTHON) tools/mkmitsos.py
+# Mitsos and his cast, drawn in Aseprite through its MCP server - one file
+# per subject in assets/aseprite/mitsos, every frame in it, and the PNGs
+# beside them are what the converter reads. Same converter and same sixteen
+# pens as the other game: both are mode 0.
+src/mitsosart.asm: $(wildcard assets/art/mitsos/sprite/*.png) tools/mkart.py tools/cpcpng.py
+	$(PYTHON) tools/mkart.py mitsos
 
 # The Aseprite artwork: enemies and the scenery that is not a rectangle.
 src/artwork.asm: $(wildcard assets/art/sprite/*.png) $(wildcard assets/art/decal/*.png) tools/mkart.py
@@ -209,14 +209,14 @@ $(BUILD)/loukoumas_roof.bin: $(DEPS) | $(BUILD)
 mitsos: $(BUILD)/mitsos.sna $(BUILD)/mitsos.dsk
 
 $(BUILD)/mitsos.sna: $(DEPS) | $(BUILD)
-	$(RASM) src/mitsos.asm -DTARGET=1 -DSCRMODE=1 -oi $@
+	$(RASM) src/mitsos.asm -DTARGET=1 -oi $@
 
 $(BUILD)/mitsos.dsk: $(DEPS) | $(BUILD)
 	rm -f $@
-	$(RASM) src/mitsos.asm -DTARGET=2 -DSCRMODE=1 -eo
+	$(RASM) src/mitsos.asm -DTARGET=2 -eo
 
 $(BUILD)/mitsos.bin: $(DEPS) | $(BUILD)
-	$(RASM) src/mitsos.asm -DTARGET=3 -DSCRMODE=1 -s -sa -os $(BUILD)/mitsos.sym
+	$(RASM) src/mitsos.asm -DTARGET=3 -s -sa -os $(BUILD)/mitsos.sym
 	mv $(BUILD)/out.bin $@
 
 # ---------------------------------------------------------------------------
@@ -237,15 +237,17 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		$(BUILD)/tables.bin
 	@echo "=== hello world ==="
 	@./tools/z80check.py $(BUILD)/hello.bin --ascii
-	@echo "=== mitsos, the same overscan screen in mode 1 ==="
-	@echo "    four pens and 384 square pixels instead of sixteen and 192, out"
-	@echo "    of the same crtc.asm, video.asm and sprite.asm: a byte is a byte"
-	@echo "    and only config.asm had to learn a second way to fill one. He"
-	@echo "    starts at byte 45 facing right, walks to 74 on 28 frames of"
-	@echo "    right, and stands still again when it is let go."
-	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 40 --keys "RIGHT@6-34" \
+	@echo "=== mitsos, the grocery ==="
+	@echo "    the same overscan screen as the other game and the same sixteen"
+	@echo "    pens, with a shop painted on it out of boxes - wall, dado, tiled"
+	@echo "    floor, shelving, counter, crates - and the cast standing in it."
+	@echo "    Painting it takes thirteen frames of LDIR, which is a quarter of"
+	@echo "    a second at the top of the game and nothing after that. He comes"
+	@echo "    in at byte 8 facing right, walks to 45 on 37 frames of right,"
+	@echo "    and stands still again when it is let go."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 60 --keys "RIGHT@20-56" \
 		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_face,mitsos_frame" \
-		| grep -E "frame +(5|20|39) "
+		| grep -E "frame +(14|40|59) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

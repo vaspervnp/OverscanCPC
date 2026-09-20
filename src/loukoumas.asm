@@ -474,6 +474,7 @@ pal_title
     include "unpack.asm"
     include "sprite.asm"
     include "enemy.asm"
+    include "boxes.asm"
     include "play.asm"
 
 ;; ---------------------------------------------------------------------------
@@ -562,14 +563,9 @@ exit_shut   defs 1                  ; prop ids for the two states
 exit_open   defs 1
 exit_px     defs 1                  ; where the exit prop is drawn
 exit_py     defs 1
-prop_x      defs 1                  ; origin of the prop being drawn
-prop_y      defs 1
 dec_w       defs 1                  ; width of the decal being painted
 room_pal    defs 1                  ; hardware colour of pen 0 in this room
 room_floor  defs 1                  ; and the pen its floor is made of
-box_top     defs 1                  ; the box draw_boxes is filling
-box_high    defs 1
-box_over    defs 1                  ; did its top run off the bottom?
 
 ;; play.asm - score and larder
 score         defs SCORE_BYTES      ; packed BCD, most significant byte first

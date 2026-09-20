@@ -311,22 +311,23 @@ AY-3-8912, and reports both held keys and the ones that went down this frame.
 
 ## ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ / MITSOS: THE GROCERY HEIST
 
-The second game on the engine, one milestone in, and the first one in **mode 1**: four
-pens and 384 square pixels across the same 32 KB overscan screen, instead of sixteen pens
-and 192 pixels twice as wide. Mitsos is a fat ginger cat on a Cycladic island with a
+The second game on the engine. Mitsos is a fat ginger cat on a Cycladic island with a
 grievance against a fishmonger; [pantopoleio.md](pantopoleio.md) is the design document.
 
-![Mitsos on the shop floor](docs/mitsos-floor.png)
+![the grocery, with Mitsos in it](docs/mitsos-shop.png)
 
-What that milestone proved is worth more than what it shows: **the engine did not need
-changing for mode 1**. `crtc.asm`, `video.asm`, `irq.asm`, `keys.asm` and `sprite.asm` all
-work in bytes, and a byte is a byte, so the only file with two halves in it is
-`config.asm` - the solid-pen bytes and how many pixels are in one. `-DSCRMODE=1` picks
-which half.
+Same screen as the other game, same mode 0, same sixteen pens - and the same grammar
+underneath: **the furniture is boxes**. A counter is a box, a crate is a box, and at the
+size furniture has to be when the hero is a cat - the counter is waist high on a person
+and three times his height - a shop's worth of bitmap does not exist in this machine.
+`src/boxes.asm` paints a box list; both games keep their own lists. Anything butter
+yellow is something he can stand on, in either game.
 
-Mitsos himself is drawn in Aseprite, through its MCP server: `assets/aseprite/mitsos.aseprite`
-holds every frame in four pens, and `tools/mkmitsos.py` turns the exported PNGs into the
-masked mode 1 sprites `sprite.asm` already knows how to draw.
+The cast is drawn in Aseprite through its MCP server - one file per subject in
+[assets/aseprite/mitsos](assets/aseprite/mitsos), every frame in it - and the same
+`tools/mkart.py` that feeds the other game turns the exported PNGs into masked sprites.
+A mode 0 pixel is two monitor pixels wide, so Mitsos is twelve pixels across and
+twenty-four tall, which is twenty-four by twenty-four on the tube.
 
 ```bash
 make mitsos

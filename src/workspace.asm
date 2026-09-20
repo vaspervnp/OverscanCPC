@@ -43,6 +43,13 @@ fill_x      defs 1
 fill_w      defs 2
 fill_b      defs 1
 
+;; boxes.asm
+prop_x      defs 1              ; origin of the piece of furniture being drawn
+prop_y      defs 1
+box_top     defs 1              ; and the box of it that is being filled
+box_high    defs 1
+box_over    defs 1              ; did its top run off the bottom of the screen?
+
 
 
 ;; irq.asm

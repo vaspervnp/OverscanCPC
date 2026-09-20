@@ -271,31 +271,37 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 
 ## 7b. Two games, one engine
 
-- **There are two games on this engine, and they are not in the same screen mode.**
-  ΛΟΥΚΟΥΜΑΣ is mode 0 - sixteen pens, 192 pixels across - and ΠΑΝΙΚΟΣ ΣΤΟ
-  ΠΑΝΤΟΠΩΛΕΙΟ (`src/mitsos.asm`, `pantopoleio.md`) is mode 1 - four pens, 384
-  square pixels. `-DSCRMODE=1` is what says so, and `config.asm` is the only
-  file that has two halves because of it: the solid-pen bytes and
-  PIXELS_PER_BYTE. `GA_MODE` is the Gate Array byte that selects the mode with
-  both ROMs off, so even the boot sequence does not name it.
-- Everything else was already mode-agnostic and stayed that way - crtc.asm,
-  video.asm, irq.asm, keys.asm and sprite.asm all work in bytes, and a byte is
-  a byte. That is not luck: every layout in the project is in bytes rather than
-  pixels, which is the same property that made the mode 1 to mode 0 move of the
-  first game cost nothing outside the art.
+- **There are two games on this engine and both are mode 0** - sixteen pens,
+  192 pixels across a 384-pixel-wide picture. ΛΟΥΚΟΥΜΑΣ is the first;
+  ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ (`src/mitsos.asm`, `pantopoleio.md`) is the second.
+  They share every engine file and differ only in their own sources, their own
+  art directory and their own palette table.
+- `config.asm` can do mode 1 as well - `-DSCRMODE=1` swaps the solid-pen bytes
+  and PIXELS_PER_BYTE, and `GA_MODE` is the Gate Array byte that goes with it.
+  The second game was built that way first and moved to mode 0 for the colours.
+  Nothing else in the engine noticed either time: crtc.asm, video.asm, irq.asm,
+  keys.asm, boxes.asm and sprite.asm all work in bytes, and a byte is a byte.
+  That is not luck - every layout in the project is in bytes rather than
+  pixels, which is the same property that made the first game's own move from
+  mode 1 to mode 0 cost nothing outside the art.
 - Mode 1 packs four pixels to a byte and the **top** nibble holds the least
   significant pen bit: pixel i is bits 7-i and 3-i, low bit first. So four
   pixels of one pen are #00, #F0, #0F and #FF. The design document had this the
   other way round, along with its CRTC table; `tools/z80check.py` decodes mode 1
   independently and is the thing to check against.
-- The text routines are still mode 0 only. A mode 0 cell is 6 pixels and 3
-  bytes; a mode 1 cell would be 8 pixels and 2, so the font needs a second pass
-  in `mktext.py` before the second game can have a HUD.
-- Mitsos's art is drawn in **Aseprite through its MCP server**, which runs on
-  Windows: it cannot see WSL paths, so files go through `C:\Users\<user>\` and
-  are copied back. `assets/aseprite/mitsos.aseprite` is the master - every
-  frame, four pens - and `tools/mkmitsos.py` turns the exported PNGs into
-  `src/mitsosart.asm`. `tools/cpcpng.py` is the PNG reader both converters use.
+- `src/boxes.asm` is the furniture painter both games use: a box list is dx,
+  dy, width in bytes, height in scanlines and a pen, ending in #FF, drawn
+  relative to (prop_x),(prop_y). Later boxes draw over earlier ones, so an
+  outline is a box with a smaller box inside it.
+- The text routines are still mode 0 only in the sense that matters - the font
+  is 3 bytes to a cell - so a mode 1 game would need a second pass in
+  `mktext.py` before it could have a HUD. Neither game needs that now.
+- The second game's art is drawn in **Aseprite through its MCP server**, which
+  runs on Windows: it cannot see WSL paths, so files go through
+  `C:\Users\<user>\` and are copied back. `assets/aseprite/mitsos/` holds one
+  file per subject with every frame in it, `assets/art/mitsos/sprite/*.png` is
+  what the converter reads, and `tools/mkart.py mitsos` writes
+  `src/mitsosart.asm`. One converter, one sixteen-pen palette, both games.
 
 ## 8. Sprites
 

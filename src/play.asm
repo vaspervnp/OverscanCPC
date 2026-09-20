@@ -352,13 +352,6 @@ set_room_pal
 ;; about 30 KB. Later boxes draw over earlier ones, so an outline is a white
 ;; box with a navy one inside it.
 ;; ---------------------------------------------------------------------------
-pen_bytes
-    defb PEN0_BYTE,  PEN1_BYTE,  PEN2_BYTE,  PEN3_BYTE
-    defb PEN4_BYTE,  PEN5_BYTE,  PEN6_BYTE,  PEN7_BYTE
-    defb PEN8_BYTE,  PEN9_BYTE,  PEN10_BYTE, PEN11_BYTE
-    defb PEN12_BYTE, PEN13_BYTE, PEN14_BYTE, PEN15_BYTE
-
-;; ---------------------------------------------------------------------------
 ;; prop_boxes_at - A = prop id -> HL = its box list.
 ;; ---------------------------------------------------------------------------
 prop_boxes_at
@@ -372,84 +365,6 @@ prop_boxes_at
     ld h,(hl)
     ld l,a
     ret
-
-;; ---------------------------------------------------------------------------
-;; draw_boxes - HL = box list, drawn relative to (prop_x),(prop_y).
-;; ---------------------------------------------------------------------------
-draw_boxes
-    ld a,(hl)
-    inc a
-    ret z
-    dec a
-    ld b,a                      ; dx
-    ld a,(prop_x)
-    add a,b
-    ld (fill_x),a
-    inc hl
-
-    ld b,(hl)                   ; dy
-    inc hl
-    ld a,(prop_y)
-    add a,b
-    ld (box_top),a
-    ld a,0                      ; ld does not touch the carry
-    adc a,0                     ; 1 if the top ran past scanline 255
-    ld (box_over),a
-
-    ld a,(hl)                   ; width in bytes
-    inc hl
-    ld c,a
-    ld b,0
-    push hl
-    ld h,b
-    ld l,c
-    ld (fill_w),hl
-    pop hl
-
-    ld a,(hl)                   ; height in scanlines
-    inc hl
-    ld (box_high),a
-
-    ld a,(hl)                   ; pen
-    inc hl
-    push hl
-    ld l,a
-    ld h,0
-    ld de,pen_bytes
-    add hl,de
-    ld a,(hl)
-    ld (fill_b),a
-
-    ;; Clip. line_tab has one entry per displayed scanline and the workspace
-    ;; follows it, so a box that runs past the bottom would index off the end
-    ;; and fill variables instead of screen. Do not trust the table.
-    ld a,(box_over)
-    or a
-    jr nz,draw_boxes_next
-    ld a,(box_top)
-    ld c,a
-    ld a,(box_high)
-    ld b,a
-    ld a,c
-    add a,b
-    jr nc,draw_boxes_fill
-    xor a
-    sub c                       ; only what fits above scanline 255
-    ld b,a
-    or a
-    jr z,draw_boxes_next
-draw_boxes_fill
-    ld l,c                      ; line_tab entry for the top scanline
-    ld h,0
-    add hl,hl
-    ld de,line_tab
-    add hl,de
-    ld e,b
-    ld d,0
-    call fill_rows
-draw_boxes_next
-    pop hl
-    jr draw_boxes
 
 ;; ---------------------------------------------------------------------------
 ;; draw_props - the room's furniture, painted once into the background.
