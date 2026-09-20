@@ -37,6 +37,16 @@ FLOOR_TOP       EQU 236                 ; the tiles start here
 DADO_TOP        EQU 188                 ; and the painted lower wall here
 GROUT_STEP      EQU 8                   ; a floor tile is this many bytes
 
+;; The wall is brick under the whitewash, and at this scale a course is about
+;; a hand's width: 16 scanlines to a course, 8 bytes to a brick - 32 pixels on
+;; the monitor - and every other course offset by half a brick, which is what
+;; makes it read as a wall rather than as a grid. The joints are a byte wide
+;; because a byte is the narrowest thing a fill can put down: two mode 0
+;; pixels, four on the tube.
+BRICK_COURSE    EQU 16
+BRICK_MORTAR    EQU 2
+BRICK_W         EQU 8
+
 ;; The shelf boards, the counter top and the crate lids are all pen 2, and
 ;; they are 32 scanlines apart, because that is what a cat clears in a jump.
 ;; "Butter yellow means you can stand on it" is the visual grammar of both
@@ -248,10 +258,12 @@ mitsos_frames
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 draw_shop
-    ld hl,line_tab                      ; whitewash, wall to wall
+    ld hl,line_tab                      ; whitewash, wall to wall, to start
     ld de,DISPLAY_LINES
     ld a,PEN15_BYTE
     call clear_rows
+
+    call draw_wall                      ; then the courses of brick in it
 
     ld hl,line_tab+DADO_TOP*2           ; the painted lower half of it
     ld de,FLOOR_TOP-DADO_TOP
@@ -344,6 +356,72 @@ draw_shop_thing
     call spr_blit
     pop hl
     jr draw_shop_thing
+
+;; ---------------------------------------------------------------------------
+;; draw_wall - the brickwork, course by course.
+;;
+;; The whitewash is already down; this puts the joints into it. A bed joint
+;; runs the whole width, the perpends are a byte each and half a brick further
+;; along on every other course, and the last course is allowed to run past the
+;; bottom of the wall because the dado is painted over it afterwards.
+;;
+;; B is the stagger of the course being drawn and C its top scanline, and both
+;; have to survive fill_rows, which does not keep anything.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+draw_wall
+    ld a,PEN5_BYTE                      ; mortar, grey against the whitewash
+    ld (fill_b),a
+    ld bc,0                             ; B = stagger, C = top of the course
+
+draw_wall_course
+    xor a                               ; the bed joint, all the way across
+    ld (fill_x),a
+    ld hl,BYTES_PER_LINE
+    ld (fill_w),hl
+    push bc
+    ld a,c
+    call wall_row_ptr
+    ld de,BRICK_MORTAR
+    call fill_rows
+    pop bc
+
+    ld hl,1                             ; and the perpends down the face
+    ld (fill_w),hl
+    ld a,b
+draw_wall_perp
+    ld (fill_x),a
+    push bc
+    push af
+    ld a,c
+    add a,BRICK_MORTAR
+    call wall_row_ptr
+    ld de,BRICK_COURSE-BRICK_MORTAR
+    call fill_rows
+    pop af
+    pop bc
+    add a,BRICK_W
+    cp BYTES_PER_LINE
+    jr c,draw_wall_perp
+
+    ld a,b                              ; the next course, half a brick over
+    xor BRICK_W/2
+    ld b,a
+    ld a,c
+    add a,BRICK_COURSE
+    ld c,a
+    cp DADO_TOP
+    jr c,draw_wall_course
+    ret
+
+;; A = scanline -> HL = its line_tab entry.
+wall_row_ptr
+    ld l,a
+    ld h,0
+    add hl,hl
+    ld de,line_tab
+    add hl,de
+    ret
 
 ;; ---------------------------------------------------------------------------
 ;; The shop, as boxes. x and y, then the list: dx, dy, width in bytes, height

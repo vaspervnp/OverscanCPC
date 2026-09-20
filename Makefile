@@ -241,13 +241,14 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@echo "    the same overscan screen as the other game and the same sixteen"
 	@echo "    pens, with a shop painted on it out of boxes - wall, dado, tiled"
 	@echo "    floor, shelving, counter, crates - and the cast standing in it."
-	@echo "    Painting it takes thirteen frames of LDIR, which is a quarter of"
-	@echo "    a second at the top of the game and nothing after that. He comes"
-	@echo "    in at byte 8 facing right, walks to 45 on 37 frames of right,"
-	@echo "    and stands still again when it is let go."
+	@echo "    Painting it - whitewash, twelve courses of brick, the dado, the"
+	@echo "    tiles, the furniture - takes twenty frames of fills, which is"
+	@echo "    four tenths of a second at the top of the game and nothing after"
+	@echo "    that. He comes in at byte 8 facing right, walks to 44 on 37"
+	@echo "    frames of right, and stands still again when it is let go."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 60 --keys "RIGHT@20-56" \
 		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_face,mitsos_frame" \
-		| grep -E "frame +(14|40|59) "
+		| grep -E "frame +(21|40|59) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

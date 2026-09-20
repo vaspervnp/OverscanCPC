@@ -317,7 +317,10 @@ grievance against a fishmonger; [pantopoleio.md](pantopoleio.md) is the design d
 ![the grocery, with Mitsos in it](docs/mitsos-shop.png)
 
 Same screen as the other game, same mode 0, same sixteen pens - and the same grammar
-underneath: **the furniture is boxes**. A counter is a box, a crate is a box, and at the
+underneath: **the wall and the furniture are boxes**. The brickwork is a bed joint across
+the wall and a row of perpends down it, half a brick further along on every other course;
+at this scale a brick is 45 cm, which is 32 pixels, which is wider than the cat is tall.
+And the furniture is boxes for the same reason the other game's is: A counter is a box, a crate is a box, and at the
 size furniture has to be when the hero is a cat - the counter is waist high on a person
 and three times his height - a shop's worth of bitmap does not exist in this machine.
 `src/boxes.asm` paints a box list; both games keep their own lists. Anything butter
