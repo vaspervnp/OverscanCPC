@@ -3,6 +3,7 @@
 #   make              everything
 #   make hello        the overscan proof of concept
 #   make loukoumas    ΛΟΥΚΟΥΜΑΣ title screen, English and Greek
+#   make mitsos       ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ, the mode 1 game
 #   make assets       regenerate the font, strings and sprites (needs python3)
 #   make shots        retake every screen shot in docs/, both languages
 #   make check        run each binary on a Z80 interpreter and decode the screen
@@ -46,9 +47,9 @@ define add_loader
 	@iDSK $(1) -i assets/revive8b.scr -t 1 -c C000 -e C000 -f > /dev/null
 endef
 
-.PHONY: all hello loukoumas assets shots covers manuals check clean
+.PHONY: all hello loukoumas mitsos assets shots covers manuals check clean
 
-all: hello loukoumas
+all: hello loukoumas mitsos
 
 # ---------------------------------------------------------------------------
 # Generated sources. Committed, so building needs only rasm; python3 is needed
@@ -57,13 +58,20 @@ all: hello loukoumas
 TEXTSRC := assets/font.txt text/loukoumas.en.txt text/loukoumas.el.txt tools/mktext.py
 
 assets: src/font.asm src/strings.asm src/sprites.asm src/artwork.asm \
-        src/titlepic.asm
+        src/titlepic.asm src/mitsosart.asm
 
 src/font.asm src/strings.asm: $(TEXTSRC)
 	$(PYTHON) tools/mktext.py loukoumas
 
 src/sprites.asm: assets/sprites.txt tools/mksprite.py
 	$(PYTHON) tools/mksprite.py
+
+# Mitsos, drawn in Aseprite through its MCP server - the master with every
+# frame in it is assets/aseprite/mitsos.aseprite, and the PNGs beside it are
+# what the converter reads. Four pens and four pixels to a byte, because that
+# game is in mode 1.
+src/mitsosart.asm: $(wildcard assets/art/mitsos/*.png) tools/mkmitsos.py tools/cpcpng.py
+	$(PYTHON) tools/mkmitsos.py
 
 # The Aseprite artwork: enemies and the scenery that is not a rectangle.
 src/artwork.asm: $(wildcard assets/art/sprite/*.png) $(wildcard assets/art/decal/*.png) tools/mkart.py
@@ -194,6 +202,24 @@ $(BUILD)/loukoumas_roof.bin: $(DEPS) | $(BUILD)
 	mv $(BUILD)/out.bin $@
 
 # ---------------------------------------------------------------------------
+# ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ - the second game on the engine, and the first one
+# in mode 1: four pens and 384 square pixels across the same 32 KB screen.
+# One milestone so far - the shop floor, and Mitsos walking it.
+# ---------------------------------------------------------------------------
+mitsos: $(BUILD)/mitsos.sna $(BUILD)/mitsos.dsk
+
+$(BUILD)/mitsos.sna: $(DEPS) | $(BUILD)
+	$(RASM) src/mitsos.asm -DTARGET=1 -DSCRMODE=1 -oi $@
+
+$(BUILD)/mitsos.dsk: $(DEPS) | $(BUILD)
+	rm -f $@
+	$(RASM) src/mitsos.asm -DTARGET=2 -DSCRMODE=1 -eo
+
+$(BUILD)/mitsos.bin: $(DEPS) | $(BUILD)
+	$(RASM) src/mitsos.asm -DTARGET=3 -DSCRMODE=1 -s -sa -os $(BUILD)/mitsos.sym
+	mv $(BUILD)/out.bin $@
+
+# ---------------------------------------------------------------------------
 # Executes each build on a Z80 interpreter and decodes screen RAM through the
 # CRTC addressing - a layout check that needs no emulator. It models no timing
 # at all; see the header of tools/z80check.py for the rest of the caveats.
@@ -201,7 +227,8 @@ $(BUILD)/loukoumas_roof.bin: $(DEPS) | $(BUILD)
 # `all` is a dependency on purpose: the snapshots and disc images are what
 # anyone actually runs, and without this they can sit a conversion behind the
 # sources while check goes on passing against freshly built .bin files.
-check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
+check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
+       $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
        $(BUILD)/loukoumas_lounge.bin $(BUILD)/loukoumas_yard.bin \
        $(BUILD)/loukoumas_roof.bin $(BUILD)/loukoumas_title.bin \
        $(BUILD)/title.bin
@@ -210,6 +237,15 @@ check: all $(BUILD)/hello.bin $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bi
 		$(BUILD)/tables.bin
 	@echo "=== hello world ==="
 	@./tools/z80check.py $(BUILD)/hello.bin --ascii
+	@echo "=== mitsos, the same overscan screen in mode 1 ==="
+	@echo "    four pens and 384 square pixels instead of sixteen and 192, out"
+	@echo "    of the same crtc.asm, video.asm and sprite.asm: a byte is a byte"
+	@echo "    and only config.asm had to learn a second way to fill one. He"
+	@echo "    starts at byte 45 facing right, walks to 74 on 28 frames of"
+	@echo "    right, and stands still again when it is let go."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 40 --keys "RIGHT@6-34" \
+		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_face,mitsos_frame" \
+		| grep -E "frame +(5|20|39) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

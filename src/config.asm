@@ -56,6 +56,21 @@ INNER_W         EQU 80                  ; 320 px
 INNER_Y0        EQU (CRTC_R7-STD_R7)*8  ; 32 lines
 INNER_H         EQU 200
 
+;; --- Which mode the screen is in -------------------------------------------
+;; The geometry above is the same either way - 96 bytes by 272 scanlines is
+;; 26,112 bytes of screen whatever is packed into a byte. What changes is how
+;; finely those bytes can be drawn, and that is the whole difference between
+;; the two games on this engine: mode 0 gives sixteen pens and 192 pixels
+;; across, mode 1 four pens and 384. A game says which it wants with -DSCRMODE
+;; and everything below follows.
+    IFNDEF SCRMODE
+SCRMODE     EQU 0
+    ENDIF
+
+;; The Gate Array byte that selects it with both ROMs disabled.
+GA_MODE     EQU #8C+SCRMODE
+
+    IF SCRMODE==0
 ;; --- Mode 0 solid-pen bytes ------------------------------------------------
 ;; Mode 0 packs 2 pixels per byte and spreads each pixel's four pen bits right
 ;; across it: pixel 0 takes bits 7,3,5,1 and pixel 1 bits 6,2,4,0, least
@@ -88,6 +103,25 @@ PEN15_BYTE      EQU #FF
 ;; furniture, every collision box) is untouched by the change; only the font
 ;; and the sprites, which are drawn inside a byte, had to be redrawn.
 PIXELS_PER_BYTE EQU 2
+
+    ELSE
+;; --- Mode 1 solid-pen bytes ------------------------------------------------
+;; Mode 1 packs 4 pixels per byte and each one has two pen bits: pixel 0 takes
+;; bits 7 and 3, pixel 1 bits 6 and 2, pixel 2 bits 5 and 1, pixel 3 bits 4
+;; and 0 - least significant first again, so the top nibble carries pen bit 0
+;; and the bottom nibble pen bit 1. Four pixels of one pen is therefore one
+;; nibble, the other, or both.
+PEN0_BYTE       EQU #00
+PEN1_BYTE       EQU #F0
+PEN2_BYTE       EQU #0F
+PEN3_BYTE       EQU #FF
+
+;; Four pens instead of sixteen, and twice the horizontal resolution: 96 bytes
+;; is 384 square pixels. A byte is still a byte, so every layout in the engine
+;; - the line table, the fills, the sprite blit - is untouched by the change.
+PIXELS_PER_BYTE EQU 4
+    ENDIF
+
 SCREEN_PIXELS   EQU BYTES_PER_LINE*PIXELS_PER_BYTE
 
 ;; --- Level geometry --------------------------------------------------------

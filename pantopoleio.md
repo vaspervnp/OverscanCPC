@@ -41,14 +41,14 @@
 
 | Παράμετρος | Τιμή / Ρύθμιση | Περιγραφή |
 | :--- | :--- | :--- |
-| **Μοντέλο** | Amstrad CPC 6128 | Απαιτείται 128 KB RAM για Overscan Double Buffering |
+| **Μοντέλο** | Amstrad CPC 6128 | Απαιτούνται 128 KB: η οθόνη τρώει τα 32 |
 | **Graphics Mode** | Mode 1 | 4 Χρώματα ταυτόχρονα, ανάλυση pixel 1:1 (τετράγωνο pixel) |
 | **Ανάλυση** | 384 x 272 pixels | Overscan (πλήρες κάδρο χωρίς borders) |
 | **Memory Bandwidth** | 96 bytes / scanline | 48 χαρακτήρες CRTC ανά γραμμή (48 * 8 = 384 pixels) |
 | **Συνολικό Μέγεθος Frame** | 26.112 bytes (~25.5 KB) | 96 bytes * 272 γραμμές raster |
 | **Επεξεργαστής** | Zilog Z80A @ 4 MHz | ~3.3 MHz ωφέλιμο λόγω wait states (1 μs ανά NOP / 4 T-states) |
 | **Τσιπ Ήχου** | General Instrument AY-3-8912 | 3 κανάλια ήχου PSG + θόρυβος (Noise) |
-| **Εργαλεία Ανάπτυξης** | RASM, iDSK, Arkos Tracker 3 | Aseprite με MCP server integration |
+| **Εργαλεία Ανάπτυξης** | RASM, iDSK, Arkos Tracker 3 | Aseprite μέσω του MCP server του |
 
 ### 3.1 Mode 1 Overscan: Ανάλυση Μνήμης
 Στον Amstrad CPC, η τυπική οθόνη έχει μέγεθος 16 KB (80 bytes x 200 γραμμές = 16.000 bytes). 
@@ -60,18 +60,37 @@
 * Συνολική απαίτηση VRAM για 1 frame:
   $$96 \times 272 = 26.112 \text{ bytes} \approx 25.5 \text{ KB}$$
 
-Επειδή τα 26 KB ξεπερνούν το όριο ενός τυπικού 16KB bank του CPC, η οθόνη εκτείνεται σε δύο συνεχόμενα blocks μνήμης των 16KB (π.χ. `&0000 - &7FFF` ή `&8000 - &FFFF`). 
-Με τα **128 KB** του CPC 6128, αξιοποιούμε τα επεκτεταμένα RAM banks μέσω του Gate Array (`&7FC4`, `&7FC5`, `&7FC6`, `&7FC7`) για **Double Buffering** (Front Buffer και Back Buffer), εξασφαλίζοντας μηδενικό flickering και 50/25 fps smooth animations!
+Επειδή τα 26 KB ξεπερνούν το όριο ενός τυπικού 16KB bank του CPC, η οθόνη απλώνεται σε
+δύο συνεχόμενα blocks των 16 KB: **&8000-&FFFF**. Αυτό όμως δεν αρκεί από μόνο του. Ο CPC
+δεν καλωδιώνει τα MA10/MA11 του CRTC στο address bus, άρα διευθυνσιοδοτούνται μόνο **1024
+χαρακτήρες** ανά raster slice - και 48x34 = 1632. Χωρίς παρέμβαση η εικόνα διπλώνει πάνω
+στον εαυτό της.
+
+Η λύση δεν είναι rupture αλλά η διεύθυνση εκκίνησης: **R12/R13 = #2C/#10**, δηλαδή MA =
+#2C10. Οι σειρές 0..20 είναι 21x48 = 1008 χαρακτήρες και γεμίζουν ακριβώς το παράθυρο των
+1024 της σελίδας 2· η σειρά 21 αρχίζει στο MA #3000, που γυρίζει το MA12 και μεταφέρει το
+fetch στη σελίδα 3 πάνω σε όριο σειράς χαρακτήρων. Έτσι παίρνουμε 32 KB οθόνη **χωρίς
+καμία επαναπρογραμματισμένη γραμμή μέσα στο frame**, οπότε η εικόνα βγαίνει ίδια σε κάθε
+τύπο CRTC που κυκλοφόρησε η Amstrad.
+
+**Δεν υπάρχει double buffering.** Δεύτερη οθόνη 32 KB συν κώδικα δεν χωράει άνετα σε 128 KB,
+και το ξαναβάψιμο 26 KB ανά frame είναι έξω από κάθε συζήτηση στα 4 MHz. Αντί γι' αυτό κάθε
+sprite κρατάει το κομμάτι του φόντου που σκεπάζει και το επιστρέφει πριν μετακινηθεί - ό,τι
+κάνει και το `src/sprite.asm` της μηχανής.
 
 ### 3.2 Επιλογή Παλέτας (4 Χρώματα σε Mode 1)
 Το Mode 1 επιτρέπει 4 ταυτόχρονα χρώματα από τη hardware παλέτα των 27 χρωμάτων του CPC. Επιλέγουμε μια φωτεινή, μεσογειακή, καρτουνίστικη παλέτα:
 
-| Ink ID | Χρώμα (Όνομα) | Hardware Code | Gate Array Value | Ρόλος στο Παιχνίδι |
-| :--- | :--- | :--- | :--- | :--- |
-| **Ink 0** | Deep Navy / Marine Blue | 01 | `&54` | Φόντο, νυχτερινός ουρανός, σκούρα περιγράμματα |
-| **Ink 1** | Bright Cyan / Pastel Sky | 10 | `&53` | Πλακάκια, ουρανός, αντανακλάσεις, μάτια Μήτσου |
-| **Ink 2** | Warm Orange / Bright Gold | 15 | `&5C` | Τρίχωμα Μήτσου, ψάρια, κεφαλοτύρια, λεπτομέρειες |
-| **Ink 3** | Pure White | 26 | `&4B` | Highlights, δόντια, σύννεφα, κείμενο, μουστάκια |
+| Ink ID | Χρώμα (Όνομα) | Hardware | Firmware INK | Gate Array | Ρόλος στο Παιχνίδι |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Ink 0** | Deep Navy / Marine Blue | 4 | 1 | `&44` | Φόντο, νυχτερινός ουρανός, και ό,τι φαίνεται μέσα από τα sprites |
+| **Ink 1** | Bright Cyan | 19 | 20 | `&53` | Πλακάκια, θάλασσα, αντανακλάσεις, μάτια Μήτσου |
+| **Ink 2** | Warm Orange | 14 | 15 | `&4E` | Τρίχωμα Μήτσου, ψάρια, κεφαλοτύρια |
+| **Ink 3** | Pure White | 11 | 26 | `&4B` | Highlights, δόντια, αφροί, κείμενο, μουστάκια |
+
+Η στήλη **Hardware** είναι ο αριθμός χρώματος που θέλει ο Gate Array· το byte που βγαίνει
+στη θύρα `&7Fxx` είναι `&40 + hardware`. Οι αριθμοί INK του firmware είναι άλλο πράγμα και
+δεν χρησιμοποιούνται πουθενά εδώ - το firmware είναι σβηστό.
 
 ---
 
@@ -87,10 +106,12 @@
 * **R4 (Vertical Total):** 38 (Συνολικές σειρές χαρακτήρων)
 * **R5 (Vertical Total Adjust):** 0 (Καμία επιπλέον raster γραμμή)
 * **R6 (Vertical Displayed):** 34 (34 σειρές * 8 γραμμές = 272 raster lines)
-* **R7 (Vertical Sync Position):** 35 (Κεντράρισμα της εικόνας στον κάθετο άξονα)
+* **R7 (Vertical Sync Position):** 34 (Κεντράρισμα στον κάθετο άξονα· πρέπει να είναι >= R6, και το R6 είναι 34)
 * **R8 (Interlace / Skew):** 0 (No interlace)
 * **R9 (Maximum Raster Address):** 7 (8 γραμμές raster ανά χαρακτήρα: 0 έως 7)
-* **R12 / R13 (Screen Start Address):** `&30` και `&00` αντίστοιχα (Καθορίζει τη βάση μνήμης της οθόνης)
+* **R12 / R13 (Screen Start Address):** `&2C` και `&10` - MA = #2C10, που είναι ο λόγος που
+  τα 32 KB δουλεύουν χωρίς rupture (§3.1). Το `&30/&00` της πρώτης γραφής δείχνει στη
+  σελίδα 3 από την αρχή και διπλώνει την εικόνα στη σειρά 21.
 
 ---
 
@@ -102,11 +123,15 @@
 * **Μικρά Αντικείμενα (Τσιπούρα, Κεφτές, Σαπούνι):** 16 x 16 pixels (4 bytes πλάτος).
 
 ### 5.2 Διάταξη των Pixels στο Mode 1 Byte
-Στο Mode 1, κάθε byte περιέχει 4 pixels (2 bits ανά pixel):
-* **Pixel 0:** Bit 7 (High bit), Bit 3 (Low bit)
-* **Pixel 1:** Bit 6 (High bit), Bit 2 (Low bit)
-* **Pixel 2:** Bit 5 (High bit), Bit 1 (Low bit)
-* **Pixel 3:** Bit 4 (High bit), Bit 0 (Low bit)
+Στο Mode 1, κάθε byte περιέχει 4 pixels (2 bits ανά pixel), και το **πάνω** nibble κρατάει
+το λιγότερο σημαντικό bit της πένας, όχι το πιο σημαντικό:
+* **Pixel 0:** Bit 7 (pen bit 0), Bit 3 (pen bit 1)
+* **Pixel 1:** Bit 6 (pen bit 0), Bit 2 (pen bit 1)
+* **Pixel 2:** Bit 5 (pen bit 0), Bit 1 (pen bit 1)
+* **Pixel 3:** Bit 4 (pen bit 0), Bit 0 (pen bit 1)
+
+Δηλαδή τέσσερα pixels της ίδιας πένας είναι `&00`, `&F0`, `&0F` και `&FF` για τις πένες 0
+έως 3 - και αυτά ακριβώς είναι τα `PEN0_BYTE`..`PEN3_BYTE` του `src/config.asm`.
 
 ### 5.3 Ενσωμάτωση με Aseprite MCP Server
 Χρησιμοποιώντας τον MCP server του Aseprite, αυτοματοποιούμε πλήρως τη διαδικασία:
@@ -118,19 +143,12 @@
 ```python
 # Παράδειγμα λογικής κωδικοποίησης 4 pixels σε 1 byte Mode 1
 def encode_mode1_byte(p0, p1, p2, p3):
+    """Τέσσερα pixels -> ένα byte. Το bit 7-i κρατάει το bit 0 της πένας
+    του pixel i και το bit 3-i το bit 1 της - λιγότερο σημαντικό πρώτα."""
     byte_val = 0
-    # Bit 7 & 3 για Pixel 0
-    byte_val |= ((p0 >> 1) & 1) << 7
-    byte_val |= (p0 & 1) << 3
-    # Bit 6 & 2 για Pixel 1
-    byte_val |= ((p1 >> 1) & 1) << 6
-    byte_val |= (p1 & 1) << 2
-    # Bit 5 & 1 για Pixel 2
-    byte_val |= ((p2 >> 1) & 1) << 5
-    byte_val |= (p2 & 1) << 1
-    # Bit 4 & 0 για Pixel 3
-    byte_val |= ((p3 >> 1) & 1) << 4
-    byte_val |= (p3 & 1) << 0
+    for i, pen in enumerate((p0, p1, p2, p3)):
+        byte_val |= (pen & 1) << (7 - i)
+        byte_val |= ((pen >> 1) & 1) << (3 - i)
     return byte_val
 ```
 
@@ -162,249 +180,91 @@ def encode_mode1_byte(p0, p1, p2, p3):
 4. **iDSK:** Δημιουργία ενός bootable DSK image (`mitsos.dsk`) και εισαγωγή των αρχείων μαζί με έναν BASIC loader (`DISC`).
 
 ### 7.1 Δομή Αρχείων Project
+
+Το παιχνίδι δεν χτίζεται από το μηδέν: κάθεται πάνω στη μηχανή που έβγαλε τον ΛΟΥΚΟΥΜΑ,
+και τα αρχεία της είναι κοινά. Ό,τι είναι δικό του έχει το όνομά του μέσα.
+
 ```text
-mitsos-cpc/
-├── Makefile
-├── assets/
-│   ├── sprites/
-│   │   ├── mitsos_walk.aseprite
-│   │   ├── grandma_chase.aseprite
-│   │   └── items.aseprite
-│   └── music/
-│       ├── theme.aks
-│       └── sfx.aks
-├── src/
-│   ├── main.asm              ; Κύριο αρχείο assembly (entry point)
-│   ├── crtc_overscan.asm     ; Αρχικοποίηση CRTC & Overscan 384x272
-│   ├── ga_palette.asm        ; Ρύθμιση παλέτας Gate Array
-│   ├── game_loop.asm         ; Engine, inputs, physics, collision
-│   ├── ak3_player.asm        ; Arkos Tracker 3 Z80 Player source
-│   └── memory_map.inc        ; Ορισμοί μνήμης και τραπεζών RAM
-└── build/
-    ├── mitsos.bin
-    └── mitsos.dsk
+src/
+├── mitsos.asm            ; το παιχνίδι - entry point, ο βρόχος, το μαγαζί
+├── mitsosart.asm         ; παραγόμενο: τα sprites από το Aseprite
+├── config.asm            ; η γεωμετρία της οθόνης, και τι είναι ένα byte σε
+│                         ;   κάθε mode - SCRMODE=1 για αυτό το παιχνίδι
+├── crtc.asm              ; οι καταχωρητές του CRTC και η παλέτα
+├── video.asm             ; ο πίνακας γραμμών και τα γεμίσματα
+├── irq.asm               ; ο παλμός των 50 Hz, κλειδωμένος στο VSYNC
+├── keys.asm              ; πληκτρολόγιο και joystick μέσω του PPI
+├── sprite.asm            ; masked sprites με φύλαξη και επαναφορά φόντου
+└── workspace.asm         ; η RAM που χτίζει το πρόγραμμα μόνο του
+assets/
+├── aseprite/mitsos.aseprite   ; ο μάστερ - κάθε frame, τέσσερις πένες
+└── art/mitsos/*.png           ; ένα PNG ανά frame, που διαβάζει ο μετατροπέας
+tools/
+├── mkmitsos.py           ; PNG -> src/mitsosart.asm, mode 1
+├── cpcpng.py             ; ο αναγνώστης PNG, κοινός με τον άλλο μετατροπέα
+└── z80check.py           ; τρέχει το binary σε Z80 interpreter και διαβάζει
+                          ;   την οθόνη μέσα από τη διευθυνσιοδότηση του CRTC
 ```
 
 ---
 
-## 8. ΠΛΗΡΗΣ ΠΗΓΑΙΟΣ ΚΩΔΙΚΑΣ Z80 (RASM TEMPLATE)
+## 8. ΤΙ ΥΠΑΡΧΕΙ ΗΔΗ
 
-Ακολουθεί ο κώδικας για το αρχείο `src/main.asm`. Περιλαμβάνει την αρχικοποίηση του CPC 6128, το στήσιμο του Overscan 384x272 στο CRTC, τη ρύθμιση της παλέτας και τον κύριο βρόχο συγχρονισμένο με το VBL.
+Το πρώτο milestone είναι χτισμένο και τρέχει: `src/mitsos.asm`.
 
-```z80
-;; ============================================================================
-;; MITSOS: THE GROCERY HEIST
-;; Amstrad CPC 6128 - Mode 1 Overscan (384x272)
-;; Assembler: RASM
-;; ============================================================================
+* Η ίδια οθόνη overscan 384x272 των 32 KB, αυτή τη φορά σε **mode 1** - τέσσερις πένες
+  και 384 τετράγωνα pixels αντί για δεκαέξι πένες και 192 διπλά.
+* Το πάτωμα του μαγαζιού με τα γυαλιστερά πλακάκια, και πέντε ράφια πάνω του.
+* Ο **Μήτσος** πάνω του: 24x24 pixels, έξι bytes φάρδος, ζωγραφισμένος στο Aseprite,
+  να περπατάει δεξιά-αριστερά με το waddle δύο καρέ και να κοιτάει προς τα εκεί που πάει.
 
-    ORG &1000               ; Το κύριο πρόγραμμα ξεκινά στη θέση &1000
+Και - το πιο σημαντικό εύρημα της πρώτης μέρας - **η μηχανή δεν χρειάστηκε αλλαγή για το
+mode 1**. Το `crtc.asm`, το `video.asm`, το `irq.asm`, το `keys.asm` και το `sprite.asm`
+δούλεψαν όπως ήταν, γιατί όλα τους δουλεύουν σε bytes και ένα byte είναι ένα byte. Μόνο το
+`config.asm`, που είναι το μοναδικό μέρος που ξέρει τι σημαίνει "ένα byte γεμάτο με την
+πένα 2", απέκτησε δεύτερο μισό. Αυτό αλλάζει τη σειρά της δουλειάς που μένει: δεν γράφεται
+μηχανή, γράφεται παιχνίδι.
 
-START:
-    di                      ; Απενεργοποίηση διακοπών κατά το setup
-    ld sp, &0FFF            ; Ασφαλής τοποθέτηση του Stack Pointer
+Τι λείπει, με τη σειρά που έχει νόημα να γίνει:
 
-    ;; ------------------------------------------------------------------------
-    ;; 1. Ρύθμιση Gate Array (Mode 1 & ROM Disabling)
-    ;; ------------------------------------------------------------------------
-    ld bc, &7F8D            ; &7F = Gate Array I/O port
-                            ; %10001101: Select Mode 1, Lower ROM Off, Upper ROM Off
-    out (c), c
-
-    ;; ------------------------------------------------------------------------
-    ;; 2. Ρύθμιση Παλέτας 4 Χρωμάτων (Mode 1)
-    ;; ------------------------------------------------------------------------
-    call INIT_PALETTE
-
-    ;; ------------------------------------------------------------------------
-    ;; 3. Ρύθμιση CRTC για 384x272 Overscan
-    ;; ------------------------------------------------------------------------
-    call INIT_CRTC_OVERSCAN
-
-    ;; ------------------------------------------------------------------------
-    ;; 4. Αρχικοποίηση Μουσικής (Arkos Tracker 3)
-    ;; ------------------------------------------------------------------------
-    ld de, MUSIC_DATA       ; Διεύθυνση της AK3 μουσικής
-    call PLY_AKG_INIT       ; Καλέστε τη ρουτίνα Init του AK3
-
-    ;; ------------------------------------------------------------------------
-    ;; 5. Κύριος Βρόχος Παιχνιδιού (Main Loop)
-    ;; ------------------------------------------------------------------------
-MAIN_LOOP:
-    call WAIT_VBL           ; Συγχρονισμός με την αρχή του Vertical Blanking
-
-    ;; Αναπαραγωγή Μουσικής & Εφέ (1 φορά ανά frame = 50Hz)
-    call PLY_AKG_PLAY
-
-    ;; Ανάγνωση Πληκτρολογίου / Joystick
-    call READ_JOYSTICK
-
-    ;; Ενημέρωση Θέσης Μήτσου & Φυσικής
-    call UPDATE_MITSOS
-
-    ;; Ενημέρωση Εχθρών (Γιαγιά, Γλάροι)
-    call UPDATE_ENEMIES
-
-    ;; Σχεδίαση Sprites στην VRAM
-    call DRAW_FRAME
-
-    jp MAIN_LOOP
-
-;; ============================================================================
-;; ΡΟΥΤΙΝΑ ΑΡΧΙΚΟΠΟΙΗΣΗΣ CRTC (Overscan 384x272)
-;; ============================================================================
-INIT_CRTC_OVERSCAN:
-    ld hl, CRTC_OVERSCAN_DATA
-    ld b, &BC               ; Port &BC00 = Επιλογή καταχωρητή CRTC
-.loop:
-    ld a, (hl)
-    cp &FF                  ; Τερματικός χαρακτήρας πίνακα
-    ret z
-    out (c), a              ; Αποστολή δείκτη καταχωρητή
-    inc hl
-    inc b                   ; Port &BD00 = Εγγραφή τιμής στον καταχωρητή
-    ld a, (hl)
-    out (c), a              ; Αποστολή τιμής
-    dec b                   ; Επαναφορά στο Port &BC00
-    inc hl
-    jr .loop
-
-CRTC_OVERSCAN_DATA:
-    db 0,  63               ; R0:  Horizontal Total (64 us)
-    db 1,  48               ; R1:  Horizontal Displayed (48 chars = 96 bytes = 384 pixels)
-    db 2,  50               ; R2:  Horizontal Sync Position (Κεντράρισμα)
-    db 3,  &8E              ; R3:  Sync Width (HSync: 14, VSync: 8)
-    db 4,  38               ; R4:  Vertical Total (39 chars)
-    db 5,  0                ; R5:  Vertical Adjust
-    db 6,  34               ; R6:  Vertical Displayed (34 rows * 8 = 272 lines)
-    db 7,  35               ; R7:  Vertical Sync Position
-    db 8,  0                ; R8:  Interlace Mode (Off)
-    db 9,  7                ; R9:  Scanlines ανά χαρακτήρα (8 raster lines)
-    db 12, &30              ; R12: Screen Base Address High (&3000 -> &C000 buffer)
-    db 13, &00              ; R13: Screen Base Address Low
-    db &FF                  ; Τέλος δεδομένων
-
-;; ============================================================================
-;; ΡΟΥΤΙΝΑ ΑΡΧΙΚΟΠΟΙΗΣΗΣ GATE ARRAY PALETTE
-;; ============================================================================
-INIT_PALETTE:
-    ld hl, PALETTE_DATA
-    ld d, 4                 ; 4 Inks για το Mode 1
-    ld a, 0                 ; Ξεκινάμε από το Ink 0
-.pal_loop:
-    ld bc, &7F00
-    out (c), a              ; Επιλογή Ink ID (0, 1, 2, 3)
-    ld b, &7F
-    ld c, (hl)              ; Φόρτωση του hardware color value
-    out (c), c              ; Ανάθεση χρώματος
-    inc hl
-    inc a
-    dec d
-    jr nz, .pal_loop
-    ret
-
-PALETTE_DATA:
-    db &54                  ; Ink 0: Deep Navy Blue
-    db &53                  ; Ink 1: Bright Cyan
-    db &5C                  ; Ink 2: Warm Orange (Μήτσος & Ψάρια)
-    db &4B                  ; Ink 3: Pure White
-
-;; ============================================================================
-;; ΡΟΥΤΙΝΑ ΣΥΓΧΡΟΝΙΣΜΟΥ ΜΕ ΤΟ VBL
-;; ============================================================================
-WAIT_VBL:
-    ld b, &F5
-.vbl_wait_start:
-    in a, (c)
-    rra
-    jr nc, .vbl_wait_start  ; Περιμένουμε όσο VBL = 0
-.vbl_wait_end:
-    in a, (c)
-    rra
-    jr c, .vbl_wait_end     ; Περιμένουμε όσο VBL = 1
-    ret
-
-;; ============================================================================
-;; STUBS & PLACEHOLDERS ΓΙΑ LOGIC & AK3
-;; ============================================================================
-READ_JOYSTICK:
-    ;; Εδώ διαβάζεται το PSG Port A (Keyboard / Joystick Matrix)
-    ret
-
-UPDATE_MITSOS:
-    ;; Υπολογισμός ταχύτητας, αδράνειας, βαρύτητας και bounding box
-    ret
-
-UPDATE_ENEMIES:
-    ;; AI Γιαγιάς Ευδοξίας & πτήση γλάρων
-    ret
-
-DRAW_FRAME:
-    ;; Σχεδίαση sprites με χρήση XOR ή and/or μάσκας
-    ret
-
-PLY_AKG_INIT:
-    ;; Stub: Αντικαθίσταται από το Arkos Tracker 3 Player
-    ret
-
-PLY_AKG_PLAY:
-    ;; Stub: Αντικαθίσταται από το Arkos Tracker 3 Player
-    ret
-
-MUSIC_DATA:
-    ;; Εδώ περιλαμβάνονται τα binary δεδομένα του κομματιού
-    ;; incbin "assets/music/theme.bin"
-    ret
-
-    END START
-```
+1. **Βαρύτητα και άλμα** - 8.8 fixed point όπως στον ΛΟΥΚΟΥΜΑ, με τα ράφια μονόδρομα.
+2. **Το Belly Bounce** - το άλμα πάνω στον εχθρό, που είναι ο μηχανισμός του παιχνιδιού.
+3. **Οι μεζέδες και η έξοδος** - συλλογή, και το καλάθι που ανοίγει όταν μαζευτούν όλοι.
+4. **Η Γιαγιά Ευδοξία και οι γλάροι** - περίπολος και τόξο, ο ίδιος πίνακας συμπεριφορών.
+5. **Οι σαπουνάδες** - η αδράνεια που έχει ήδη το σενάριο, ως ιδιότητα του πατώματος.
+6. **Κείμενο σε mode 1** - ο υπάρχων γραμματοσειρά είναι 3 bytes ανά χαρακτήρα για mode 0·
+   σε mode 1 ένα κελί των 8 pixels είναι 2 bytes, οπότε θέλει δικό του πέρασμα στο
+   `tools/mktext.py`. Μέχρι τότε δεν υπάρχει HUD.
+7. **Μουσική** - ο AKG player του ΛΟΥΚΟΥΜΑ παίζει ό,τι του δώσει το Arkos Tracker 3.
 
 ---
 
-## 9. BUILD SCRIPTS & ΟΔΗΓΙΕΣ ΕΚΤΕΛΕΣΗΣ
+## 9. BUILD & ΕΚΤΕΛΕΣΗ
 
-### 9.1 Bash Script Κατασκευής (`build.sh`)
+Δεν υπάρχει `build.sh`: υπάρχει το Makefile του repository, και ο Μήτσος είναι ένας
+στόχος μέσα του.
+
 ```bash
-#!/bin/bash
-set -e
-
-echo "=== 1. Εξαγωγή Γραφικών μέσω Aseprite MCP Toolchain ==="
-# Το MCP server toolchain παράγει τα binaries:
-python3 tools/aseprite_export.py assets/sprites/mitsos.aseprite build/mitsos_gfx.bin
-
-echo "=== 2. Εξαγωγή Μουσικής & SFX μέσω Arkos Tracker 3 ==="
-# Μετατροπή .aks σε AKG Song binary:
-SongToAkg assets/music/theme.aks build/music.bin
-
-echo "=== 3. Μεταγλώττιση με RASM ==="
-rasm src/main.asm -o build/mitsos -v -eb
-
-echo "=== 4. Δημιουργία Bootable DSK Image με το iDSK ==="
-# Δημιουργία κενού DSK αρχείου:
-idsk build/mitsos.dsk -n
-# Εισαγωγή του εκτελέσιμου αρχείου binary:
-idsk build/mitsos.dsk -i build/mitsos.bin -t 1 -e 1000 -c 1000
-
-# Δημιουργία και εισαγωγή του BASIC auto-run loader (DISC):
-cat << 'EOF' > build/disc.bas
-10 REM *** MITSOS OVERSCAN LOADER ***
-20 MODE 1
-30 MEMORY &0FFF
-40 LOAD "mitsos.bin", &1000
-50 CALL &1000
-EOF
-
-# Εισαγωγή του loader στο δισκάκι:
-idsk build/mitsos.dsk -i build/disc.bas -t 0
-
-echo "=== ΕΠΙΤΥΧΙΑ! Το αρχείο build/mitsos.dsk είναι έτοιμο για δοκιμή! ==="
+make mitsos     # build/mitsos.sna και build/mitsos.dsk
+make assets     # ξαναφτιάχνει το src/mitsosart.asm από τα PNG του Aseprite
+make check      # τρέχει το binary και ελέγχει ότι περπατάει
 ```
+
+Το `-DSCRMODE=1` είναι αυτό που γυρίζει τη μηχανή σε mode 1 και το `-DTARGET=` διαλέγει
+τι θα γραφτεί: 1 για snapshot, 2 για δισκέτα, 3 για σκέτο binary. Ο Μήτσος φορτώνεται
+στο **#4000** και όχι στο &1000 της πρώτης γραφής - το AMSDOS δίνει τον έλεγχο μόνο σε
+πρόγραμμα που δεν σκεπάζει η κάτω ROM, και η οθόνη κάθεται από το #8000 και πάνω.
 
 ### 9.2 Δοκιμή σε Emulator
 Για να τρέξετε το παραγόμενο `.dsk` σε εξομοιωτή (π.χ. Retro Virtual Machine, CPCemu, ACE-DL):
 1. Φορτώστε το αρχείο `build/mitsos.dsk` στο Drive A:.
 2. Στην οθόνη του CPC, πληκτρολογήστε:
    ```basic
-   RUN"DISC"
+   RUN"MITSOS
    ```
-3. Απολαύστε τον Μήτσο σε πλήρη οθόνη 384x272 χωρίς περιθώρια, με 4 ζωντανά χρώματα και στερεοφωνικό ήχο AY!
+3. Βέλη αριστερά-δεξιά, ή joystick.
+
+Το `build/mitsos.sna` σέρνεται κατευθείαν σε εξομοιωτή χωρίς δισκέτα. Και για τα πράγματα
+που δεν θέλουν εξομοιωτή καθόλου, το `tools/z80check.py` τρέχει το binary σε Z80
+interpreter και αποκωδικοποιεί την οθόνη μέσα από την πραγματική καλωδίωση MA/RA του CPC -
+εκεί βγήκαν όλες οι εικόνες αυτού του milestone.

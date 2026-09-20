@@ -269,6 +269,34 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - Greek in a rasm label breaks the assembler - `mktext.py` spells the Greek-only glyph
   names out (`GL_SIGMA`, not `GL_Σ`).
 
+## 7b. Two games, one engine
+
+- **There are two games on this engine, and they are not in the same screen mode.**
+  ΛΟΥΚΟΥΜΑΣ is mode 0 - sixteen pens, 192 pixels across - and ΠΑΝΙΚΟΣ ΣΤΟ
+  ΠΑΝΤΟΠΩΛΕΙΟ (`src/mitsos.asm`, `pantopoleio.md`) is mode 1 - four pens, 384
+  square pixels. `-DSCRMODE=1` is what says so, and `config.asm` is the only
+  file that has two halves because of it: the solid-pen bytes and
+  PIXELS_PER_BYTE. `GA_MODE` is the Gate Array byte that selects the mode with
+  both ROMs off, so even the boot sequence does not name it.
+- Everything else was already mode-agnostic and stayed that way - crtc.asm,
+  video.asm, irq.asm, keys.asm and sprite.asm all work in bytes, and a byte is
+  a byte. That is not luck: every layout in the project is in bytes rather than
+  pixels, which is the same property that made the mode 1 to mode 0 move of the
+  first game cost nothing outside the art.
+- Mode 1 packs four pixels to a byte and the **top** nibble holds the least
+  significant pen bit: pixel i is bits 7-i and 3-i, low bit first. So four
+  pixels of one pen are #00, #F0, #0F and #FF. The design document had this the
+  other way round, along with its CRTC table; `tools/z80check.py` decodes mode 1
+  independently and is the thing to check against.
+- The text routines are still mode 0 only. A mode 0 cell is 6 pixels and 3
+  bytes; a mode 1 cell would be 8 pixels and 2, so the font needs a second pass
+  in `mktext.py` before the second game can have a HUD.
+- Mitsos's art is drawn in **Aseprite through its MCP server**, which runs on
+  Windows: it cannot see WSL paths, so files go through `C:\Users\<user>\` and
+  are copied back. `assets/aseprite/mitsos.aseprite` is the master - every
+  frame, four pens - and `tools/mkmitsos.py` turns the exported PNGs into
+  `src/mitsosart.asm`. `tools/cpcpng.py` is the PNG reader both converters use.
+
 ## 8. Sprites
 
 - The screen is **mode 0**: 2 pixels per byte, 16 pens, 96 bytes to the line, so 192

@@ -309,6 +309,29 @@ arbitrary offset into the picture, and the sprite work is half a frame long. The
 run it six times too fast. `src/keys.asm` reads the key matrix through the PPI and the
 AY-3-8912, and reports both held keys and the ones that went down this frame.
 
+## ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ / MITSOS: THE GROCERY HEIST
+
+The second game on the engine, one milestone in, and the first one in **mode 1**: four
+pens and 384 square pixels across the same 32 KB overscan screen, instead of sixteen pens
+and 192 pixels twice as wide. Mitsos is a fat ginger cat on a Cycladic island with a
+grievance against a fishmonger; [pantopoleio.md](pantopoleio.md) is the design document.
+
+![Mitsos on the shop floor](docs/mitsos-floor.png)
+
+What that milestone proved is worth more than what it shows: **the engine did not need
+changing for mode 1**. `crtc.asm`, `video.asm`, `irq.asm`, `keys.asm` and `sprite.asm` all
+work in bytes, and a byte is a byte, so the only file with two halves in it is
+`config.asm` - the solid-pen bytes and how many pixels are in one. `-DSCRMODE=1` picks
+which half.
+
+Mitsos himself is drawn in Aseprite, through its MCP server: `assets/aseprite/mitsos.aseprite`
+holds every frame in four pens, and `tools/mkmitsos.py` turns the exported PNGs into the
+masked mode 1 sprites `sprite.asm` already knows how to draw.
+
+```bash
+make mitsos
+```
+
 ## Tools
 
 `tools/z80check.py` runs the assembled code on a small Z80 interpreter, watches the CRTC
