@@ -149,6 +149,32 @@ K_GULL          EQU 2
 
 FOE_BUF         EQU SPR_BROOM_A_W*SPR_BROOM_A_H  ; the biggest of them
 
+;; --- Lives -----------------------------------------------------------------
+;; Three, and two seconds of grace after each one goes: walking back into the
+;; broom on the frame he reappears would be a way of losing all three without
+;; touching a key. He blinks while it lasts, which is the only way anyone can
+;; tell.
+START_LIVES     EQU 3
+GRACE           EQU 100                 ; frames, at the 50 Hz the game thinks
+
+;; The HUD is one row of small text across the top of the wall, above
+;; everything the game does - SHOP_TOP is the ceiling and it is below this.
+HUD_Y           EQU 2
+HUD_H           EQU 10
+
+;; And the panel that goes up when they run out.
+OVER_Y          EQU 96
+OVER_H          EQU 56
+OVER_SCALE      EQU 5                   ; scanlines per source row: 40 tall
+LIVES_LABEL_X   EQU 3
+LIVES_X         EQU 21
+
+;; Which string table it starts on. L switches it while it runs, and only the
+;; text is repainted - the shop does not know what language it is in.
+    IFNDEF LANG
+LANG            EQU 0
+    ENDIF
+
     ORG #4000                           ; RAM whatever the ROMs are doing, and
                                         ; clear of the screen at #8000
 ;; ---------------------------------------------------------------------------
@@ -173,26 +199,11 @@ mitsos_start
 
     call irq_init                       ; and the 50 Hz tick under everything
 
-;; Mitsos comes in from the left, facing right and standing on the floor.
-    ld a,8
-    ld (mitsos_x),a
-    ld (mitsos_ox),a
-    xor a
-    ld (mitsos_xf),a
-    ld hl,0
-    ld (mitsos_vx),hl
-    ld a,MITSOS_Y0
-    ld (mitsos_y),a
-    ld (mitsos_oy),a
-    xor a
-    ld (mitsos_yf),a
-    ld (mitsos_face),a
-    ld (mitsos_tick),a
-    ld (mitsos_frame),a
-    ld (mitsos_state),a                 ; ST_GROUND
-    ld (mitsos_drawn),a
-    ld hl,0
-    ld (mitsos_vy),hl
+    ld a,LANG
+    ld (txt_lang),a
+    ld a,START_LIVES
+    ld (mitsos_lives),a
+    call game_start
 
 ;; ---------------------------------------------------------------------------
 ;; One pass per 50 Hz frame: read the keys, move him, lift him off the floor
@@ -210,6 +221,14 @@ mitsos_start
 main_loop
     call wait_render                    ; two ticks of irq.asm's 50 Hz
     call read_controls                  ; the matrix, folded into ctl_now
+
+    ld a,(ctl_pressed)                  ; L, in either screen
+    bit CTL_LANG,a
+    call nz,switch_language
+
+    ld a,(mitsos_over)
+    or a
+    jr nz,main_over
 
 ;; Everything comes off the screen before anything goes back on it. One at a
 ;; time would keep each of them off for less of the frame, but then a save
@@ -231,6 +250,138 @@ main_loop_think
     call mitsos_draw                    ; last, so he is the one in front
     jr main_loop
 
+;; Out of lives: the shop stands where it stopped with GAME OVER across it,
+;; and fire puts the whole thing back.
+main_over
+    ld a,(ctl_pressed)
+    bit CTL_FIRE,a
+    jr z,main_loop
+    ld a,START_LIVES
+    ld (mitsos_lives),a
+    call game_start
+    jr main_loop
+
+;; ---------------------------------------------------------------------------
+;; game_start - the shop as it was and everybody back where they came in.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+game_start
+    call draw_shop
+    call draw_hud
+
+    ld hl,foes_init                     ; the cast, unflattened and back on
+    ld de,foes                          ; their marks
+    ld bc,FOE_COUNT*E_SIZE
+    ldir
+
+    xor a
+    ld (mitsos_over),a
+    ld (mitsos_grace),a
+    ld (mitsos_drawn),a
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; mitsos_spawn - him, on the floor by the door, facing the shop.
+;; Destroys AF, HL.
+;; ---------------------------------------------------------------------------
+mitsos_spawn
+    ld a,8
+    ld (mitsos_x),a
+    ld a,MITSOS_Y0
+    ld (mitsos_y),a
+    xor a
+    ld (mitsos_xf),a
+    ld (mitsos_yf),a
+    ld (mitsos_face),a
+    ld (mitsos_tick),a
+    ld (mitsos_frame),a
+    ld (mitsos_state),a                 ; ST_GROUND
+    ld hl,0
+    ld (mitsos_vx),hl
+    ld (mitsos_vy),hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; switch_language - L, and only the words are repainted.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+switch_language
+    ld a,(txt_lang)
+    xor 1
+    ld (txt_lang),a
+    call draw_hud
+    ld a,(mitsos_over)
+    or a
+    ret z
+    jp draw_over                        ; the panel is words too
+
+;; ---------------------------------------------------------------------------
+;; draw_hud - the strip along the top. Cleared first, because small text
+;; blends rather than overwrites and brick would show through it.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+draw_hud
+    ld hl,line_tab+HUD_Y*2
+    ld de,HUD_H
+    ld a,PEN0_BYTE
+    call clear_rows
+
+    ld hl,line_tab+(HUD_Y+1)*2
+    ld (txt_row),hl
+    ld a,LIVES_LABEL_X
+    ld (txt_x),a
+    ld a,MSG_LIVES
+    call msg_small
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; draw_lives - just the digit. It is written solid, so it goes straight over
+;; the one that was there without clearing anything.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+draw_lives
+    ld hl,line_tab+(HUD_Y+1)*2
+    ld (txt_row),hl
+    ld a,LIVES_X
+    ld (txt_x),a
+    ld a,1
+    ld (txt_solid),a
+    ld a,(mitsos_lives)
+    call print_digit
+    xor a
+    ld (txt_solid),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; draw_over - GAME OVER across the middle of the shop, and how to start
+;; again under it. The ground is cleared first: big text writes where the
+;; letter is and skips where it is not, and small text blends.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+draw_over
+    ld hl,line_tab+OVER_Y*2
+    ld de,OVER_H
+    ld a,PEN0_BYTE
+    call clear_rows
+
+    ld a,1
+    ld (txt_xs),a                       ; 24 pixels to a letter
+    ld a,OVER_SCALE
+    ld (txt_ys),a
+    ld a,PEN13_BYTE                     ; in red, which nothing else here is
+    ld (txt_big_pen),a
+    ld a,1
+    ld (txt_big_solid),a
+    ld hl,line_tab+(OVER_Y+4)*2
+    ld (txt_row),hl
+    ld a,MSG_GAMEOVER
+    call msg_big_centre
+
+    ld hl,line_tab+(OVER_Y+OVER_H-10)*2
+    ld (txt_row),hl
+    ld a,MSG_AGAIN
+    jp msg_small_centre
+
 ;; ---------------------------------------------------------------------------
 ;; mitsos_move - one 50 Hz step of him: the keys, then the physics.
 ;;
@@ -249,7 +400,13 @@ mitsos_move
     call z,mitsos_ground
     ld a,(mitsos_state)
     or a
-    jp nz,mitsos_air
+    call nz,mitsos_air
+
+    ld hl,mitsos_grace                  ; the blinking runs itself down
+    ld a,(hl)
+    or a
+    jp z,mitsos_hurt
+    dec (hl)
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -650,6 +807,87 @@ mitsos_overlap_no
     ret
 
 ;; ---------------------------------------------------------------------------
+;; mitsos_hurt - anything he is standing in that is still on its feet.
+;;
+;; A plain rectangle overlap, which is the other half of the belly bounce:
+;; come down on one and it goes flat, walk into one and it costs a life.
+;; Something already flat is scenery and cannot hurt anybody.
+;; Destroys AF, BC, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+mitsos_hurt
+    ld a,(mitsos_grace)                 ; still blinking from the last one
+    or a
+    ret nz
+
+    ld iy,foes
+    ld b,FOE_COUNT
+mitsos_hurt_one
+    push bc
+    ld a,(iy+E_STUN)
+    or a
+    jr nz,mitsos_hurt_next              ; flat on its back, and harmless
+
+    call foe_kind_ptr
+    ld a,K_W
+    call foe_kind_byte
+    ld b,(iy+E_X)
+    dec a
+    add a,b                             ; the columns it covers
+    call mitsos_overlap
+    jr nc,mitsos_hurt_next
+
+    ld a,K_H                            ; and the scanlines
+    call foe_kind_byte
+    ld b,(iy+E_Y)
+    dec a
+    add a,b
+    ld c,a                              ; C = its bottom
+    ld a,(mitsos_y)                     ; his top past its bottom?
+    cp c
+    jr z,mitsos_hurt_rows
+    jr nc,mitsos_hurt_next
+mitsos_hurt_rows
+    ld a,(mitsos_y)
+    add a,MITSOS_H-1                    ; his bottom short of its top?
+    cp (iy+E_Y)
+    jr c,mitsos_hurt_next
+
+    pop bc
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; mitsos_lose - one gone. Back to the door with two seconds of grace, or the
+;; end of it if that was the last.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+mitsos_lose
+    ld hl,mitsos_lives
+    ld a,(hl)
+    or a
+    jr z,mitsos_lose_over
+    dec (hl)
+    call draw_lives
+    ld a,(mitsos_lives)
+    or a
+    jr z,mitsos_lose_over
+    call mitsos_spawn
+    ld a,GRACE
+    ld (mitsos_grace),a
+    ret
+
+mitsos_lose_over
+    ld a,1
+    ld (mitsos_over),a
+    jp draw_over
+
+mitsos_hurt_next
+    pop bc
+    ld de,E_SIZE
+    add iy,de
+    djnz mitsos_hurt_one
+    ret
+
+;; ---------------------------------------------------------------------------
 ;; mitsos_bounce - did his feet come down on something that moves?
 ;;
 ;; The same test the shelves get - was the top of it between where his feet
@@ -907,8 +1145,10 @@ foe_kinds
     defb SPR_SEAGULL_A_W, SPR_SEAGULL_A_H, 1
 
 ;; kind, x, y, the line a flier bobs about, the two ends of its beat, which
-;; way it is going, and then the six bytes it keeps for itself.
-foes
+;; way it is going, and then the eight bytes it keeps for itself. This is the
+;; copy nothing writes to: the game runs on the one it puts in RAM, so a new
+;; game gets them all back on their feet and where they started.
+foes_init
     defb K_BROOM, 40, FLOOR_TOP-SPR_BROOM_A_H, 0, 34, 52, 1
     defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
     defb K_MOUSE, 80, FLOOR_TOP-SPR_MOUSE_A_H, 0, 56, 92, -1
@@ -967,6 +1207,13 @@ mitsos_erase
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 mitsos_draw
+    ld a,(mitsos_grace)                 ; blinking: every other picture he is
+    and 4                               ; simply not drawn, and then there is
+    jr z,mitsos_draw_on                 ; nothing under him to put back either
+    xor a
+    ld (mitsos_drawn),a
+    ret
+mitsos_draw_on
     ld a,(mitsos_frame)
     add a,a
     ld e,a
@@ -1361,6 +1608,9 @@ pal_shop
     include "irq.asm"
     include "keys.asm"
     include "boxes.asm"
+    include "text.asm"
+    include "font.asm"
+    include "mitsosstr.asm"
     include "mitsosart.asm"             ; in front of sprite.asm, which asserts
 SPR_MAX_W       EQU ART_MAX_W           ; the widest of them fits its blit
     include "sprite.asm"
@@ -1388,7 +1638,13 @@ mitsos_frame    defs 1              ; 0 standing, 1 and 2 the waddle
 mitsos_tick     defs 1              ; frames until the next one
 mitsos_buf      defs MITSOS_BYTES
 
-;; One patch of shop per enemy, all of them the size of the biggest.
+mitsos_lives    defs 1              ; three, and the HUD prints this one
+mitsos_grace    defs 1              ; frames of blinking left after losing one
+mitsos_over     defs 1              ; out of them, and waiting for fire
+
+;; The cast as it stands, copied from foes_init at the top of a game, and one
+;; patch of shop per enemy, all of them the size of the biggest.
+foes            defs FOE_COUNT*E_SIZE
 foe_bufs        defs FOE_COUNT*FOE_BUF
 
     IF TARGET==1

@@ -62,11 +62,17 @@ all: hello loukoumas mitsos
 # ---------------------------------------------------------------------------
 TEXTSRC := assets/font.txt text/loukoumas.en.txt text/loukoumas.el.txt tools/mktext.py
 
-assets: src/font.asm src/strings.asm src/sprites.asm src/artwork.asm \
-        src/titlepic.asm src/mitsosart.asm
+assets: src/font.asm src/strings.asm src/mitsosstr.asm src/sprites.asm \
+        src/artwork.asm src/titlepic.asm src/mitsosart.asm
 
 src/font.asm src/strings.asm: $(TEXTSRC)
 	$(PYTHON) tools/mktext.py loukoumas
+
+# The other game's words. The font is the same file - it is one 8x8 set
+# covering both scripts and it is drawn from the art, not from the strings -
+# so only the string table is per game.
+src/mitsosstr.asm: text/mitsos.en.txt text/mitsos.el.txt assets/font.txt tools/mktext.py
+	$(PYTHON) tools/mktext.py mitsos
 
 src/sprites.asm: assets/sprites.txt tools/mksprite.py
 	$(PYTHON) tools/mksprite.py
@@ -279,6 +285,17 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		--keys "RIGHT@25-45,FIRE@62-65" --sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_y,mitsos_vy:s,foes+16,foes+25" \
 		| grep -E "frame +(94|95|110|118) "
+	@echo "=== mitsos, three lives and what they cost ==="
+	@echo "    walking into something still on its feet costs one and puts him"
+	@echo "    back by the door with two seconds of grace, blinking, because"
+	@echo "    reappearing inside the broom would otherwise take all three"
+	@echo "    without a key being touched. 82 is the first, and holding right"
+	@echo "    into it over and over runs them out at 422, which puts GAME OVER"
+	@echo "    up and waits for fire."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 440 $(MITSOS_SIM) \
+		--keys "RIGHT@25-440" --sym $(BUILD)/mitsos.sym \
+		--watch "mitsos_lives,mitsos_grace,mitsos_over" \
+		| grep -E "frame +(81|82|250|421|422) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="
