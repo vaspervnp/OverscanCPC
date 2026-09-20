@@ -104,6 +104,51 @@ SHOP_TOP        EQU 12                  ; he cannot rise past this scanline
 ST_GROUND       EQU 0
 ST_AIR          EQU 1
 
+;; --- The belly bounce ------------------------------------------------------
+;; Landing on something that moves, from above and falling, flattens it and
+;; throws him back up higher than his own jump can reach - which is how a
+;; board out of reach of the floor gets reached. It is the mechanic the game
+;; is built round, so it is worth more than a jump and costs a mouse two
+;; seconds on its back.
+BOUNCE_V        EQU #FA80               ; -5.5 px/frame, about 60 scanlines
+STUN_TIME       EQU 100                 ; two seconds flat, at 50 Hz
+FOE_TICK        EQU 3                   ; frames between an enemy's steps
+FOE_ANIM        EQU 6                   ; and between its two pictures
+FOE_COUNT       EQU 3
+
+;; One enemy. IY addresses these, because IX is the line table cursor inside
+;; the sprite routines and there is only one of each.
+E_KIND          EQU 0                   ; index into foe_kinds
+E_X             EQU 1                   ; where it is, in bytes
+E_Y             EQU 2                   ; and scanlines
+E_Y0            EQU 3                   ; the line a flier bobs about
+E_X0            EQU 4                   ; the ends of its beat
+E_X1            EQU 5
+E_DIR           EQU 6                   ; 1 or -1
+E_TICK          EQU 7                   ; frames until its next step
+E_FRAME         EQU 8                   ; which of its two pictures
+E_ANIM          EQU 9                   ; frames until the other one
+E_STUN          EQU 10                  ; frames left flat on its back
+E_PHASE         EQU 11                  ; where it is in the bob
+E_DRAWN         EQU 12                  ; is the buffer under it worth anything
+E_OX            EQU 13                  ; and where its picture still is
+E_OY            EQU 14
+E_SIZE          EQU 15
+
+;; What a kind of enemy is: two pictures each way round, a size, and whether
+;; it flies. Three bytes and its art is what a new one costs.
+K_SPR           EQU 0                   ; four words: A and B, right then left
+K_W             EQU 8
+K_H             EQU 9
+K_FLY           EQU 10
+K_SIZE          EQU 11
+
+K_BROOM         EQU 0
+K_MOUSE         EQU 1
+K_GULL          EQU 2
+
+FOE_BUF         EQU SPR_BROOM_A_W*SPR_BROOM_A_H  ; the biggest of them
+
     ORG #4000                           ; RAM whatever the ROMs are doing, and
                                         ; clear of the screen at #8000
 ;; ---------------------------------------------------------------------------
@@ -145,23 +190,45 @@ mitsos_start
     ld (mitsos_tick),a
     ld (mitsos_frame),a
     ld (mitsos_state),a                 ; ST_GROUND
+    ld (mitsos_drawn),a
     ld hl,0
     ld (mitsos_vy),hl
-    call mitsos_draw
 
 ;; ---------------------------------------------------------------------------
 ;; One pass per 50 Hz frame: read the keys, move him, lift him off the floor
 ;; and put him back down where he now is.
 ;; ---------------------------------------------------------------------------
+;; ---------------------------------------------------------------------------
+;; The picture is rebuilt twenty-five times a second and the game thinks
+;; fifty, which is FRAMES_PER_RENDER logic steps inside one picture. Nothing
+;; about the jump arc or the beat of a patrol changes - they are still counted
+;; in 50 Hz steps - only how often the cast is lifted off the screen and put
+;; back. Lifting this lot off is ten milliseconds and a frame is twenty, of
+;; which two and a half are blanked: at twice the budget it is finished long
+;; before the beam comes round again.
+;; ---------------------------------------------------------------------------
 main_loop
-    call wait_frame                     ; irq.asm's, off the 50 Hz tick
+    call wait_render                    ; two ticks of irq.asm's 50 Hz
     call read_controls                  ; the matrix, folded into ctl_now
-    call mitsos_move
-    ld a,(mitsos_redraw)                ; standing still costs nothing: what is
-    or a                                ; on the screen is already right
-    jr z,main_loop
+
+;; Everything comes off the screen before anything goes back on it. One at a
+;; time would keep each of them off for less of the frame, but then a save
+;; can catch another sprite's picture instead of the shop and hand it back
+;; where nothing will ever erase it again. With the whole cast lifted first,
+;; every save is of the shop and nothing else, and the room stays clean.
     call mitsos_erase
-    call mitsos_draw
+    call foes_erase
+
+    ld b,FRAMES_PER_RENDER
+main_loop_think
+    push bc
+    call mitsos_move
+    call foes_move
+    pop bc
+    djnz main_loop_think
+
+    call foes_draw
+    call mitsos_draw                    ; last, so he is the one in front
     jr main_loop
 
 ;; ---------------------------------------------------------------------------
@@ -176,41 +243,13 @@ main_loop
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 mitsos_move
-    ld a,(mitsos_x)                     ; where his picture still is
-    ld (mitsos_ox),a
-    ld a,(mitsos_y)
-    ld (mitsos_oy),a
-    ld a,(mitsos_frame)
-    ld (mitsos_oframe),a
-
     call mitsos_walk
     ld a,(mitsos_state)
     or a
     call z,mitsos_ground
     ld a,(mitsos_state)
     or a
-    call nz,mitsos_air
-
-;; Anything that moved him, or changed which of him is being drawn, means the
-;; picture has to be taken up and put down again.
-    ld a,(mitsos_ox)
-    ld hl,mitsos_x
-    cp (hl)
-    jr nz,mitsos_move_dirty
-    ld a,(mitsos_oy)
-    ld hl,mitsos_y
-    cp (hl)
-    jr nz,mitsos_move_dirty
-    ld a,(mitsos_oframe)
-    ld hl,mitsos_frame
-    cp (hl)
-    jr nz,mitsos_move_dirty
-    xor a
-    ld (mitsos_redraw),a
-    ret
-mitsos_move_dirty
-    ld a,1
-    ld (mitsos_redraw),a
+    jp nz,mitsos_air
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -520,6 +559,10 @@ mitsos_air_land
     ld a,(mitsos_y)
     add a,MITSOS_H
     ld (mitsos_nfeet),a
+
+    call mitsos_bounce                  ; anything alive under him first
+    ret c
+
     call mitsos_find_landing
     ret nc
 
@@ -607,6 +650,273 @@ mitsos_overlap_no
     ret
 
 ;; ---------------------------------------------------------------------------
+;; mitsos_bounce - did his feet come down on something that moves?
+;;
+;; The same test the shelves get - was the top of it between where his feet
+;; were and where they are now, and is he over it at all - except that what
+;; it lands on goes flat for two seconds and he comes off it higher than he
+;; went on. Carry set if it happened, and then nothing else catches him this
+;; step.
+;; Destroys AF, BC, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+mitsos_bounce
+    ld iy,foes
+    ld b,FOE_COUNT
+mitsos_bounce_one
+    push bc
+    ld a,(mitsos_ofeet)
+    cp (iy+E_Y)
+    jr z,mitsos_bounce_below
+    jr nc,mitsos_bounce_next            ; his feet were already past it
+mitsos_bounce_below
+    ld a,(mitsos_nfeet)
+    cp (iy+E_Y)
+    jr c,mitsos_bounce_next             ; and still are not down to it
+
+    call foe_kind_ptr                   ; HL = its kind, for the width
+    ld a,K_W
+    call foe_kind_byte
+    ld c,a
+    ld b,(iy+E_X)
+    dec a
+    add a,b                             ; last column it covers
+    call mitsos_overlap
+    jr nc,mitsos_bounce_next
+
+    ld (iy+E_STUN),STUN_TIME            ; flat on its back, and harmless
+    ld hl,BOUNCE_V
+    ld (mitsos_vy),hl
+    pop bc
+    scf
+    ret
+mitsos_bounce_next
+    pop bc
+    ld de,E_SIZE
+    add iy,de
+    djnz mitsos_bounce_one
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foe_kind_ptr - HL = the kind record of the enemy at IY.
+;; foe_kind_byte - A = an offset into it -> A = that byte of it. HL survives.
+;; Destroys AF, DE.
+;; ---------------------------------------------------------------------------
+foe_kind_ptr
+    push bc
+    ld a,(iy+E_KIND)
+    ld b,a
+    add a,a
+    add a,a
+    add a,a                             ; x8
+    add a,b
+    add a,b
+    add a,b                             ; and three more makes x11, which is
+                                        ; K_SIZE - one multiply nobody misses
+    ld l,a
+    ld h,0
+    ld de,foe_kinds
+    add hl,de
+    pop bc
+    ret
+
+foe_kind_byte
+    push hl
+    ld e,a
+    ld d,0
+    add hl,de
+    ld a,(hl)
+    pop hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foes_erase - the cast, off the screen in the reverse of the order it went
+;; on. An enemy that has never been drawn has nothing under it worth keeping.
+;; Destroys AF, BC, DE, HL, IX, IY.
+;; ---------------------------------------------------------------------------
+foes_erase
+    ld iy,foes+(FOE_COUNT-1)*E_SIZE
+    ld hl,foe_bufs+(FOE_COUNT-1)*FOE_BUF
+    ld b,FOE_COUNT
+foes_erase_one
+    push bc
+    push hl
+    ld a,(iy+E_DRAWN)
+    or a
+    jr z,foes_erase_next
+    call foe_kind_ptr
+    ld a,K_W
+    call foe_kind_byte
+    ld (spr_w),a
+    ld a,K_H
+    call foe_kind_byte
+    ld (spr_h),a
+    ld a,(iy+E_OX)
+    ld (spr_x),a
+    ld a,(iy+E_OY)
+    call spr_row_ptr
+    pop hl
+    push hl
+    call spr_restore
+foes_erase_next
+    pop hl
+    ld de,-FOE_BUF
+    add hl,de
+    ld de,-E_SIZE
+    add iy,de
+    pop bc
+    djnz foes_erase_one
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foes_draw - and back on, the near ones last.
+;; Destroys AF, BC, DE, HL, IX, IY.
+;; ---------------------------------------------------------------------------
+foes_draw
+    ld iy,foes
+    ld hl,foe_bufs
+    ld b,FOE_COUNT
+foes_draw_one
+    push bc
+    push hl
+    call foe_kind_ptr                   ; the picture it is showing
+    ld a,(iy+E_FRAME)
+    add a,a
+    ld c,a
+    ld a,(iy+E_DIR)
+    inc a
+    jr nz,foes_draw_right
+    ld a,c
+    add a,4                             ; the mirrored pair sits behind
+    ld c,a
+foes_draw_right
+    ld b,0
+    push hl
+    add hl,bc
+    ld e,(hl)
+    inc hl
+    ld d,(hl)
+    pop hl
+    push de                             ; the sprite
+    ld a,K_W
+    call foe_kind_byte
+    ld (spr_w),a
+    ld a,K_H
+    call foe_kind_byte
+    ld (spr_h),a
+    ld a,(iy+E_X)
+    ld (spr_x),a
+    ld (iy+E_OX),a
+    ld a,(iy+E_Y)
+    ld (iy+E_OY),a
+    call spr_row_ptr
+    pop hl                              ; the sprite
+    call spr_size                       ; HL to its pixels; w and h again
+    pop de                              ; its buffer
+    push de
+    call spr_draw
+    ld (iy+E_DRAWN),1
+    pop hl
+    ld de,FOE_BUF
+    add hl,de
+    ld de,E_SIZE
+    add iy,de
+    pop bc
+    djnz foes_draw_one
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foes_move - a beat between two columns, and a bob for the one that flies.
+;; Two seconds of being sat on stops all of it.
+;; Destroys AF, BC, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+foes_move
+    ld iy,foes
+    ld b,FOE_COUNT
+foes_move_one
+    push bc
+    ld a,(iy+E_STUN)
+    or a
+    jr z,foes_move_awake
+    dec (iy+E_STUN)                     ; still seeing stars
+    jr foes_move_next
+
+foes_move_awake
+    dec (iy+E_ANIM)                     ; its two pictures
+    jr nz,foes_move_step
+    ld (iy+E_ANIM),FOE_ANIM
+    ld a,(iy+E_FRAME)
+    xor 1
+    ld (iy+E_FRAME),a
+
+foes_move_step
+    dec (iy+E_TICK)
+    jr nz,foes_move_next
+    ld (iy+E_TICK),FOE_TICK
+    ld a,(iy+E_X)
+    add a,(iy+E_DIR)
+    ld (iy+E_X),a
+    cp (iy+E_X0)
+    jr z,foes_move_turn
+    cp (iy+E_X1)
+    jr nz,foes_move_bob
+foes_move_turn
+    ld a,(iy+E_DIR)                     ; the end of the beat: about turn
+    neg
+    ld (iy+E_DIR),a
+
+foes_move_bob
+    call foe_kind_ptr
+    ld a,K_FLY
+    call foe_kind_byte
+    or a
+    jr z,foes_move_next
+    ld a,(iy+E_PHASE)
+    inc a
+    and 15
+    ld (iy+E_PHASE),a
+    ld e,a
+    ld d,0
+    ld hl,foe_bob
+    add hl,de
+    ld a,(iy+E_Y0)
+    add a,(hl)
+    ld (iy+E_Y),a
+
+foes_move_next
+    ld de,E_SIZE
+    add iy,de
+    pop bc
+    djnz foes_move_one
+    ret
+
+;; Sixteen steps of a lazy arc, in scanlines off the line it flies along.
+foe_bob
+    defb 0, 1, 2, 3, 4, 5, 5, 6, 6, 6, 5, 5, 4, 3, 2, 1
+
+;; ---------------------------------------------------------------------------
+;; The three kinds, and the three of them in the shop. A kind is two pictures
+;; each way round, how big it is, and whether it flies.
+;; ---------------------------------------------------------------------------
+foe_kinds
+    defw spr_broom_a, spr_broom_b, spr_broom_a_l, spr_broom_b_l
+    defb SPR_BROOM_A_W, SPR_BROOM_A_H, 0
+    defw spr_mouse_a, spr_mouse_b, spr_mouse_a_l, spr_mouse_b_l
+    defb SPR_MOUSE_A_W, SPR_MOUSE_A_H, 0
+    defw spr_seagull_a, spr_seagull_b, spr_seagull_a_l, spr_seagull_b_l
+    defb SPR_SEAGULL_A_W, SPR_SEAGULL_A_H, 1
+
+;; kind, x, y, the line a flier bobs about, the two ends of its beat, which
+;; way it is going, and then the six bytes it keeps for itself.
+foes
+    defb K_BROOM, 40, FLOOR_TOP-SPR_BROOM_A_H, 0, 34, 52, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
+    defb K_MOUSE, 80, FLOOR_TOP-SPR_MOUSE_A_H, 0, 56, 92, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
+    defb K_GULL, 64, 72, 72, 58, 84, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
+
+;; ---------------------------------------------------------------------------
 ;; What he can stand on: first column, last column, top scanline - and #FF at
 ;; the end of it. The floor, the four boards of the shelving, the lid of the
 ;; crates and the counter top, which are the same rectangles the furniture is
@@ -638,6 +948,9 @@ shop_soap
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 mitsos_erase
+    ld a,(mitsos_drawn)                 ; nothing under him the first time
+    or a
+    ret z
     ld a,MITSOS_W
     ld (spr_w),a
     ld a,MITSOS_H
@@ -674,11 +987,15 @@ mitsos_draw_pick
 
     ld a,(mitsos_x)
     ld (spr_x),a
+    ld (mitsos_ox),a                    ; where his picture will be standing
     push hl
     ld a,(mitsos_y)
+    ld (mitsos_oy),a
     call spr_row_ptr                    ; wants DE and HL for itself
     pop hl
     ld de,mitsos_buf
+    ld a,1
+    ld (mitsos_drawn),a
     jp spr_draw
 
 ;; The three frames facing right, then the same three facing left. Two bytes
@@ -1011,12 +1328,6 @@ shop_things
     defb 42, SHELF_1-12
     defw spr_sausage
     defb 62, SHELF_1-24-12          ; on the counter top
-    defw spr_seagull_a_l
-    defb 64, 72                     ; perched on the window ledge
-    defw spr_broom_a
-    defb 52, FLOOR_TOP-28           ; leaning where she left it
-    defw spr_mouse_a
-    defb 80, FLOOR_TOP-12
     defw 0
 
 ;; ---------------------------------------------------------------------------
@@ -1071,12 +1382,14 @@ mitsos_ofeet    defs 1              ; where his feet were at the top of the
 mitsos_nfeet    defs 1              ; step, and where they are now
 mitsos_ox       defs 1              ; and where his picture still is
 mitsos_oy       defs 1
-mitsos_oframe   defs 1
+mitsos_drawn    defs 1              ; is there anything in his buffer yet
 mitsos_face     defs 1              ; FACE_RIGHT / FACE_LEFT
 mitsos_frame    defs 1              ; 0 standing, 1 and 2 the waddle
 mitsos_tick     defs 1              ; frames until the next one
-mitsos_redraw   defs 1              ; something moved, so he has to be rebuilt
 mitsos_buf      defs MITSOS_BYTES
+
+;; One patch of shop per enemy, all of them the size of the biggest.
+foe_bufs        defs FOE_COUNT*FOE_BUF
 
     IF TARGET==1
 RUN mitsos_start
