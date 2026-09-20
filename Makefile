@@ -252,50 +252,63 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@echo "    the same overscan screen as the other game and the same sixteen"
 	@echo "    pens, with a shop painted on it out of boxes - brick wall, dado,"
 	@echo "    tiled floor with two puddles of soap on it, shelving, counter,"
-	@echo "    crates - and a cast moving about in it. The picture is rebuilt"
-	@echo "    twenty-five times a second and the game thinks fifty, which is"
-	@echo "    what keeps ten milliseconds of sprite work off the beam."
-	@echo "    He has weight: nine frames of right get him to nine bytes along"
-	@echo "    and half speed, top speed comes at eighteen, and letting go"
-	@echo "    slides him on - until 55, where the soap starts and nothing"
-	@echo "    takes his speed away at all."
-	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 80 $(MITSOS_SIM) \
-		--keys "RIGHT@25-45" \
+	@echo "    crates, the basket that is the way out - and a cast moving about"
+	@echo "    in it. The picture is rebuilt twenty-five times a second and the"
+	@echo "    game thinks fifty, which is what keeps ten milliseconds of"
+	@echo "    sprite work off the beam. He has weight: five frames of right"
+	@echo "    get him to nine bytes along and half speed, top speed comes at"
+	@echo "    fifteen, and letting go slides him six bytes before he stops."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 100 $(MITSOS_SIM) \
+		--keys "RIGHT@50-70" \
 		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_vx:s" \
-		| grep -E "frame +(30|40|50|70) "
+		| grep -E "frame +(55|65|75|95) "
 	@echo "=== mitsos, gravity and the four boards of the shelving ==="
 	@echo "    8.8 fixed point, a quarter of a pixel a frame of gravity and"
-	@echo "    four and a half out of a jump: 78 lands on the bottom board and"
-	@echo "    three more jumps from a standstill put him on the top one at 84."
-	@echo "    That is the level design's own test - the boards are 32 apart"
-	@echo "    because that is what this jump clears, and if it stops passing"
-	@echo "    the shop is no longer climbable."
+	@echo "    four and a half out of a jump: 80 lands on the bottom board and"
+	@echo "    three more jumps put him on the top one at 84, with the catnip"
+	@echo "    and the fish eaten on the way past. That is the level design's"
+	@echo "    own test - the boards are 32 apart because that is what this"
+	@echo "    jump clears, and if it stops passing the shop is unplayable."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 200 $(MITSOS_SIM) \
-		--keys "RIGHT@25-33,FIRE@50-53,FIRE@78-81,FIRE@106-109,FIRE@134-137" \
-		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_y,mitsos_state" \
-		| grep -E "frame +(51|78|106|134|162) "
+		--keys "FIRE@50-53,FIRE@78-81,FIRE@106-109,FIRE@134-137" \
+		--sym $(BUILD)/mitsos.sym \
+		--watch "mitsos_y,mitsos_state,score+1,mezes_left" \
+		| grep -E "frame +(45|80|108|136|164) "
 	@echo "=== mitsos, the belly bounce ==="
-	@echo "    the mechanic the whole game is built round. He jumps at 62 and"
-	@echo "    comes down on the mouse at 95: it goes flat for a hundred frames"
-	@echo "    and stops dead at byte 56, and he leaves at -5.5 instead of the"
-	@echo "    -4.5 his own jump is worth. That buys him 58 scanlines against"
-	@echo "    the 39 a jump clears - the apex at 118 is 142, and the floor he"
-	@echo "    left is 236."
-	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 130 $(MITSOS_SIM) \
-		--keys "RIGHT@25-45,FIRE@62-65" --sym $(BUILD)/mitsos.sym \
-		--watch "mitsos_y,mitsos_vy:s,foes+16,foes+25" \
-		| grep -E "frame +(94|95|110|118) "
+	@echo "    the mechanic the whole game is built round. He runs at the broom"
+	@echo "    and jumps, and comes down on it at 97: it goes flat for a"
+	@echo "    hundred frames and stops dead where it stood, and he leaves at"
+	@echo "    -5.25 instead of the -4.5 his own jump is worth. The apex at 120"
+	@echo "    is scanline 127, which is above the third board - from a floor"
+	@echo "    at 236, and a jump of his own only clears 39."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 160 $(MITSOS_SIM) \
+		--keys "RIGHT@50-68,FIRE@68-71" --sym $(BUILD)/mitsos.sym \
+		--watch "mitsos_x,mitsos_y,mitsos_vy:s,foes+10" \
+		| grep -E "frame +(96|97|110|120) "
 	@echo "=== mitsos, three lives and what they cost ==="
 	@echo "    walking into something still on its feet costs one and puts him"
 	@echo "    back by the door with two seconds of grace, blinking, because"
 	@echo "    reappearing inside the broom would otherwise take all three"
-	@echo "    without a key being touched. 82 is the first, and holding right"
-	@echo "    into it over and over runs them out at 422, which puts GAME OVER"
+	@echo "    without a key being touched. 91 is the first, and holding right"
+	@echo "    into it over and over runs them out at 423, which puts GAME OVER"
 	@echo "    up and waits for fire."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 440 $(MITSOS_SIM) \
-		--keys "RIGHT@25-440" --sym $(BUILD)/mitsos.sym \
+		--keys "RIGHT@50-440" --sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_lives,mitsos_grace,mitsos_over" \
-		| grep -E "frame +(81|82|250|421|422) "
+		| grep -E "frame +(90|91|422|423) "
+	@echo "=== mitsos, the mezedes and the basket they open ==="
+	@echo "    four of them, and the basket on the top board stays shut until"
+	@echo "    the last one is off a shelf. The catnip is not one of the four -"
+	@echo "    it is worth five hundred against their hundred and the way out"
+	@echo "    does not wait for it, which is the choice it exists to make."
+	@echo "    Three of the four are poked away rather than walked to: 137 eats"
+	@echo "    the fish, which is the last of them, and the lid comes off. He"
+	@echo "    walks into it at 190 and that is the shop done."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 200 $(MITSOS_SIM) \
+		--poke "mezes_left=1@120" --sym $(BUILD)/mitsos.sym \
+		--keys "FIRE@50-53,FIRE@78-81,FIRE@106-109,FIRE@134-137,RIGHT@170-186" \
+		--watch "mitsos_x,score+1,mezes_left,basket_open,mitsos_over" \
+		| grep -E "poked|frame +(81|136|137|190) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

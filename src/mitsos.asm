@@ -149,6 +149,30 @@ K_GULL          EQU 2
 
 FOE_BUF         EQU SPR_BROOM_A_W*SPR_BROOM_A_H  ; the biggest of them
 
+;; --- What he came for ------------------------------------------------------
+;; Four mezedes on the shelves, and the basket by the top board does not open
+;; until all four are off them. The catnip is not one of them - it is worth
+;; five times as much and the way out does not wait for it, which is the
+;; choice it exists to make.
+PICK_COUNT      EQU 5
+MEZE_COUNT      EQU 4
+PICK_BUF        EQU SPR_FISH_W*SPR_FISH_H        ; they are all this size
+
+P_SPR           EQU 0                   ; the picture, two bytes
+P_X             EQU 2
+P_Y             EQU 3
+P_MEZE          EQU 4                   ; does the basket wait for this one
+P_ALIVE         EQU 5
+P_SIZE          EQU 6
+
+BASKET_X        EQU 26                  ; standing on the top board
+BASKET_Y        EQU SHELF_4-20
+BASKET_W        EQU 8
+
+SCORE_BYTES     EQU 3                   ; six BCD digits
+MEZE_POINTS     EQU #01                 ; BCD, into the hundreds digit
+CATNIP_POINTS   EQU #05
+
 ;; --- Lives -----------------------------------------------------------------
 ;; Three, and two seconds of grace after each one goes: walking back into the
 ;; broom on the frame he reappears would be a way of losing all three without
@@ -166,8 +190,10 @@ HUD_H           EQU 10
 OVER_Y          EQU 96
 OVER_H          EQU 56
 OVER_SCALE      EQU 5                   ; scanlines per source row: 40 tall
-LIVES_LABEL_X   EQU 3
-LIVES_X         EQU 21
+SCORE_LABEL_X   EQU 3
+SCORE_X         EQU 21
+LIVES_LABEL_X   EQU 54
+LIVES_X         EQU 72
 
 ;; Which string table it starts on. L switches it while it runs, and only the
 ;; text is repainted - the shop does not know what language it is in.
@@ -273,11 +299,24 @@ game_start
     ld de,foes                          ; their marks
     ld bc,FOE_COUNT*E_SIZE
     ldir
+    ld hl,pickups_init                  ; and the shelves stocked again
+    ld de,pickups
+    ld bc,PICK_COUNT*P_SIZE
+    ldir
 
     xor a
     ld (mitsos_over),a
     ld (mitsos_grace),a
     ld (mitsos_drawn),a
+    ld (basket_open),a
+    ld h,a                              ; and nothing on the score
+    ld l,a
+    ld (score),hl
+    ld (score+1),hl
+    ld a,MEZE_COUNT
+    ld (mezes_left),a
+    call draw_pickups
+    call draw_score
     ;; fall through
 
 ;; ---------------------------------------------------------------------------
@@ -313,7 +352,9 @@ switch_language
     ld a,(mitsos_over)
     or a
     ret z
-    jp draw_over                        ; the panel is words too
+    dec a
+    jp z,draw_over                      ; whichever panel is up is words too
+    jp draw_done
 
 ;; ---------------------------------------------------------------------------
 ;; draw_hud - the strip along the top. Cleared first, because small text
@@ -328,10 +369,18 @@ draw_hud
 
     ld hl,line_tab+(HUD_Y+1)*2
     ld (txt_row),hl
+    ld a,SCORE_LABEL_X
+    ld (txt_x),a
+    ld a,MSG_SCORE
+    call msg_small
+
+    ld hl,line_tab+(HUD_Y+1)*2
+    ld (txt_row),hl
     ld a,LIVES_LABEL_X
     ld (txt_x),a
     ld a,MSG_LIVES
     call msg_small
+    call draw_score
     ;; fall through
 
 ;; ---------------------------------------------------------------------------
@@ -353,12 +402,69 @@ draw_lives
     ret
 
 ;; ---------------------------------------------------------------------------
+;; draw_score - six digits, straight out of three bytes of BCD. Solid, so it
+;; goes over the ones that were there.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+draw_score
+    ld hl,line_tab+(HUD_Y+1)*2
+    ld (txt_row),hl
+    ld a,SCORE_X
+    ld (txt_x),a
+    ld a,1
+    ld (txt_solid),a
+    ld hl,score
+    ld b,SCORE_BYTES
+    call print_digits
+    xor a
+    ld (txt_solid),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; add_score - A = hundreds to add, in BCD. The score is packed BCD most
+;; significant byte first, so the hundreds are the low nibble of the middle
+;; byte and DAA does the arithmetic - which is the whole reason it is kept
+;; this way round rather than as a number that would need dividing to print.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+add_score
+    ld hl,score+SCORE_BYTES-2           ; the hundreds digit lives in this one
+    ld b,SCORE_BYTES-1
+    or a
+add_score_byte
+    ld c,a
+    ld a,(hl)
+    adc a,c
+    daa
+    ld (hl),a
+    dec hl
+    ld a,0                              ; only the carry goes up
+    djnz add_score_byte
+    jp draw_score
+
+;; ---------------------------------------------------------------------------
+;; draw_done - the other way a shop ends.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+draw_done
+    ld a,MSG_DONE
+    ld b,PEN9_BYTE                      ; green, because it is good news
+    jr draw_panel
+
+;; ---------------------------------------------------------------------------
 ;; draw_over - GAME OVER across the middle of the shop, and how to start
 ;; again under it. The ground is cleared first: big text writes where the
 ;; letter is and skips where it is not, and small text blends.
 ;; Destroys everything.
 ;; ---------------------------------------------------------------------------
 draw_over
+    ld a,MSG_GAMEOVER
+    ld b,PEN13_BYTE                     ; in red, which nothing else here is
+
+;; A = the message to put up big, B = the pen to put it up in.
+draw_panel
+    push af
+    push bc
     ld hl,line_tab+OVER_Y*2
     ld de,OVER_H
     ld a,PEN0_BYTE
@@ -368,13 +474,14 @@ draw_over
     ld (txt_xs),a                       ; 24 pixels to a letter
     ld a,OVER_SCALE
     ld (txt_ys),a
-    ld a,PEN13_BYTE                     ; in red, which nothing else here is
+    pop bc
+    ld a,b
     ld (txt_big_pen),a
     ld a,1
     ld (txt_big_solid),a
     ld hl,line_tab+(OVER_Y+4)*2
     ld (txt_row),hl
-    ld a,MSG_GAMEOVER
+    pop af
     call msg_big_centre
 
     ld hl,line_tab+(OVER_Y+OVER_H-10)*2
@@ -401,6 +508,9 @@ mitsos_move
     ld a,(mitsos_state)
     or a
     call nz,mitsos_air
+
+    call mitsos_collect                 ; what he is standing in, and then
+    call mitsos_escape                  ; whether it was the way out
 
     ld hl,mitsos_grace                  ; the blinking runs itself down
     ld a,(hl)
@@ -1377,7 +1487,7 @@ draw_shop_props
 draw_shop_prop
     ld a,(hl)
     inc a
-    jr z,draw_shop_things
+    jr z,draw_shop_props_done
     dec a
     ld (prop_x),a
     inc hl
@@ -1394,35 +1504,161 @@ draw_shop_prop
     pop hl
     jr draw_shop_prop
 
-;; And the things standing on it. They go down through the masked blit and
-;; stay there: nothing picks them up yet, so they are part of the shop, and
-;; Mitsos walking in front of one puts it back for free.
-draw_shop_things
-    ld hl,shop_things
-draw_shop_thing
-    ld e,(hl)
-    inc hl
-    ld d,(hl)
-    inc hl
-    ld a,d
-    or e
-    ret z
-    ld a,(hl)                           ; x, in bytes
-    inc hl
+;; The way out, shut. It opens when the last meze comes off a shelf.
+draw_shop_props_done
+    ld a,BASKET_X
+    ld (prop_x),a
+    ld a,BASKET_Y
+    ld (prop_y),a
+    ld hl,box_basket
+    jp draw_boxes
+
+;; ---------------------------------------------------------------------------
+;; draw_pickups - the five things on the shelves, each keeping the patch of
+;; shop it covers, so that picking it up is putting that patch back.
+;; Destroys AF, BC, DE, HL, IX, IY.
+;; ---------------------------------------------------------------------------
+draw_pickups
+    ld iy,pickups
+    ld hl,pick_back
+    ld b,PICK_COUNT
+draw_pickups_one
+    push bc
+    push hl
+    ld a,(iy+P_ALIVE)
+    or a
+    jr z,draw_pickups_next
+    ld a,(iy+P_X)
     ld (spr_x),a
-    ld a,(hl)                           ; y, the top scanline
-    inc hl
-    push hl
-    push af
-    ex de,hl
+    ld l,(iy+P_SPR)
+    ld h,(iy+P_SPR+1)
     call spr_size                       ; -> spr_w, spr_h, HL at the pixels
-    pop af
     push hl
+    ld a,(iy+P_Y)
     call spr_row_ptr
     pop hl
-    call spr_blit
+    pop de                              ; its buffer
+    push de
+    call spr_draw
+draw_pickups_next
     pop hl
-    jr draw_shop_thing
+    ld de,PICK_BUF
+    add hl,de
+    ld de,P_SIZE
+    add iy,de
+    pop bc
+    djnz draw_pickups_one
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_collect - anything he is standing in that can be eaten.
+;;
+;; Putting the buffer back is what takes it off the shelf, and this runs with
+;; the whole cast lifted off the screen, which is the only window where that
+;; is safe: outside it a sprite's save buffer would either put back what was
+;; just removed or capture it and carry it about the shop.
+;; Destroys AF, BC, DE, HL, IX, IY.
+;; ---------------------------------------------------------------------------
+mitsos_collect
+    ld iy,pickups
+    ld hl,pick_back
+    ld b,PICK_COUNT
+mitsos_collect_one
+    push bc
+    push hl
+    ld a,(iy+P_ALIVE)
+    or a
+    jr z,mitsos_collect_next
+
+    ld b,(iy+P_X)                       ; the columns it covers
+    ld a,SPR_FISH_W-1
+    add a,b
+    call mitsos_overlap
+    jr nc,mitsos_collect_next
+
+    ld a,(mitsos_y)                     ; and the scanlines
+    add a,MITSOS_H-1
+    cp (iy+P_Y)
+    jr c,mitsos_collect_next
+    ld a,(iy+P_Y)
+    add a,SPR_FISH_H-1
+    ld c,a
+    ld a,(mitsos_y)
+    cp c
+    jr z,mitsos_collect_take
+    jr nc,mitsos_collect_next
+
+mitsos_collect_take
+    ld (iy+P_ALIVE),0
+    ld a,SPR_FISH_W
+    ld (spr_w),a
+    ld a,SPR_FISH_H
+    ld (spr_h),a
+    ld a,(iy+P_X)
+    ld (spr_x),a
+    ld a,(iy+P_Y)
+    call spr_row_ptr
+    pop hl
+    push hl
+    call spr_restore                    ; the shelf, back the way it was
+
+    ld a,CATNIP_POINTS                  ; and what it was worth
+    bit 0,(iy+P_MEZE)
+    jr z,mitsos_collect_score
+    ld a,MEZE_POINTS
+mitsos_collect_score
+    call add_score
+
+    bit 0,(iy+P_MEZE)
+    jr z,mitsos_collect_next
+    ld hl,mezes_left
+    dec (hl)
+    jr nz,mitsos_collect_next
+    call open_basket
+
+mitsos_collect_next
+    pop hl
+    ld de,PICK_BUF
+    add hl,de
+    ld de,P_SIZE
+    add iy,de
+    pop bc
+    djnz mitsos_collect_one
+    ret
+
+;; ---------------------------------------------------------------------------
+;; open_basket - the lid comes off, and from then on it is a way out.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+open_basket
+    ld a,1
+    ld (basket_open),a
+    ld a,BASKET_X
+    ld (prop_x),a
+    ld a,BASKET_Y
+    ld (prop_y),a
+    ld hl,box_basket_open
+    jp draw_boxes
+
+;; ---------------------------------------------------------------------------
+;; mitsos_escape - standing in an open basket is the end of the shop.
+;; Destroys AF, BC, HL.
+;; ---------------------------------------------------------------------------
+mitsos_escape
+    ld a,(basket_open)
+    or a
+    ret z
+    ld b,BASKET_X
+    ld a,BASKET_X+BASKET_W-1
+    call mitsos_overlap
+    ret nc
+    ld a,(mitsos_y)
+    add a,MITSOS_H-1
+    cp BASKET_Y
+    ret c
+    ld a,2                              ; out through the basket, and done
+    ld (mitsos_over),a
+    jp draw_done
 
 ;; ---------------------------------------------------------------------------
 ;; draw_wall - the brickwork, course by course.
@@ -1561,21 +1797,37 @@ box_sacks
     defb #FF
 
 ;; ---------------------------------------------------------------------------
-;; What is standing on the shelves, and who is standing about in the shop.
-;; Sprite, then x in bytes and the top scanline. Ends on a zero pointer.
+;; What is standing on the shelves: the picture, where it is, whether the way
+;; out waits for it, and whether it is still there. The last of those is why
+;; this is copied into RAM at the top of a game rather than read where it lies.
 ;; ---------------------------------------------------------------------------
-shop_things
+pickups_init
     defw spr_fish
-    defb  8, SHELF_4-12
+    defb  8, SHELF_4-SPR_FISH_H, 1, 1
     defw spr_cheese
-    defb 22, SHELF_3-12
-    defw spr_catnip
-    defb 10, SHELF_2-12
-    defw spr_meatball
-    defb 42, SHELF_1-12
+    defb 22, SHELF_3-SPR_FISH_H, 1, 1
     defw spr_sausage
-    defb 62, SHELF_1-24-12          ; on the counter top
-    defw 0
+    defb 62, SHELF_1-24-SPR_FISH_H, 1, 1     ; on the counter top
+    defw spr_meatball
+    defb 42, SHELF_1-8-SPR_FISH_H, 1, 1      ; on the lid of the crates
+    defw spr_catnip
+    defb 10, SHELF_2-SPR_FISH_H, 0, 1        ; and the one nothing waits for
+
+;; 32 x 20 px: the basket by the top board, shut and then not.
+box_basket
+    defb  0,  0,  8, 20, 6
+    defb  1,  2,  6, 16, 15
+    defb  0,  0,  8,  4, 12             ; the lid, while there is one
+    defb  1,  8,  6,  2, 6
+    defb #FF
+
+box_basket_open
+    defb  0,  0,  8, 20, 6
+    defb  1,  2,  6, 16, 0              ; the dark inside of it, and a way out
+    defb  0,  0,  1,  4, 12             ; the lid, tipped off the side
+    defb  7,  0,  1,  4, 12
+    defb  1,  8,  6,  2, 6
+    defb #FF
 
 ;; ---------------------------------------------------------------------------
 ;; The sixteen pens. Hardware colour numbers, not firmware INK numbers - the
@@ -1638,6 +1890,9 @@ mitsos_frame    defs 1              ; 0 standing, 1 and 2 the waddle
 mitsos_tick     defs 1              ; frames until the next one
 mitsos_buf      defs MITSOS_BYTES
 
+score           defs SCORE_BYTES    ; packed BCD, most significant byte first
+mezes_left      defs 1              ; how many the basket is still waiting for
+basket_open     defs 1              ; and whether it has stopped waiting
 mitsos_lives    defs 1              ; three, and the HUD prints this one
 mitsos_grace    defs 1              ; frames of blinking left after losing one
 mitsos_over     defs 1              ; out of them, and waiting for fire
@@ -1646,6 +1901,10 @@ mitsos_over     defs 1              ; out of them, and waiting for fire
 ;; patch of shop per enemy, all of them the size of the biggest.
 foes            defs FOE_COUNT*E_SIZE
 foe_bufs        defs FOE_COUNT*FOE_BUF
+
+;; The shelves as they stand, and the patch of shop under each thing on them.
+pickups         defs PICK_COUNT*P_SIZE
+pick_back       defs PICK_COUNT*PICK_BUF
 
     IF TARGET==1
 RUN mitsos_start

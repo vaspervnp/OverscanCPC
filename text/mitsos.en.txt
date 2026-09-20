@@ -1,9 +1,11 @@
 # English strings for ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ. "ID = text", UTF-8, one per
 # line. Every ID here must also exist in mitsos.el.txt.
 # Only characters the font has are allowed - tools/mktext.py checks.
-# GAMEOVER is drawn large: 12 characters at most, or it will not fit across
-# 384 pixels.
+# GAMEOVER and DONE are drawn large: 12 characters at most, or they will not
+# fit across 384 pixels.
 
+SCORE     = SCORE
 LIVES     = LIVES
 GAMEOVER  = GAME OVER
+DONE      = WELL DONE
 AGAIN     = PRESS FIRE TO TRY AGAIN
