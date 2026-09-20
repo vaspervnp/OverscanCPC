@@ -37,7 +37,7 @@ FLOOR_TOP       EQU 236                 ; the tiles start here
 DADO_TOP        EQU 188                 ; and the painted lower wall here
 GROUT_STEP      EQU 8                   ; a floor tile is this many bytes
 
-;; The wall is brick under the whitewash, and at this scale a course is about
+;; The wall is brick, and at this scale a course is about
 ;; a hand's width: 16 scanlines to a course, 8 bytes to a brick - 32 pixels on
 ;; the monitor - and every other course offset by half a brick, which is what
 ;; makes it read as a wall rather than as a grid. The joints are a byte wide
@@ -258,12 +258,12 @@ mitsos_frames
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 draw_shop
-    ld hl,line_tab                      ; whitewash, wall to wall, to start
+    ld hl,line_tab                      ; the brick, wall to wall, to start
     ld de,DISPLAY_LINES
-    ld a,PEN15_BYTE
+    ld a,PEN1_BYTE
     call clear_rows
 
-    call draw_wall                      ; then the courses of brick in it
+    call draw_wall                      ; then the joints cut into it
 
     ld hl,line_tab+DADO_TOP*2           ; the painted lower half of it
     ld de,FLOOR_TOP-DADO_TOP
@@ -360,7 +360,7 @@ draw_shop_thing
 ;; ---------------------------------------------------------------------------
 ;; draw_wall - the brickwork, course by course.
 ;;
-;; The whitewash is already down; this puts the joints into it. A bed joint
+;; The brick is already down; this puts the joints into it. A bed joint
 ;; runs the whole width, the perpends are a byte each and half a brick further
 ;; along on every other course, and the last course is allowed to run past the
 ;; bottom of the wall because the dado is painted over it afterwards.
@@ -370,7 +370,7 @@ draw_shop_thing
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 draw_wall
-    ld a,PEN5_BYTE                      ; mortar, grey against the whitewash
+    ld a,PEN15_BYTE                     ; mortar, pale against the red
     ld (fill_b),a
     ld bc,0                             ; B = stagger, C = top of the course
 
@@ -524,7 +524,7 @@ shop_things
 ;; ---------------------------------------------------------------------------
 pal_shop
     defb 0,   #40+4             ; navy - shadow, and what a mask lets through
-    defb 1,   #40+7             ; coral
+    defb 1,   #40+7             ; coral - the brick the shop is built of
     defb 2,   #40+10            ; butter yellow - you can stand on this
     defb 3,   #40+11            ; bright white
     defb 4,   #40+20            ; black
@@ -538,8 +538,8 @@ pal_shop
     defb 12,  #40+28            ; dark red - shadow in the wood
     defb 13,  #40+12            ; bright red
     defb 14,  #40+24            ; purple
-    defb 15,  #40+3             ; pale yellow - the whitewash
-    defb #10, #40+3             ; the border, so the sliver matches the wall
+    defb 15,  #40+3             ; pale yellow - the mortar between it
+    defb #10, #40+7             ; the border, so the sliver matches the wall
     defb #FF
 
     include "crtc.asm"
