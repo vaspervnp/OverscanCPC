@@ -3,7 +3,7 @@
 #   make              everything
 #   make hello        the overscan proof of concept
 #   make loukoumas    ΛΟΥΚΟΥΜΑΣ title screen, English and Greek
-#   make mitsos       ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ, the mode 1 game
+#   make mitsos       ΠΑΝΙΚΟΣ ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ, the second game
 #   make assets       regenerate the font, strings and sprites (needs python3)
 #   make shots        retake every screen shot in docs/, both languages
 #   make check        run each binary on a Z80 interpreter and decode the screen
@@ -309,6 +309,20 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		--keys "FIRE@50-53,FIRE@78-81,FIRE@106-109,FIRE@134-137,RIGHT@170-186" \
 		--watch "mitsos_x,score+1,mezes_left,basket_open,mitsos_over" \
 		| grep -E "poked|frame +(81|136|137|190) "
+	@echo "=== mitsos, the catnip rush ==="
+	@echo "    what the catnip is for, and it is not the five hundred points."
+	@echo "    81 is him eating it: 384 frames of double speed - 512 against"
+	@echo "    the 256 a byte a frame is - of nothing in the shop being able to"
+	@echo "    touch him, and of everything he walks into going over instead."
+	@echo "    He runs right off the boards, turns round at the wall and comes"
+	@echo "    back through the lot: the mouse at 155, the broom at 165, both"
+	@echo "    flat for the two seconds a belly bounce costs them, and three"
+	@echo "    lives still there at 199 - which without it is two by frame 91."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 200 $(MITSOS_SIM) \
+		--keys "FIRE@50-53,FIRE@78-81,RIGHT@95-135,LEFT@140-200" \
+		--sym $(BUILD)/mitsos.sym \
+		--watch "mitsos_x,mitsos_vx:s,mitsos_rush:w,mitsos_lives,foes+10,foes+25" \
+		| grep -E "frame +(80|81|103|155|165|199) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

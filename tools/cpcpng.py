@@ -2,10 +2,9 @@
 """A PNG reader, so the build needs nothing that is not in the standard library.
 
 Aseprite writes 8-bit RGBA, uninterlaced; the other colour types are here
-because a one-line check beats a confusing failure. Both art converters read
-their pictures through this - tools/mkart.py for the mode 0 game and
-tools/mkmitsos.py for the mode 1 one - so there is one place that knows what
-a PNG is.
+because a one-line check beats a confusing failure. tools/mkart.py reads every
+picture in the project through this - the sprites and decals of both games
+on this engine - so there is one place that knows what a PNG is.
 """
 
 import struct

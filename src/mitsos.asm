@@ -173,6 +173,34 @@ SCORE_BYTES     EQU 3                   ; six BCD digits
 MEZE_POINTS     EQU #01                 ; BCD, into the hundreds digit
 CATNIP_POINTS   EQU #05
 
+;; --- The catnip ------------------------------------------------------------
+;; What the catnip is for, and the reason it is worth walking out of the way
+;; for something the basket does not wait for: eight seconds of double speed,
+;; of nothing in the shop being able to lay a hand on him, and of everything
+;; he walks into going flat on its back instead.
+;;
+;; 384 frames of the 50 Hz the game thinks in is a shade under those eight
+;; seconds, and it is that rather than 400 because it is twelve bars of 32 -
+;; so the meter in the HUD comes off five shifts instead of a division, and
+;; is exactly as many bytes wide as it has bars.
+RUSH_TIME       EQU 384
+RUSH_BAR        EQU 32                  ; frames to a bar of the meter
+RUSH_WARN       EQU 100                 ; the border blinks over the last two
+RUSH_MAX        EQU VX_MAX*2            ; two bytes a frame, and twice the
+RUSH_ACCEL      EQU VX_ACCEL*2          ; push it takes to get there
+RUSH_POINTS     EQU #01                 ; sweeping one aside is worth a meze
+
+;; The border is the one thing on this machine that changes in a single byte
+;; and cannot be missed, and a game with 384 pixels of picture has no border
+;; left to lose - which makes it exactly the right place to say that the
+;; rules have changed for a moment.
+RUSH_COL        EQU #40+18              ; bright green, the catnip's own
+SHOP_COL        EQU #40+7               ; and the coral of the wall after it
+
+METER_X         EQU 40                  ; the gap between the score and LIVES
+METER_W         EQU RUSH_TIME/RUSH_BAR
+METER_H         EQU 6
+
 ;; --- Lives -----------------------------------------------------------------
 ;; Three, and two seconds of grace after each one goes: walking back into the
 ;; broom on the frame he reappears would be a way of losing all three without
@@ -185,6 +213,7 @@ GRACE           EQU 100                 ; frames, at the 50 Hz the game thinks
 ;; everything the game does - SHOP_TOP is the ceiling and it is below this.
 HUD_Y           EQU 2
 HUD_H           EQU 10
+METER_Y         EQU HUD_Y+2             ; the catnip meter, inside the strip
 
 ;; And the panel that goes up when they run out.
 OVER_Y          EQU 96
@@ -309,6 +338,8 @@ game_start
     ld (mitsos_grace),a
     ld (mitsos_drawn),a
     ld (basket_open),a
+    ld (rush_bars),a
+    call rush_stop                      ; his own weight back, and the border
     ld h,a                              ; and nothing on the score
     ld l,a
     ld (score),hl
@@ -511,6 +542,7 @@ mitsos_move
 
     call mitsos_collect                 ; what he is standing in, and then
     call mitsos_escape                  ; whether it was the way out
+    call rush_tick                      ; and how much catnip is left in him
 
     ld hl,mitsos_grace                  ; the blinking runs itself down
     ld a,(hl)
@@ -534,7 +566,7 @@ mitsos_walk
     ld de,VX_SOAP                       ; what he can push with, and
     ld bc,0                             ; what the floor takes back
     jr c,mitsos_walk_keys
-    ld de,VX_ACCEL
+    ld de,(vx_acc)
     ld a,(mitsos_state)
     or a
     jr nz,mitsos_walk_keys              ; in the air nothing is rubbing
@@ -628,20 +660,20 @@ mitsos_vx_push
     add hl,de
     bit 7,h
     jr nz,mitsos_vx_push_left
-    ld de,VX_MAX
+    ld de,(vx_top)
     or a
     sbc hl,de
     add hl,de
     jr c,mitsos_vx_store                ; under it
-    ld hl,VX_MAX
+    ld hl,(vx_top)
     jr mitsos_vx_store
 mitsos_vx_push_left
-    ld de,-VX_MAX
+    ld de,(vx_bot)
     or a
     sbc hl,de
     add hl,de
     jr nc,mitsos_vx_store               ; over it
-    ld hl,-VX_MAX
+    ld hl,(vx_bot)
 mitsos_vx_store
     ld (mitsos_vx),hl
     ret
@@ -962,6 +994,11 @@ mitsos_hurt_rows
     cp (iy+E_Y)
     jr c,mitsos_hurt_next
 
+    ld hl,(mitsos_rush)                 ; full of catnip: it goes over, not him
+    ld a,h
+    or l
+    jr nz,mitsos_hurt_sweep
+
     pop bc
     ;; fall through
 
@@ -988,7 +1025,17 @@ mitsos_lose
 mitsos_lose_over
     ld a,1
     ld (mitsos_over),a
+    call rush_stop
     jp draw_over
+
+;; Swept aside rather than walked into: it goes down for the same two seconds
+;; the belly bounce costs it, and is worth the same as a meze. He does not
+;; stop, which is the whole point of the catnip - the rest of the cast is
+;; scenery until it wears off.
+mitsos_hurt_sweep
+    ld (iy+E_STUN),STUN_TIME
+    ld a,RUSH_POINTS
+    call add_score
 
 mitsos_hurt_next
     pop bc
@@ -1324,11 +1371,17 @@ mitsos_draw
     ld (mitsos_drawn),a
     ret
 mitsos_draw_on
+    ld hl,(mitsos_rush)                 ; which of him is standing there
+    ld a,h
+    or l
+    ld hl,mitsos_frames
+    jr z,mitsos_draw_table
+    ld hl,mitsos_rush_frames
+mitsos_draw_table
     ld a,(mitsos_frame)
     add a,a
     ld e,a
     ld d,0
-    ld hl,mitsos_frames
     add hl,de
     ld a,(mitsos_face)
     or a
@@ -1364,6 +1417,17 @@ mitsos_frames
     defw spr_mitsos_stand_l
     defw spr_mitsos_walk1_l
     defw spr_mitsos_walk2_l
+
+;; And the same six with his eyes out on stalks, which is what the catnip
+;; looks like from the outside. Same size, same frame numbers, so nothing but
+;; which table is read changes while it lasts.
+mitsos_rush_frames
+    defw spr_mitsos_rush
+    defw spr_mitsos_rush1
+    defw spr_mitsos_rush2
+    defw spr_mitsos_rush_l
+    defw spr_mitsos_rush1_l
+    defw spr_mitsos_rush2_l
 
 ;; ---------------------------------------------------------------------------
 ;; draw_shop - the background, once.
@@ -1610,7 +1674,10 @@ mitsos_collect_score
     call add_score
 
     bit 0,(iy+P_MEZE)
-    jr z,mitsos_collect_next
+    jr nz,mitsos_collect_meze
+    call rush_start                     ; the catnip, and what it is really for
+    jr mitsos_collect_next
+mitsos_collect_meze
     ld hl,mezes_left
     dec (hl)
     jr nz,mitsos_collect_next
@@ -1658,7 +1725,158 @@ mitsos_escape
     ret c
     ld a,2                              ; out through the basket, and done
     ld (mitsos_over),a
+    call rush_stop
     jp draw_done
+
+;; ---------------------------------------------------------------------------
+;; rush_start - the catnip is down him.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+rush_start
+    ld hl,RUSH_TIME
+    ld (mitsos_rush),hl
+    ld a,1
+    call set_speeds
+    ld a,RUSH_COL
+    call set_border
+    jp draw_meter
+
+;; ---------------------------------------------------------------------------
+;; rush_stop - and out of him again, however that came about: it ran out, he
+;; walked into the basket, or the shop is over.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+rush_stop
+    ld hl,0
+    ld (mitsos_rush),hl
+    xor a
+    call set_speeds
+    ld a,SHOP_COL
+    call set_border
+    jp draw_meter
+
+;; ---------------------------------------------------------------------------
+;; rush_tick - one 50 Hz step of it.
+;;
+;; The border is solid green while there is more than two seconds in him and
+;; blinks eight frames on, eight off after that, so the moment he stops being
+;; able to walk through the broom is not a surprise.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+rush_tick
+    ld hl,(mitsos_rush)
+    ld a,h
+    or l
+    ret z
+    dec hl
+    ld (mitsos_rush),hl
+    ld a,h
+    or l
+    jr z,rush_stop                      ; that was the last of it
+
+    ld a,h                              ; over a second left: solid green
+    or a
+    jr nz,rush_tick_green
+    ld a,l
+    cp RUSH_WARN
+    jr nc,rush_tick_green
+    bit 3,l
+    jr nz,rush_tick_green
+    ld a,SHOP_COL
+    jr rush_tick_border
+rush_tick_green
+    ld a,RUSH_COL
+rush_tick_border
+    call set_border
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; draw_meter - how much of it is left, as a bar in the gap the HUD leaves
+;; between the score and LIVES. A bar is 32 frames, so which bar it is on
+;; comes off five shifts, and it is only painted on the frame one goes.
+;;
+;; Nothing is ever lifted off this strip - SHOP_TOP is below it and he cannot
+;; rise past that - so unlike everything else that changes the background,
+;; this does not have to wait for the window between the erase and the draw.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+draw_meter
+    ld hl,(mitsos_rush)
+    ld b,5                              ; /32 - RUSH_BAR frames to a bar
+draw_meter_shift
+    srl h
+    rr l
+    djnz draw_meter_shift
+    ld a,l
+    ld hl,rush_bars
+    cp (hl)
+    ret z                               ; still the same length as it was
+    ld (hl),a
+
+    ld b,a                              ; B = bars of catnip left
+    ld a,METER_X
+    ld (fill_x),a
+    ld a,PEN9_BYTE                      ; the catnip's own green
+    ld (fill_b),a
+    ld a,b
+    or a
+    jr z,draw_meter_rest
+    ld l,b
+    ld h,0
+    ld (fill_w),hl
+    ld hl,line_tab+METER_Y*2
+    ld de,METER_H
+    push bc
+    call fill_rows
+    pop bc
+
+draw_meter_rest
+    ld a,METER_X                        ; and the dark the rest of it has
+    add a,b                             ; already run down to
+    ld (fill_x),a
+    ld a,METER_W
+    sub b
+    ret z
+    ld l,a
+    ld h,0
+    ld (fill_w),hl
+    ld a,PEN0_BYTE
+    ld (fill_b),a
+    ld hl,line_tab+METER_Y*2
+    ld de,METER_H
+    jp fill_rows
+
+;; ---------------------------------------------------------------------------
+;; set_speeds - A = 0 for his own weight, 1 for what the catnip makes of it.
+;; Six bytes: the two ends his velocity is held between and what a key adds.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+set_speeds
+    ld hl,speed_tab
+    or a
+    jr z,set_speeds_copy
+    ld de,6
+    add hl,de
+set_speeds_copy
+    ld de,vx_top
+    ld bc,6
+    ldir
+    ret
+
+speed_tab
+    defw VX_MAX,  -VX_MAX,  VX_ACCEL    ; a cat with a shop's worth of lunch in
+    defw RUSH_MAX,-RUSH_MAX,RUSH_ACCEL  ; him, and one that has forgotten it
+
+;; ---------------------------------------------------------------------------
+;; set_border - A = the hardware colour, already with the #40 on it.
+;; Destroys AF, BC, DE.
+;; ---------------------------------------------------------------------------
+set_border
+    ld e,a
+    ld bc,#7F10                         ; the Gate Array, border pen
+    out (c),c
+    out (c),e
+    ret
 
 ;; ---------------------------------------------------------------------------
 ;; draw_wall - the brickwork, course by course.
@@ -1889,6 +2107,16 @@ mitsos_face     defs 1              ; FACE_RIGHT / FACE_LEFT
 mitsos_frame    defs 1              ; 0 standing, 1 and 2 the waddle
 mitsos_tick     defs 1              ; frames until the next one
 mitsos_buf      defs MITSOS_BYTES
+
+;; What the keys can push him to, and how hard. In RAM rather than in the
+;; instructions because the catnip doubles both of them for eight seconds;
+;; set_speeds writes all three at once and they have to stay in this order.
+vx_top          defs 2              ; the fastest he is allowed to go right
+vx_bot          defs 2              ; and left, which is the same signed
+vx_acc          defs 2              ; and what a frame of a key adds to it
+
+mitsos_rush     defs 2              ; frames of catnip left in him
+rush_bars       defs 1              ; and how many of them the meter is showing
 
 score           defs SCORE_BYTES    ; packed BCD, most significant byte first
 mezes_left      defs 1              ; how many the basket is still waiting for
