@@ -36,6 +36,7 @@ BANKSET 0
 FLOOR_TOP       EQU 236                 ; the tiles start here
 DADO_TOP        EQU 188                 ; and the painted lower wall here
 GROUT_STEP      EQU 8                   ; a floor tile is this many bytes
+SOAP_H          EQU 10                  ; how deep a puddle of it looks
 
 ;; The wall is brick, and at this scale a course is about
 ;; a hand's width: 16 scanlines to a course, 8 bytes to a brick - 32 pixels on
@@ -66,6 +67,21 @@ MITSOS_Y0       EQU FLOOR_TOP-MITSOS_H  ; where he comes in, on the floor
 MITSOS_XMAX     EQU BYTES_PER_LINE-MITSOS_W
 MITSOS_BYTES    EQU MITSOS_W*MITSOS_H
 WALK_TICKS      EQU 5                   ; frames between the two walk frames
+
+;; --- Weight ----------------------------------------------------------------
+;; He does not start and stop, he gets going and then goes on going, which is
+;; the one thing the design document is insistent about: he is overweight.
+;; Sideways position and velocity are 8.8 fixed point like the vertical ones,
+;; so a frame can move him a fraction of a byte and the fractions add up.
+;;
+;; Top speed is what a step used to be - one byte, four pixels a frame - and
+;; it takes eight frames to get there and a bit over ten to lose it. On soap
+;; he can barely push at all and nothing slows him down, so the only thing
+;; that stops him is a wall.
+VX_MAX          EQU #0100               ; 1 byte a frame
+VX_ACCEL        EQU #0020               ; eight frames to reach it
+VX_BRAKE        EQU #0018               ; and eleven to lose it
+VX_SOAP         EQU #0008               ; what a paw can do on wet tiles
 
 FACE_RIGHT      EQU 0
 FACE_LEFT       EQU 1
@@ -116,6 +132,10 @@ mitsos_start
     ld a,8
     ld (mitsos_x),a
     ld (mitsos_ox),a
+    xor a
+    ld (mitsos_xf),a
+    ld hl,0
+    ld (mitsos_vx),hl
     ld a,MITSOS_Y0
     ld (mitsos_y),a
     ld (mitsos_oy),a
@@ -194,45 +214,90 @@ mitsos_move_dirty
     ret
 
 ;; ---------------------------------------------------------------------------
-;; mitsos_walk - left and right, and the two-frame waddle that goes with them.
-;; Destroys AF, BC, HL.
+;; mitsos_walk - left and right push, they do not place.
+;;
+;; A key adds to his sideways velocity and letting go takes it away again, so
+;; he leans into a walk and slides out of it. How hard each of those is
+;; depends on what he is standing on: on soap the push is a quarter of what it
+;; was and there is nothing at all taking it away, which is what makes a
+;; soapy floor a floor you have to plan for rather than walk across.
+;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 mitsos_walk
-    ld a,(mitsos_x)
-    ld b,a
+    call mitsos_slippery
+    ld de,VX_SOAP                       ; what he can push with, and
+    ld bc,0                             ; what the floor takes back
+    jr c,mitsos_walk_keys
+    ld de,VX_ACCEL
+    ld a,(mitsos_state)
+    or a
+    jr nz,mitsos_walk_keys              ; in the air nothing is rubbing
+    ld bc,VX_BRAKE
 
+mitsos_walk_keys
     ld a,(ctl_now)
     bit CTL_LEFT,a
     jr nz,mitsos_walk_left
     bit CTL_RIGHT,a
     jr nz,mitsos_walk_right
 
-    xor a                               ; standing still: legs together, and
-    ld (mitsos_tick),a                  ; the counter back to the top so the
-    ld (mitsos_frame),a                 ; first step out is always the same one
-    ret
+    ld d,b                              ; nothing held: the floor does the rest
+    ld e,c
+    call mitsos_vx_brake
+    jr mitsos_walk_move
 
 mitsos_walk_left
     ld a,FACE_LEFT
     ld (mitsos_face),a
-    ld a,b
-    or a
-    jr z,mitsos_walk_step               ; already against the left wall
-    dec b
-    jr mitsos_walk_step
+    ld a,d                              ; -DE, the other way
+    cpl
+    ld d,a
+    ld a,e
+    cpl
+    ld e,a
+    inc de
+    call mitsos_vx_push
+    jr mitsos_walk_move
 
 mitsos_walk_right
     xor a
     ld (mitsos_face),a
-    ld a,b
-    cp MITSOS_XMAX
-    jr nc,mitsos_walk_step
-    inc b
+    call mitsos_vx_push
 
-mitsos_walk_step
-    ld a,b
-    ld (mitsos_x),a
+;; Move him by whatever that came to, and stop dead at either wall - which on
+;; soap is the only thing that does stop him.
+mitsos_walk_move
+    ld hl,(mitsos_xf)
+    ld de,(mitsos_vx)
+    add hl,de
+    jr c,mitsos_walk_moved              ; carry out, so no underflow
+    bit 7,d
+    jr z,mitsos_walk_moved              ; DE was positive anyway
+    ld hl,0                             ; into the left wall
+    ld (mitsos_vx),hl
+mitsos_walk_moved
+    ld a,h
+    cp MITSOS_XMAX+1
+    jr c,mitsos_walk_store
+    ld hl,MITSOS_XMAX*256               ; and into the right one
+    push hl
+    ld hl,0
+    ld (mitsos_vx),hl
+    pop hl
+mitsos_walk_store
+    ld (mitsos_xf),hl
 
+;; The waddle runs while he is moving at all, however he came to be moving.
+    ld hl,(mitsos_vx)
+    ld a,h
+    or l
+    jr nz,mitsos_walk_anim
+    xor a                               ; stopped: legs together, and the
+    ld (mitsos_tick),a                  ; counter back to the top so the first
+    ld (mitsos_frame),a                 ; step out is always the same one
+    ret
+
+mitsos_walk_anim
     ld hl,mitsos_tick
     inc (hl)
     ld a,(hl)
@@ -246,6 +311,103 @@ mitsos_walk_step
     ld a,1
 mitsos_walk_set
     ld (mitsos_frame),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_vx_push - add DE to his sideways velocity, held to VX_MAX either way.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+mitsos_vx_push
+    ld hl,(mitsos_vx)
+    add hl,de
+    bit 7,h
+    jr nz,mitsos_vx_push_left
+    ld de,VX_MAX
+    or a
+    sbc hl,de
+    add hl,de
+    jr c,mitsos_vx_store                ; under it
+    ld hl,VX_MAX
+    jr mitsos_vx_store
+mitsos_vx_push_left
+    ld de,-VX_MAX
+    or a
+    sbc hl,de
+    add hl,de
+    jr nc,mitsos_vx_store               ; over it
+    ld hl,-VX_MAX
+mitsos_vx_store
+    ld (mitsos_vx),hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_vx_brake - take DE off his velocity, towards standing still and no
+;; further. DE of zero is soap, and does nothing at all.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+mitsos_vx_brake
+    ld a,d
+    or e
+    ret z
+    ld hl,(mitsos_vx)
+    ld a,h
+    or l
+    ret z
+    bit 7,h
+    jr nz,mitsos_vx_brake_left
+    or a
+    sbc hl,de
+    jr nc,mitsos_vx_store               ; still going right
+    ld hl,0
+    jr mitsos_vx_store
+mitsos_vx_brake_left
+    add hl,de
+    bit 7,h
+    jr nz,mitsos_vx_store               ; still going left
+    ld hl,0
+    jr mitsos_vx_store
+
+;; ---------------------------------------------------------------------------
+;; mitsos_slippery - carry set if the tiles he is standing on have been
+;; mopped and not rinsed. In the air, nothing is underfoot and nothing is
+;; slippery.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+mitsos_slippery
+    ld a,(mitsos_state)
+    or a
+    ret nz
+    ld a,(mitsos_y)
+    add a,MITSOS_H
+    ld b,a                              ; his feet
+    ld hl,shop_soap
+mitsos_slippery_loop
+    ld a,(hl)
+    inc a
+    jr z,mitsos_slippery_no
+    dec a
+    ld c,a                              ; first column
+    inc hl
+    ld a,(hl)                           ; last column
+    inc hl
+    ld e,(hl)                           ; the surface it is on
+    inc hl
+    push hl
+    push bc
+    push de
+    ld b,c
+    call mitsos_overlap
+    pop de
+    pop bc
+    pop hl
+    jr nc,mitsos_slippery_loop
+    ld a,b
+    cp e
+    jr nz,mitsos_slippery_loop
+    scf
+    ret
+mitsos_slippery_no
+    or a
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -461,6 +623,17 @@ shop_plats
     defb #FF
 
 ;; ---------------------------------------------------------------------------
+;; And where somebody has been mopping: the same three bytes, and the surface
+;; has to be one a line of shop_plats names or nothing will ever be standing
+;; on it. Both of these are on the floor, which is where a bucket gets put
+;; down.
+;; ---------------------------------------------------------------------------
+shop_soap
+    defb 34, 50, FLOOR_TOP              ; one at the foot of the crates
+    defb 58, 74, FLOOR_TOP              ; and one in front of the counter
+    defb #FF
+
+;; ---------------------------------------------------------------------------
 ;; mitsos_erase - put the shop back where he was standing.
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
@@ -574,8 +747,68 @@ draw_shop_grout
     cp BYTES_PER_LINE
     jr c,draw_shop_grout
 
+;; The soap, over the tiles and the line between them, because a puddle does
+;; not respect grouting.
+    ld hl,shop_soap
+draw_shop_soap
+    ld a,(hl)
+    inc a
+    jr z,draw_shop_props
+    dec a
+    ld (fill_x),a
+    ld c,a
+    inc hl
+    ld a,(hl)                           ; last column
+    inc hl
+    sub c
+    inc a
+    ld e,a
+    ld d,0
+    push hl
+    ex de,hl
+    ld (fill_w),hl
+    pop hl
+    ld e,(hl)                           ; the surface it is lying on
+    inc hl
+    push hl
+    ld a,PEN11_BYTE                     ; the water
+    ld (fill_b),a
+    ld a,e
+    push de
+    call wall_row_ptr
+    ld de,SOAP_H
+    call fill_rows
+    pop de
+
+    ld a,PEN3_BYTE                      ; the foam where it meets the tiles
+    ld (fill_b),a
+    ld a,e
+    push de
+    call wall_row_ptr
+    ld de,2
+    call fill_rows
+    pop de
+
+    ld a,(fill_x)                       ; and the shine across the middle of
+    add a,2                             ; it, held off both ends
+    ld (fill_x),a
+    ld hl,(fill_w)
+    dec hl
+    dec hl
+    dec hl
+    dec hl
+    ld (fill_w),hl
+    ld a,e
+    add a,SOAP_H/2
+    call wall_row_ptr
+    ld de,2
+    call fill_rows
+    pop hl
+    jr draw_shop_soap
+
 ;; The furniture, in the order it stands in: the window is in the wall behind
 ;; everything, the shelving and the counter in front of it.
+draw_shop_props
     ld hl,shop_props
 draw_shop_prop
     ld a,(hl)
@@ -827,7 +1060,9 @@ code_end
 
 ;; Mitsos's own RAM, past the engine's. The buffer is the patch of shop he is
 ;; standing in front of, and it is his: nothing else is lifted off yet.
-mitsos_x        defs 1              ; where he is, in bytes
+mitsos_xf       defs 1              ; 8.8 again, and the same trick: mitsos_xf
+mitsos_x        defs 1              ; then mitsos_x, so the pair loads at once
+mitsos_vx       defs 2              ; sideways velocity, signed
 mitsos_yf       defs 1              ; 8.8 fixed point: mitsos_yf then mitsos_y,
 mitsos_y        defs 1              ; so "ld hl,(mitsos_yf)" loads the pair
 mitsos_vy       defs 2              ; vertical velocity, same units, signed

@@ -239,36 +239,45 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@./tools/z80check.py $(BUILD)/hello.bin --ascii
 	@echo "=== mitsos, the grocery ==="
 	@echo "    the same overscan screen as the other game and the same sixteen"
-	@echo "    pens, with a shop painted on it out of boxes - wall, dado, tiled"
-	@echo "    floor, shelving, counter, crates - and the cast standing in it."
-	@echo "    Painting it - whitewash, twelve courses of brick, the dado, the"
-	@echo "    tiles, the furniture - takes twenty frames of fills, which is"
-	@echo "    four tenths of a second at the top of the game and nothing after"
-	@echo "    that. He comes in at byte 8 facing right, walks to 44 on 37"
-	@echo "    frames of right, and stands still again when it is let go."
-	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 60 --keys "RIGHT@20-56" \
-		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_face,mitsos_frame" \
-		| grep -E "frame +(21|40|59) "
+	@echo "    pens, with a shop painted on it out of boxes - brick wall, dado,"
+	@echo "    tiled floor with two puddles of soap on it, shelving, counter,"
+	@echo "    crates - and the cast standing in it. Painting the lot takes"
+	@echo "    twenty frames of fills at the top of the game and nothing after."
+	@echo "    He has weight: nine frames of right get him to nine bytes along"
+	@echo "    and only half speed, top speed comes at nineteen, and letting go"
+	@echo "    slides him six more bytes before he stops."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 70 --keys "RIGHT@25-40" \
+		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_vx:s" \
+		| grep -E "frame +(30|40|50|60) "
 	@echo "=== mitsos, gravity and the four boards of the shelving ==="
 	@echo "    8.8 fixed point, a quarter of a pixel a frame of gravity and"
-	@echo "    four and a half out of a jump: 46 leaves the floor, 63 is the"
-	@echo "    apex 39 scanlines up, and 70 lands on the bottom board. Three"
-	@echo "    more jumps and he is on the top one at 84, which is the level"
-	@echo "    design's own test - the boards are 32 apart because that is what"
-	@echo "    this jump clears, and if this stops passing the shop is no"
-	@echo "    longer climbable."
-	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 175 \
-		--keys "RIGHT@25-40,FIRE@45-48,FIRE@73-76,FIRE@101-104,FIRE@129-132" \
-		--sym $(BUILD)/mitsos.sym --watch "mitsos_y,mitsos_state,mitsos_vy:s" \
-		| grep -E "frame +(46|63|70|98|126|154) "
-	@echo "=== mitsos, and off the end of a shelf is a fall ==="
-	@echo "    a platform holds him up only while he is over it: walking past"
-	@echo "    the end of the board at 82 puts him back in the air with no"
-	@echo "    push behind him, and the floor catches him at 100."
-	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 120 \
-		--keys "RIGHT@25-40,FIRE@45-48,RIGHT@72-95" \
+	@echo "    four and a half out of a jump: 51 leaves the floor, 75 lands on"
+	@echo "    the bottom board, and three more jumps from a standstill put him"
+	@echo "    on the top one at 84. That is the level design's own test - the"
+	@echo "    boards are 32 apart because that is what this jump clears, and"
+	@echo "    if it stops passing the shop is no longer climbable."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 180 \
+		--keys "RIGHT@25-33,FIRE@50-53,FIRE@78-81,FIRE@106-109,FIRE@134-137" \
 		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_y,mitsos_state" \
-		| grep -E "frame +(70|82|100) "
+		| grep -E "frame +(51|75|103|131|159) "
+	@echo "=== mitsos, and off the end of a shelf is a fall ==="
+	@echo "    a board holds him up only while he is over it: walking past the"
+	@echo "    end of it at 97 puts him back in the air with no push behind"
+	@echo "    him, and he arcs off it carrying the speed he had."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 120 \
+		--keys "RIGHT@25-33,FIRE@50-53,RIGHT@77-110" \
+		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_y,mitsos_state" \
+		| grep -E "frame +(96|97|110) "
+	@echo "=== mitsos, and the soap on the tiles ==="
+	@echo "    a puddle takes the friction away and leaves him almost nothing"
+	@echo "    to push against. Right is let go on frame 52 at full speed and"
+	@echo "    twenty bytes of soap go by without him losing any of it; the dry"
+	@echo "    tiles at the far end of it are the first thing that slows him -"
+	@echo "    and there are only six bytes of those before the second puddle,"
+	@echo "    which is all he gets to think in."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 110 --keys "RIGHT@25-52" \
+		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_vx:s" \
+		| grep -E "frame +(52|62|72|74|90) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="
