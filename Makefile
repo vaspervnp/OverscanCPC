@@ -249,6 +249,26 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 60 --keys "RIGHT@20-56" \
 		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_face,mitsos_frame" \
 		| grep -E "frame +(21|40|59) "
+	@echo "=== mitsos, gravity and the four boards of the shelving ==="
+	@echo "    8.8 fixed point, a quarter of a pixel a frame of gravity and"
+	@echo "    four and a half out of a jump: 46 leaves the floor, 63 is the"
+	@echo "    apex 39 scanlines up, and 70 lands on the bottom board. Three"
+	@echo "    more jumps and he is on the top one at 84, which is the level"
+	@echo "    design's own test - the boards are 32 apart because that is what"
+	@echo "    this jump clears, and if this stops passing the shop is no"
+	@echo "    longer climbable."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 175 \
+		--keys "RIGHT@25-40,FIRE@45-48,FIRE@73-76,FIRE@101-104,FIRE@129-132" \
+		--sym $(BUILD)/mitsos.sym --watch "mitsos_y,mitsos_state,mitsos_vy:s" \
+		| grep -E "frame +(46|63|70|98|126|154) "
+	@echo "=== mitsos, and off the end of a shelf is a fall ==="
+	@echo "    a platform holds him up only while he is over it: walking past"
+	@echo "    the end of the board at 82 puts him back in the air with no"
+	@echo "    push behind him, and the floor catches him at 100."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 120 \
+		--keys "RIGHT@25-40,FIRE@45-48,RIGHT@72-95" \
+		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_y,mitsos_state" \
+		| grep -E "frame +(70|82|100) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

@@ -62,13 +62,31 @@ SHELF_4         EQU 108
 ;; monitor pixels.
 MITSOS_W        EQU SPR_MITSOS_STAND_W
 MITSOS_H        EQU SPR_MITSOS_STAND_H
-MITSOS_Y        EQU FLOOR_TOP-MITSOS_H  ; standing on the floor
+MITSOS_Y0       EQU FLOOR_TOP-MITSOS_H  ; where he comes in, on the floor
 MITSOS_XMAX     EQU BYTES_PER_LINE-MITSOS_W
 MITSOS_BYTES    EQU MITSOS_W*MITSOS_H
 WALK_TICKS      EQU 5                   ; frames between the two walk frames
 
 FACE_RIGHT      EQU 0
 FACE_LEFT       EQU 1
+
+;; --- Gravity ---------------------------------------------------------------
+;; Vertical position and velocity are 8.8 fixed point - a byte of scanline and
+;; a byte of fraction - because whole-pixel gravity at 50 Hz has no usable
+;; range between a brick and a balloon. 256 is one pixel a frame.
+;;
+;; These are the numbers the other game on this engine settled on, and they
+;; are what the shelves are spaced against: a quarter of a pixel a frame of
+;; gravity and four and a half up out of a jump clears about forty scanlines,
+;; so a board 32 above the one below it is reachable and one 64 above it is
+;; not. Change either and the shop stops being climbable.
+GRAVITY         EQU #0040               ; 0.25 px/frame - apex in 18 frames
+JUMP_V          EQU #FB80               ; -4.5 px/frame, about 40 px up
+MAX_FALL        EQU #0600               ; +6.0 px/frame terminal velocity
+SHOP_TOP        EQU 12                  ; he cannot rise past this scanline
+
+ST_GROUND       EQU 0
+ST_AIR          EQU 1
 
     ORG #4000                           ; RAM whatever the ROMs are doing, and
                                         ; clear of the screen at #8000
@@ -94,14 +112,21 @@ mitsos_start
 
     call irq_init                       ; and the 50 Hz tick under everything
 
-;; Mitsos comes in from the left, facing right and standing still.
+;; Mitsos comes in from the left, facing right and standing on the floor.
     ld a,8
     ld (mitsos_x),a
     ld (mitsos_ox),a
+    ld a,MITSOS_Y0
+    ld (mitsos_y),a
+    ld (mitsos_oy),a
     xor a
+    ld (mitsos_yf),a
     ld (mitsos_face),a
     ld (mitsos_tick),a
     ld (mitsos_frame),a
+    ld (mitsos_state),a                 ; ST_GROUND
+    ld hl,0
+    ld (mitsos_vy),hl
     call mitsos_draw
 
 ;; ---------------------------------------------------------------------------
@@ -120,54 +145,91 @@ main_loop
     jr main_loop
 
 ;; ---------------------------------------------------------------------------
-;; mitsos_move - left and right walk him along the floor, a byte a frame.
+;; mitsos_move - one 50 Hz step of him: the keys, then the physics.
 ;;
-;; Nothing here knows about the animation beyond which way he is going: the
-;; walk counter runs while he is moving and stops when he is not, and the
-;; frame it picks is the only thing mitsos_draw looks at.
-;; Destroys AF, BC, HL.
+;; Left and right walk him a byte a frame whether he is on something or in the
+;; air, which is the air control every platform game of this shape has. Fire
+;; or up leaves the ground. Everything after that is gravity.
+;;
+;; The picture is only rebuilt if something about it changed, so a cat
+;; standing still on a shelf costs nothing at all.
+;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 mitsos_move
-    ld a,(mitsos_x)
-    ld (mitsos_ox),a                    ; where he is about to stop being
-    ld b,a
+    ld a,(mitsos_x)                     ; where his picture still is
+    ld (mitsos_ox),a
+    ld a,(mitsos_y)
+    ld (mitsos_oy),a
+    ld a,(mitsos_frame)
+    ld (mitsos_oframe),a
+
+    call mitsos_walk
+    ld a,(mitsos_state)
+    or a
+    call z,mitsos_ground
+    ld a,(mitsos_state)
+    or a
+    call nz,mitsos_air
+
+;; Anything that moved him, or changed which of him is being drawn, means the
+;; picture has to be taken up and put down again.
+    ld a,(mitsos_ox)
+    ld hl,mitsos_x
+    cp (hl)
+    jr nz,mitsos_move_dirty
+    ld a,(mitsos_oy)
+    ld hl,mitsos_y
+    cp (hl)
+    jr nz,mitsos_move_dirty
+    ld a,(mitsos_oframe)
+    ld hl,mitsos_frame
+    cp (hl)
+    jr nz,mitsos_move_dirty
     xor a
     ld (mitsos_redraw),a
+    ret
+mitsos_move_dirty
+    ld a,1
+    ld (mitsos_redraw),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_walk - left and right, and the two-frame waddle that goes with them.
+;; Destroys AF, BC, HL.
+;; ---------------------------------------------------------------------------
+mitsos_walk
+    ld a,(mitsos_x)
+    ld b,a
 
     ld a,(ctl_now)
     bit CTL_LEFT,a
-    jr nz,mitsos_move_left
+    jr nz,mitsos_walk_left
     bit CTL_RIGHT,a
-    jr nz,mitsos_move_right
+    jr nz,mitsos_walk_right
 
-    ld a,(mitsos_frame)                 ; standing still: legs together, and
-    or a                                ; the counter back to the top so the
-    ret z                               ; first step out is always the same one
-    xor a
-    ld (mitsos_tick),a
-    ld (mitsos_frame),a
-    jr mitsos_move_again
+    xor a                               ; standing still: legs together, and
+    ld (mitsos_tick),a                  ; the counter back to the top so the
+    ld (mitsos_frame),a                 ; first step out is always the same one
+    ret
 
-mitsos_move_left
+mitsos_walk_left
     ld a,FACE_LEFT
     ld (mitsos_face),a
     ld a,b
     or a
-    jr z,mitsos_step                    ; already against the left wall
+    jr z,mitsos_walk_step               ; already against the left wall
     dec b
-    jr mitsos_step
+    jr mitsos_walk_step
 
-mitsos_move_right
+mitsos_walk_right
     xor a
     ld (mitsos_face),a
     ld a,b
     cp MITSOS_XMAX
-    jr nc,mitsos_step
+    jr nc,mitsos_walk_step
     inc b
 
-;; Walking: keep the new x, and step the two-frame waddle every WALK_TICKS.
-;; Either way he has moved, so the picture has to be rebuilt.
-mitsos_step
+mitsos_walk_step
     ld a,b
     ld (mitsos_x),a
 
@@ -175,20 +237,228 @@ mitsos_step
     inc (hl)
     ld a,(hl)
     cp WALK_TICKS
-    jr c,mitsos_move_again
+    ret c
     ld (hl),0
     ld a,(mitsos_frame)                 ; 0 or 2 -> 1, and 1 -> 2
     cp 1
     ld a,2
-    jr z,mitsos_move_set
+    jr z,mitsos_walk_set
     ld a,1
-mitsos_move_set
+mitsos_walk_set
     ld (mitsos_frame),a
-
-mitsos_move_again
-    ld a,1
-    ld (mitsos_redraw),a
     ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_ground - standing on something. Fire leaves it; walking off the end
+;; of it does too, and the only difference between those is the velocity.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+mitsos_ground
+    ld a,(ctl_now)
+    and (1<<CTL_FIRE)|(1<<CTL_UP)
+    jr z,mitsos_ground_check
+    ld hl,JUMP_V
+    ld (mitsos_vy),hl
+    ld a,ST_AIR
+    ld (mitsos_state),a
+    ret
+
+;; Still over the thing he was standing on? Walking off the end of a shelf is
+;; a fall with no push behind it, which is what leaving vy at zero means.
+mitsos_ground_check
+    ld a,(mitsos_y)
+    add a,MITSOS_H
+    ld b,a                              ; his feet
+    ld hl,shop_plats
+mitsos_ground_loop
+    ld a,(hl)
+    inc a
+    jr z,mitsos_ground_off
+    dec a
+    ld c,a                              ; first column
+    inc hl
+    ld a,(hl)                           ; last column
+    inc hl
+    ld e,(hl)                           ; top scanline
+    inc hl
+    push hl
+    push bc
+    push de
+    ld b,c
+    call mitsos_overlap
+    pop de
+    pop bc
+    pop hl
+    jr nc,mitsos_ground_loop
+    ld a,b
+    cp e
+    jr nz,mitsos_ground_loop
+    ret                                 ; still standing on it
+
+mitsos_ground_off
+    ld hl,0
+    ld (mitsos_vy),hl
+    ld a,ST_AIR
+    ld (mitsos_state),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_air - gravity, then whether anything caught him on the way down.
+;;
+;; Platforms are one-way: landing is only looked for while he is falling, by
+;; asking whether a shelf top lies between where his feet were and where they
+;; now are. Going up he passes straight through, which is what lets him climb
+;; the shelving from underneath.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+mitsos_air
+    ld hl,(mitsos_vy)
+    ld de,GRAVITY
+    add hl,de
+    bit 7,h
+    jr nz,mitsos_air_velocity           ; still rising
+    ld de,MAX_FALL
+    push hl
+    or a
+    sbc hl,de
+    pop hl
+    jr c,mitsos_air_velocity
+    ld hl,MAX_FALL                      ; terminal velocity
+mitsos_air_velocity
+    ld (mitsos_vy),hl
+
+    ld a,(mitsos_y)                     ; remember where the feet were
+    add a,MITSOS_H
+    ld (mitsos_ofeet),a
+
+    ld hl,(mitsos_yf)                   ; 8.8: L = fraction, H = scanline
+    ld de,(mitsos_vy)
+    add hl,de
+    jr c,mitsos_air_moved               ; carry out, so no underflow
+    bit 7,d
+    jr z,mitsos_air_moved               ; DE was positive anyway
+    ld hl,SHOP_TOP*256                  ; rose past the top of the shop
+    ld de,0
+    ld (mitsos_vy),de
+mitsos_air_moved
+    ld (mitsos_yf),hl
+    ld a,h
+    cp SHOP_TOP
+    jr nc,mitsos_air_land
+    ld hl,SHOP_TOP*256                  ; and stopped by the ceiling
+    ld (mitsos_yf),hl
+    ld hl,0
+    ld (mitsos_vy),hl
+
+mitsos_air_land
+    ld hl,(mitsos_vy)
+    bit 7,h
+    ret nz                              ; rising: nothing to land on
+
+    ld a,(mitsos_y)
+    add a,MITSOS_H
+    ld (mitsos_nfeet),a
+    call mitsos_find_landing
+    ret nc
+
+    sub MITSOS_H                        ; A = the top it landed on
+    ld (mitsos_y),a
+    xor a
+    ld (mitsos_yf),a
+    ld hl,0
+    ld (mitsos_vy),hl
+    ld (mitsos_state),a                 ; ST_GROUND, and A is zero
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_find_landing - the highest shelf his feet crossed this step.
+;; Carry set and A = its top scanline, or carry clear if he is still falling.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+mitsos_find_landing
+    ld hl,shop_plats
+    ld c,#FF                            ; best so far
+mitsos_find_loop
+    ld a,(hl)
+    inc a
+    jr z,mitsos_find_done
+    dec a
+    ld b,a                              ; first column
+    inc hl
+    ld a,(hl)                           ; last column
+    inc hl
+    ld e,(hl)                           ; top scanline
+    inc hl
+    push hl
+    push bc
+    push de
+    call mitsos_overlap
+    pop de
+    pop bc
+    pop hl
+    jr nc,mitsos_find_loop
+
+    ld a,(mitsos_ofeet)
+    cp e
+    jr z,mitsos_find_below
+    jr nc,mitsos_find_loop              ; the feet were already past it
+mitsos_find_below
+    ld a,(mitsos_nfeet)
+    cp e
+    jr c,mitsos_find_loop               ; still above it
+    ld a,e
+    cp c
+    jr nc,mitsos_find_loop              ; something higher already found
+    ld c,a
+    jr mitsos_find_loop
+mitsos_find_done
+    ld a,c
+    inc a
+    jr z,mitsos_find_none
+    ld a,c
+    scf
+    ret
+mitsos_find_none
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mitsos_overlap - B = first column, A = last column. Carry set if he is over
+;; that span at all.
+;; Destroys AF, C.
+;; ---------------------------------------------------------------------------
+mitsos_overlap
+    ld c,a
+    ld a,(mitsos_x)
+    cp c
+    jr z,mitsos_overlap_left
+    jr nc,mitsos_overlap_no             ; he starts past the end of it
+mitsos_overlap_left
+    ld a,(mitsos_x)
+    add a,MITSOS_W-1
+    cp b
+    jr c,mitsos_overlap_no              ; and ends before the start of it
+    scf
+    ret
+mitsos_overlap_no
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; What he can stand on: first column, last column, top scanline - and #FF at
+;; the end of it. The floor, the four boards of the shelving, the lid of the
+;; crates and the counter top, which are the same rectangles the furniture is
+;; drawn from and have to stay that way.
+;; ---------------------------------------------------------------------------
+shop_plats
+    defb  0, 95, FLOOR_TOP
+    defb  4, 33, SHELF_1
+    defb  4, 33, SHELF_2
+    defb  4, 33, SHELF_3
+    defb  4, 33, SHELF_4
+    defb 38, 51, SHELF_1-8              ; the lid of the crates
+    defb 56, 87, SHELF_1-24             ; and the counter top
+    defb #FF
 
 ;; ---------------------------------------------------------------------------
 ;; mitsos_erase - put the shop back where he was standing.
@@ -201,7 +471,7 @@ mitsos_erase
     ld (spr_h),a
     ld a,(mitsos_ox)
     ld (spr_x),a
-    ld a,MITSOS_Y
+    ld a,(mitsos_oy)
     call spr_row_ptr
     ld hl,mitsos_buf
     jp spr_restore
@@ -232,7 +502,7 @@ mitsos_draw_pick
     ld a,(mitsos_x)
     ld (spr_x),a
     push hl
-    ld a,MITSOS_Y
+    ld a,(mitsos_y)
     call spr_row_ptr                    ; wants DE and HL for itself
     pop hl
     ld de,mitsos_buf
@@ -558,7 +828,15 @@ code_end
 ;; Mitsos's own RAM, past the engine's. The buffer is the patch of shop he is
 ;; standing in front of, and it is his: nothing else is lifted off yet.
 mitsos_x        defs 1              ; where he is, in bytes
+mitsos_yf       defs 1              ; 8.8 fixed point: mitsos_yf then mitsos_y,
+mitsos_y        defs 1              ; so "ld hl,(mitsos_yf)" loads the pair
+mitsos_vy       defs 2              ; vertical velocity, same units, signed
+mitsos_state    defs 1              ; ST_GROUND / ST_AIR
+mitsos_ofeet    defs 1              ; where his feet were at the top of the
+mitsos_nfeet    defs 1              ; step, and where they are now
 mitsos_ox       defs 1              ; and where his picture still is
+mitsos_oy       defs 1
+mitsos_oframe   defs 1
 mitsos_face     defs 1              ; FACE_RIGHT / FACE_LEFT
 mitsos_frame    defs 1              ; 0 standing, 1 and 2 the waddle
 mitsos_tick     defs 1              ; frames until the next one
