@@ -114,7 +114,7 @@ BOUNCE_V        EQU #FA80               ; -5.5 px/frame, about 60 scanlines
 STUN_TIME       EQU 100                 ; two seconds flat, at 50 Hz
 FOE_TICK        EQU 3                   ; frames between an enemy's steps
 FOE_ANIM        EQU 6                   ; and between its two pictures
-FOE_COUNT       EQU 2
+FOE_COUNT       EQU 3
 
 ;; One enemy. IY addresses these, because IX is the line table cursor inside
 ;; the sprite routines and there is only one of each.
@@ -134,8 +134,9 @@ E_DRAWN         EQU 12                  ; is the buffer under it worth anything
 E_OX            EQU 13                  ; and where its picture still is
 E_OY            EQU 14
 E_DIVE          EQU 15                  ; D_NONE, or which half of a dive
-E_REST          EQU 16                  ; frames before it may try another
-E_SIZE          EQU 17
+E_REST          EQU 16                  ; frames before it tries that again
+E_CARRY         EQU 17                  ; a meze it has got hold of, plus one
+E_SIZE          EQU 18
 
 ;; What a kind of enemy is: two pictures each way round, a size, and whether
 ;; it flies. Three bytes and its art is what a new one costs.
@@ -227,8 +228,12 @@ P_SPR           EQU 0                   ; the picture, two bytes
 P_X             EQU 2
 P_Y             EQU 3
 P_MEZE          EQU 4                   ; does the basket wait for this one
-P_ALIVE         EQU 5
+P_ALIVE         EQU 5                   ; A_GONE, A_SHELF or A_MOUSE
 P_SIZE          EQU 6
+
+A_GONE          EQU 0                   ; eaten
+A_SHELF         EQU 1                   ; sitting where it was put
+A_MOUSE         EQU 2                   ; going somewhere on a mouse's back
 
 BASKET_X        EQU 26                  ; standing on the top board
 BASKET_Y        EQU SHELF_4-20
@@ -265,6 +270,21 @@ SHOP_COL        EQU #40+7               ; and the coral of the wall after it
 METER_X         EQU 40                  ; the gap between the score and LIVES
 METER_W         EQU RUSH_TIME/RUSH_BAR
 METER_H         EQU 6
+
+;; --- The mice, and what they are for ---------------------------------------
+;; A mouse in a grocery is not an obstacle, it is a thief. One walks the
+;; counter, and a meze left on its beat gets picked up and carried to the far
+;; end of it: the shop is not a puzzle you can solve at your own speed once
+;; there is something moving the pieces about while you think.
+;;
+;; Getting it back is the same two answers as everything else in here - land
+;; on the mouse, or go through it full of catnip - because a mouse that is
+;; flat on its back drops what it was holding.
+CARRY_LIFT      EQU 8                   ; how high a stolen meze rides on it
+STEAL_REST      EQU 200                 ; four seconds before it tries again
+STEAL_START     EQU 250                 ; and five at the top of a life, so the
+                                        ; first meze is not gone before he
+                                        ; has had a chance at it
 
 ;; --- Lives -----------------------------------------------------------------
 ;; Three, and two seconds of grace after each one goes: walking back into the
@@ -356,6 +376,7 @@ main_loop
 ;; where nothing will ever erase it again. With the whole cast lifted first,
 ;; every save is of the shop and nothing else, and the room stays clean.
     call mitsos_erase
+    call held_erase                     ; a meze on its way somewhere
     call foes_erase
     call granny_erase                   ; last off, because she goes on first
 
@@ -370,6 +391,7 @@ main_loop_think
 
     call granny_draw                    ; behind the lot of them
     call foes_draw
+    call held_draw                      ; over the mouse that is taking it
     call mitsos_draw                    ; last, so he is the one in front
     jr main_loop
 
@@ -1169,6 +1191,210 @@ mitsos_bounce_next
     ret
 
 ;; ---------------------------------------------------------------------------
+;; mouse_steal - a mouse walking over a meze picks it up.
+;;
+;; Lifting it off the shelf is the same spr_restore that eating it is, and it
+;; is safe here for the same reason: the whole cast is off the screen while
+;; anything thinks. Grandma is the exception - she is left standing on the
+;; frames she has not changed on - so she comes off first.
+;;
+;; The walk over the mezedes wants IY, which is the enemy, so the mouse's own
+;; rectangle goes into two bytes of memory for the length of it.
+;; Destroys AF, BC, DE, HL, IX; IY comes back as it went in.
+;; ---------------------------------------------------------------------------
+mouse_steal
+    call foe_kind_ptr
+    ld a,K_FLY
+    call foe_kind_byte
+    or a
+    ret nz                              ; a gull is after him, not the food
+    ld a,(iy+E_CARRY)
+    or a
+    ret nz                              ; both paws full already
+    ld a,(iy+E_REST)
+    or a
+    jr z,mouse_steal_look
+    dec (iy+E_REST)                     ; not hungry again yet
+    ret
+
+mouse_steal_look
+    ld a,(iy+E_X)
+    ld (steal_x),a
+    ld a,(iy+E_Y)
+    ld (steal_y),a
+    push iy
+    ld iy,pickups
+    ld b,PICK_COUNT
+    ld c,0                              ; which one this is
+mouse_steal_one
+    ld a,(iy+P_ALIVE)
+    cp A_SHELF
+    jr nz,mouse_steal_next
+    bit 0,(iy+P_MEZE)
+    jr z,mouse_steal_next               ; catnip is not food to a mouse
+    push bc
+    call steal_overlap
+    pop bc
+    jr c,mouse_steal_take
+mouse_steal_next
+    ld de,P_SIZE
+    add iy,de
+    inc c
+    djnz mouse_steal_one
+    pop iy
+    ret
+
+;; IY is the meze, C is which one of them it is.
+mouse_steal_take
+    push bc
+    call granny_off                     ; the shelf is about to change
+    pop bc
+    ld a,c
+    push bc
+    call pick_buf_ptr
+    call pick_lift                      ; off the shelf it goes
+    ld (iy+P_ALIVE),A_MOUSE
+    pop bc
+    pop iy                              ; and the mouse again
+    ld a,c
+    inc a                               ; a meze it has got hold of, plus one
+    ld (iy+E_CARRY),a
+
+    ;; and it heads for the far end of its beat with it, turning round now if
+    ;; it has to: a thief that drops the thing two bytes from where it picked
+    ;; it up has not really stolen anything.
+    ld a,(iy+E_X0)
+    add a,(iy+E_X1)
+    rra                                 ; the middle of the beat, carry and all
+    cp (iy+E_X)
+    ld a,-1                             ; it is in the right-hand half of it
+    jr c,mouse_steal_away
+    ld a,1
+mouse_steal_away
+    ld (iy+E_DIR),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; steal_overlap - does the meze at IY sit in the mouse's rectangle?
+;; Carry set if it does.
+;; Destroys AF, BC.
+;; ---------------------------------------------------------------------------
+steal_overlap
+    ld a,(steal_x)
+    ld b,a
+    add a,SPR_MOUSE_A_W-1
+    ld c,a                              ; B..C, the columns the mouse covers
+    ld a,(iy+P_X)
+    cp c
+    jr z,steal_overlap_x
+    jr nc,steal_overlap_no              ; it starts past the end of them
+steal_overlap_x
+    ld a,(iy+P_X)
+    add a,SPR_FISH_W-1
+    cp b
+    jr c,steal_overlap_no               ; and ends before the start of them
+
+    ld a,(steal_y)                      ; the same again down the screen
+    ld b,a
+    add a,SPR_MOUSE_A_H-1
+    ld c,a
+    ld a,(iy+P_Y)
+    cp c
+    jr z,steal_overlap_y
+    jr nc,steal_overlap_no
+steal_overlap_y
+    ld a,(iy+P_Y)
+    add a,SPR_FISH_H-1
+    cp b
+    jr c,steal_overlap_no
+    scf
+    ret
+
+;; Every way out of it that is not an overlap comes through here, because a
+;; "cp" that says no leaves the carry set as often as not and the caller
+;; reads the carry as yes.
+steal_overlap_no
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mouse_carry - whatever it is holding goes where it goes, riding high
+;; enough on its back to be seen over it.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+mouse_carry
+    ld a,(iy+E_CARRY)
+    or a
+    ret z
+    dec a
+    call pick_rec_ptr                   ; HL = the meze it has hold of
+    ld de,P_X
+    add hl,de
+    ld a,(iy+E_X)
+    ld (hl),a
+    inc hl                              ; P_Y
+    ld a,(iy+E_Y)
+    sub CARRY_LIFT
+    ld (hl),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; mouse_drop - and it puts it down: at the end of its beat, which is the
+;; whole point of it, or wherever it was when something landed on it.
+;;
+;; The meze settles onto whatever the mouse is standing on rather than onto
+;; its back, and is drawn there and then: the held pass lifted it off at the
+;; top of this frame and will not be looking at it again.
+;; Destroys AF, BC, DE, HL, IX; IY comes back as it went in.
+;; ---------------------------------------------------------------------------
+mouse_drop
+    ld a,(iy+E_CARRY)
+    or a
+    ret z
+    ld (iy+E_CARRY),0
+    dec a
+    ld c,a                              ; C = which meze it was
+    ld a,STEAL_REST
+    ld (iy+E_REST),a
+    ld a,(iy+E_X)
+    ld b,a                              ; and where it is putting it down
+    ld a,(iy+E_Y)
+    push iy
+    push bc
+    push af
+    ld a,c
+    call pick_rec_ptr
+    push hl
+    pop iy                              ; IY = the meze
+    pop af
+    ld (iy+P_Y),a
+    pop bc
+    ld (iy+P_X),b
+    ld (iy+P_ALIVE),A_SHELF
+    ld a,c
+    call pick_buf_ptr
+    call pick_draw                      ; and there it stays
+    pop iy
+    ret
+
+;; ---------------------------------------------------------------------------
+;; pick_rec_ptr - A = which pickup -> HL = its record. P_SIZE is 6, which is
+;; two and four added together.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+pick_rec_ptr
+    ld l,a
+    ld h,0
+    add hl,hl                           ; x2
+    ld d,h
+    ld e,l
+    add hl,hl                           ; x4
+    add hl,de                           ; x6
+    ld de,pickups
+    add hl,de
+    ret
+
+;; ---------------------------------------------------------------------------
 ;; foe_dive - the seagull, and only the seagull.
 ;;
 ;; On its beat it looks down every frame: if the cat is within DIVE_SEE bytes
@@ -1373,7 +1599,8 @@ foes_move_one
     ld a,(iy+E_STUN)
     or a
     jr z,foes_move_awake
-    dec (iy+E_STUN)                     ; still seeing stars
+    call mouse_drop                     ; flat on its back, and what it was
+    dec (iy+E_STUN)                     ; holding is on the floor beside it
     jr foes_move_next
 
 foes_move_awake
@@ -1387,6 +1614,7 @@ foes_move_awake
 foes_move_dive
     call foe_dive                       ; the gull's own business, and it runs
                                         ; every frame rather than every tick
+    call mouse_steal                    ; and the mice have their own
 foes_move_step
     dec (iy+E_TICK)
     jr nz,foes_move_next
@@ -1399,7 +1627,8 @@ foes_move_step
     cp (iy+E_X1)
     jr nz,foes_move_bob
 foes_move_turn
-    ld a,(iy+E_DIR)                     ; the end of the beat: about turn
+    call mouse_drop                     ; the end of the beat, and as far as
+    ld a,(iy+E_DIR)                     ; anything it is carrying is going
     neg
     ld (iy+E_DIR),a
 
@@ -1425,6 +1654,7 @@ foes_move_bob
     ld (iy+E_Y),a
 
 foes_move_next
+    call mouse_carry                    ; whatever it has goes where it goes
     ld de,E_SIZE
     add iy,de
     pop bc
@@ -1451,9 +1681,12 @@ foe_kinds
 ;; game gets them all back on their feet and where they started.
 foes_init
     defb K_MOUSE, 80, FLOOR_TOP-SPR_MOUSE_A_H, 0, 56, 92, -1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0
+    ;; and the one that walks the counter, which is where the sausage is
+    defb K_MOUSE, 58, SHELF_1-24-SPR_MOUSE_A_H, 0, 58, 84, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0
     defb K_GULL, 64, 72, 72, 58, 84, 1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0
 
 ;; ---------------------------------------------------------------------------
 ;; What he can stand on: first column, last column, top scanline - and #FF at
@@ -1732,8 +1965,25 @@ draw_pickups_one
     push bc
     push hl
     ld a,(iy+P_ALIVE)
-    or a
-    jr z,draw_pickups_next
+    cp A_SHELF
+    call z,pick_draw
+draw_pickups_next
+    pop hl
+    ld de,PICK_BUF
+    add hl,de
+    ld de,P_SIZE
+    add iy,de
+    pop bc
+    djnz draw_pickups_one
+    ret
+
+;; ---------------------------------------------------------------------------
+;; pick_draw - the one at IY, drawn where it says it is, keeping what it
+;; covers in the buffer at HL. HL comes back as it went in.
+;; Destroys AF, BC, DE, IX.
+;; ---------------------------------------------------------------------------
+pick_draw
+    push hl
     ld a,(iy+P_X)
     ld (spr_x),a
     ld l,(iy+P_SPR)
@@ -1746,14 +1996,96 @@ draw_pickups_one
     pop de                              ; its buffer
     push de
     call spr_draw
-draw_pickups_next
+    pop hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; pick_lift - and off again, putting back what it was covering. They are all
+;; one size, so unlike the draw this needs no look at the picture.
+;; Destroys AF, BC, DE, IX.
+;; ---------------------------------------------------------------------------
+pick_lift
+    push hl
+    ld a,SPR_FISH_W
+    ld (spr_w),a
+    ld a,SPR_FISH_H
+    ld (spr_h),a
+    ld a,(iy+P_X)
+    ld (spr_x),a
+    ld a,(iy+P_Y)
+    call spr_row_ptr
+    pop hl
+    push hl
+    call spr_restore
+    pop hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; pick_buf_ptr - A = which pickup -> HL = the buffer that goes with it.
+;; They are PICK_BUF apart, which is 48: sixteen doubled and added to itself
+;; twice, because there is no multiply on this machine.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+pick_buf_ptr
+    ld l,a
+    ld h,0
+    add hl,hl
+    add hl,hl
+    add hl,hl
+    add hl,hl                           ; x16
+    ld d,h
+    ld e,l
+    add hl,hl                           ; x32
+    add hl,de                           ; x48
+    ld de,pick_back
+    add hl,de
+    ret
+
+;; ---------------------------------------------------------------------------
+;; held_erase, held_draw - a meze going somewhere on a mouse's back.
+;;
+;; It is drawn after the cast and lifted off before it, which is the same
+;; rule as everything else here: erase in the exact reverse of the draw. The
+;; erase runs before anything thinks, so the position it was drawn at is
+;; still the position in the record and nothing has to remember it.
+;; Destroys AF, BC, DE, HL, IX, IY.
+;; ---------------------------------------------------------------------------
+held_erase
+    ld iy,pickups
+    ld hl,pick_back
+    ld b,PICK_COUNT
+held_erase_one
+    push bc
+    push hl
+    ld a,(iy+P_ALIVE)
+    cp A_MOUSE
+    call z,pick_lift
     pop hl
     ld de,PICK_BUF
     add hl,de
     ld de,P_SIZE
     add iy,de
     pop bc
-    djnz draw_pickups_one
+    djnz held_erase_one
+    ret
+
+held_draw
+    ld iy,pickups
+    ld hl,pick_back
+    ld b,PICK_COUNT
+held_draw_one
+    push bc
+    push hl
+    ld a,(iy+P_ALIVE)
+    cp A_MOUSE
+    call z,pick_draw
+    pop hl
+    ld de,PICK_BUF
+    add hl,de
+    ld de,P_SIZE
+    add iy,de
+    pop bc
+    djnz held_draw_one
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -1773,8 +2105,8 @@ mitsos_collect_one
     push bc
     push hl
     ld a,(iy+P_ALIVE)
-    or a
-    jr z,mitsos_collect_next
+    cp A_SHELF
+    jr nz,mitsos_collect_next           ; gone, or going past on a mouse
 
     ld b,(iy+P_X)                       ; the columns it covers
     ld a,SPR_FISH_W-1
@@ -1796,18 +2128,10 @@ mitsos_collect_one
 
 mitsos_collect_take
     call granny_off                     ; the shelf is about to change, and she
-    ld (iy+P_ALIVE),0                   ; may be standing in front of it
-    ld a,SPR_FISH_W
-    ld (spr_w),a
-    ld a,SPR_FISH_H
-    ld (spr_h),a
-    ld a,(iy+P_X)
-    ld (spr_x),a
-    ld a,(iy+P_Y)
-    call spr_row_ptr
+    ld (iy+P_ALIVE),A_GONE              ; may be standing in front of it
     pop hl
     push hl
-    call spr_restore                    ; the shelf, back the way it was
+    call pick_lift                      ; the shelf, back the way it was
 
     ld a,CATNIP_POINTS                  ; and what it was worth
     bit 0,(iy+P_MEZE)
@@ -2544,6 +2868,9 @@ mitsos_rush     defs 2              ; frames of catnip left in him
 rush_bars       defs 1              ; and how many of them the meter is showing
 
 ;; Grandma, who is boxes rather than a sprite and keeps her own patch of shop.
+steal_x         defs 1              ; the mouse's own rectangle, while it
+steal_y         defs 1              ; looks along the shelf for a meze
+
 granny_x        defs 1              ; where she is, in bytes
 granny_ox       defs 1              ; and where the picture of her still is,
 granny_oy       defs 1              ; which scanline it starts on and how tall
