@@ -16,6 +16,15 @@
 
 IRQS_PER_FRAME  EQU 6
 
+;; Which of the six carries the music, counting from the one inside VSYNC.
+;; Not that one: the game is waiting on it, and everything the game does in a
+;; frame is queued behind whatever this handler does first. The player is a
+;; millisecond and a bit, which is half the blanked gap the sprite work has to
+;; start in - so it is paid three interrupts later, a hundred and fifty
+;; scanlines down the picture, where the only thing behind it is work that has
+;; already missed nothing.
+MUSIC_IRQ       EQU 3
+
 ;; ---------------------------------------------------------------------------
 ;; irq_init - install the handler, phase-lock the count to VSYNC, enable.
 ;; Destroys AF, BC, HL.
@@ -67,39 +76,51 @@ irq_handler
     ld (irq_count),a
     ld hl,frame_count
     inc (hl)
-    jr irq_handler_frame
+    jr irq_handler_done
 
 irq_handler_mid
     ld hl,irq_count
     inc (hl)
     ld a,(hl)
+    IFDEF HAS_MUSIC
+    cp MUSIC_IRQ
+    call z,irq_music
+    ld hl,irq_count             ; the call had them
+    ld a,(hl)
+    ENDIF
     cp IRQS_PER_FRAME
     jr c,irq_handler_done
     ld (hl),0                   ; no interrupt has landed inside VSYNC, so fall
     ld hl,frame_count           ; back on counting - the game still runs
     inc (hl)
 
+irq_handler_done
+    pop hl
+    pop bc
+    pop af
+    ei
+    ret
+
+    IFDEF HAS_MUSIC
 ;; ---------------------------------------------------------------------------
-;; Once a frame, and only once: the music, if this game has any. A game that
-;; wants one defines HAS_MUSIC and provides `music_tick`; one that does not
-;; assembles exactly the bytes it did before, because the jump above lands on
-;; the same address either way.
+;; irq_music - one tick of the player, on the one interrupt in six MUSIC_IRQ
+;; names. A game that wants music defines HAS_MUSIC and provides music_tick;
+;; one that does not assembles exactly the bytes it always did.
 ;;
-;; It goes here rather than in the game loop because a tracker replay has to
-;; be stepped fifty times a second and the loop only comes round twenty-five -
-;; and because from here it keeps its beat through a full repaint of the room,
-;; which from the loop it could not. It can never be re-entered either: the
-;; whole of it runs with interrupts off, which matters more than it looks,
-;; because the player moves SP into the song while it reads.
+;; It is stepped from here rather than from the game loop because a tracker
+;; replay wants fifty ticks a second and the loop comes round twenty-five -
+;; and because from here it keeps its beat through a second-long repaint of
+;; the room, which from the loop it could not. It can never be re-entered
+;; either: the whole of it runs with interrupts off, which matters more than
+;; it looks, because the player moves SP into the song while it reads.
 ;;
 ;; The price is everything it destroys. It uses both register sets, both index
 ;; registers and the alternate accumulator, and sprite.asm blits out of the
 ;; shadow set - so everything the handler has not already pushed is pushed
-;; here. Sixteen pushes and pops is about eighty microseconds, one scanline
-;; and a bit, against the forty blanked ones the frame starts with.
+;; here. Sixteen pushes and pops is eighty microseconds on top of the player's
+;; own millisecond.
 ;; ---------------------------------------------------------------------------
-irq_handler_frame
-    IFDEF HAS_MUSIC
+irq_music
     push de
     push ix
     push iy
@@ -119,14 +140,8 @@ irq_handler_frame
     pop iy
     pop ix
     pop de
-    ENDIF
-
-irq_handler_done
-    pop hl
-    pop bc
-    pop af
-    ei
     ret
+    ENDIF
 
 ;; ---------------------------------------------------------------------------
 ;; wait_frame - block until the next 50 Hz tick.

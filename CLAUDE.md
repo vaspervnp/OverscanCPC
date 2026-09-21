@@ -206,18 +206,30 @@ assume an effect that works in one emulator works on another type.
   moved 544 bytes of line table out of the file for free. The limit that
   matters is #A67B, where AMSDOS's buffers start, and the three asserts at the
   bottom of loukoumas.asm are what catch a build that has grown past it.
-  The second game has the same arrangement for a different reason: it loads at
-  #4000 with the screen at #8000, so its sixteen kilobytes have to hold the
-  code, the pictures and the workspace at once. Grandma cost five kilobytes of
-  pictures and the title screen would not fit after her, so everything that is
-  only ever read went down the same way the first game's tables did:
-  `ORG ART_ORG,ART_STORE` assembles `src/mitsosart.asm` to run at #0100 while
-  storing it at #6000 in the file, and one LDIR in the first dozen instructions
-  moves it. Under #4000 with it are the line table at #2900 and the four
-  buffers of saved background after that (`granny_buf` and the three following
-  it, to #3180), neither of which costs a byte of disc. What is left above
-  #4000 is code and workspace only - #4000 to #58E4 - and `mitsos_end` asserts
-  that it still clears the stack.
+  The second game ended up with the same three regions as the first, for the
+  same reasons and in the same order: **code from #4000, the title picture,
+  then the packed sprites.** Its low block - `src/mitsosart.asm` and the song
+  - is assembled at #0100 for its labels only, and what the file actually
+  carries is the packed copy, exactly the way `lowblock.asm`/`tablepack.asm`
+  work for the first game: `src/mitsoslow.asm` assembles the same two files at
+  the address they run at and saves them raw, `tools/mkpack.py` packs that,
+  and `unpack_tables` puts it back in the first dozen instructions. Ten
+  kilobytes becomes under two, because masked sprites are mostly transparent
+  corner and a transparent byte is the same two bytes of mask and data over
+  and over. That is what paid for the picture.
+  **The picture has to be below #8000 and the sprites do not.** The sprites
+  are moved before anything looks at the screen, so the file may lie over the
+  screen while it loads; the picture is read from where the file left it,
+  *while* it is being written to the screen, so a byte of it above #8000 is a
+  byte the decompressor overwrites and reads back as noise. The packed sprites
+  also have to be above the stack, which sits just under #8000: the unpack is
+  a call, and a return address landing in the middle of the stream is the same
+  bug from the other end.
+  Under #4000 are the unpacked sprites at #0100, the line table at #2A00, the
+  four buffers of saved background, and then **the whole of the workspace** -
+  uninitialised RAM costs a byte of disc for every byte of it if it is
+  declared above #4000, and two hundred and sixty-four bytes of this one were
+  being carried for no reason.
 - A 32 KB overscan screen collides with firmware territory. Firmware variables live around
   &B100-&BFFF and the firmware stack sits just below &C000. Overscan work runs with the
   firmware off: own IM 1 (or IM 2) handler, own stack placed somewhere the display does
@@ -428,8 +440,46 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   per machine cycle, `US_EXTRA` for the rest - and its frame is 19968 us, not a
   number of instructions. Before that it could not see beam timing at all, which
   is why two attempts at this bug were guesses.
+- **A picture of a room beats drawing one, when there is room for it.** The
+  second game's title screen was the shop drawn out of its own box lists,
+  which cost nothing to carry and a second to paint. It is now a painted
+  picture put through `tools/mkscreen.py` - and the two switches that made it
+  fit are worth knowing: `--smooth` blurs the source by a pixel before it is
+  scaled down, which is invisible at 192x272 and took two hundred bytes off
+  the packed size, and `--repen` changes one pen to another inside a
+  rectangle. Sixteen pens is few enough that two things which are different
+  colours in the source land on the same pen, and if they touch, the thing in
+  front disappears into the thing behind it: Grandma's face came out the same
+  coral as the brick wall she stands against.
 - **Something the size of a person can be a sprite, but only if it is rarely
-  redrawn.** Grandma Evdoxia is 10 bytes by 96 scanlines - four of the cat, 960 bytes
+  redrawn - and "rarely" does not save the frame it is redrawn in.** Grandma
+  at ten bytes by ninety-six is nine milliseconds to lift and twenty-three to
+  save and blit back, and a picture is forty. The picture she moved in
+  overran and handed its lateness to the next one, which is why the whole shop
+  flickered and not only her. Only rebuilding her sometimes fixes the average
+  load and nothing else; the deadline is per picture. She is now rebuilt half
+  of her at a time - the top half in one picture, the bottom half in the next,
+  each half its own slice of the buffer and its own record of where its
+  picture is - which costs a four pixel seam across her apron for one picture
+  in four and halves the spike. A change of pose, or a change to the shop
+  underneath her, still needs the whole of her at once.
+- **Erase-all-then-draw-all is what makes everything flicker, not the sprite
+  that is expensive.** Every sprite is missing for the whole window, which for
+  this cast was two hundred and fifty scanlines of a two hundred and
+  seventy-two line picture. `cast_rebuild` in the second game lifts each of
+  them off and puts it straight back before going on to the next, in the order
+  the beam reaches them, which closes the window to the sprite's own work -
+  five milliseconds for the cat instead of twenty-seven. `cast_tangled` is
+  what keeps it sound: when two of them cover any of the same ground, or when
+  the shop itself is about to change under them, the whole cast comes off
+  before any of it goes back. In ordinary play that is one picture in thirty.
+- **Nothing that only thinks may sit between the erase and the draw.** Four
+  and a half milliseconds of physics in the middle of the window is four and a
+  half milliseconds every sprite is off the screen for nothing. The price of
+  moving it after the draw is that every change to the background has to be
+  deferred into the next rebuild - which is why a meze knows both where it is
+  and where its picture is, and why opening the basket sets a flag instead of
+  painting a lid. Grandma Evdoxia is 10 bytes by 96 scanlines - four of the cat, 960 bytes
   - and saving, blitting and handing back that rectangle is about nineteen
   milliseconds, most of a frame for one figure. She was boxes over a saved rectangle
   first, which is half the cost and no art at all, and the thing that made a real

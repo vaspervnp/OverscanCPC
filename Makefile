@@ -64,7 +64,7 @@ TEXTSRC := assets/font.txt text/loukoumas.en.txt text/loukoumas.el.txt tools/mkt
 
 assets: src/font.asm src/strings.asm src/mitsosstr.asm src/sprites.asm \
         src/artwork.asm src/titlepic.asm src/mitsosart.asm \
-        src/mitsosmenupic.asm
+        src/mitsosmenupic.asm src/mitsosartpack.asm
 
 src/font.asm src/strings.asm: $(TEXTSRC)
 	$(PYTHON) tools/mktext.py loukoumas
@@ -151,6 +151,20 @@ $(BUILD)/tables.bin: $(LOWDEPS) | $(BUILD)
 
 src/tablepack.asm: $(BUILD)/tables.bin tools/mkpack.py
 	$(PYTHON) tools/mkpack.py $(BUILD)/tables.bin $@ 0x0100
+
+# The second game's low block is its sprites and its song, and it goes the
+# same way for the same reason. Masked sprites pack to a sixth of themselves -
+# most of a sprite is the transparent corner, and a transparent byte is the
+# same two bytes of mask and data over and over - so ten kilobytes of the file
+# becomes under two, which is what paid for the title picture.
+MITSOSLOW := src/mitsoslow.asm src/config.asm src/mitsosart.asm \
+             src/pantomusic.asm
+
+$(BUILD)/mitsosart.bin: $(MITSOSLOW) | $(BUILD)
+	$(RASM) src/mitsoslow.asm
+
+src/mitsosartpack.asm: $(BUILD)/mitsosart.bin tools/mkpack.py
+	$(PYTHON) tools/mkpack.py $(BUILD)/mitsosart.bin $@ 0x0100 art
 
 # ---------------------------------------------------------------------------
 # HELLO WORLD - the overscan proof of concept
@@ -252,7 +266,7 @@ $(BUILD)/mitsos.bin: $(DEPS) | $(BUILD)
 # `all` is a dependency on purpose: the snapshots and disc images are what
 # anyone actually runs, and without this they can sit a conversion behind the
 # sources while check goes on passing against freshly built .bin files.
-check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
+check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin $(BUILD)/mitsosart.bin \
        $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
        $(BUILD)/loukoumas_lounge.bin $(BUILD)/loukoumas_yard.bin \
        $(BUILD)/loukoumas_roof.bin $(BUILD)/loukoumas_title.bin \
@@ -262,14 +276,28 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		$(BUILD)/tables.bin
 	@echo "=== hello world ==="
 	@./tools/z80check.py $(BUILD)/hello.bin --ascii
+	@echo "=== mitsos, the sprites unpacked by the Z80 itself ==="
+	@echo "    ten kilobytes of masked sprites and a song, packed to under two"
+	@echo "    and unpacked into #0100 before the game does anything else. It"
+	@echo "    is a sixth of the size because most of a sprite is transparent,"
+	@echo "    and a transparent byte is the same two bytes of mask and data"
+	@echo "    over and over. Every byte has to come back."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 30 --frame-instr 200000 \
+		--save-mem "0x0100:$$(stat -c%s $(BUILD)/mitsosart.bin)=$(BUILD)/artback.bin" \
+		| grep "^wrote"
+	@cmp $(BUILD)/mitsosart.bin $(BUILD)/artback.bin \
+		&& echo "    the pictures came back byte for byte"
 	@echo "=== mitsos, the title screen ==="
-	@echo "    the shop is its own title screen: the shelves stocked, him by"
-	@echo "    the door and her by the crates, with the name on a panel over"
-	@echo "    the top of them and two lines along the tiles. L turns all of"
-	@echo "    it round into the other language while it waits - 41 - and it"
-	@echo "    is repainted whole, which is why fire cannot be pressed until"
-	@echo "    80. 81 is a life starting with three of them, and the shop it"
-	@echo "    starts in has four mezedes on the shelves by 110."
+	@echo "    a painted picture of the shop - the whole overscan window,"
+	@echo "    packed to six kilobytes and unpacked onto the screen - with a"
+	@echo "    band of navy across its top that the name goes in, and three"
+	@echo "    lines along the tiles under it. L turns the words round into"
+	@echo "    the other language while it waits - 41 - and repaints the lot,"
+	@echo "    which is why fire cannot be pressed until 80. 81 is a life"
+	@echo "    starting with three of them, and the shop it starts in has"
+	@echo "    four mezedes on the shelves by 110. These runs are built with"
+	@echo "    -DTITLEPIC=0, because unpacking the picture is a second and a"
+	@echo "    half and every frame below would be eighty frames later."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 130 $(MITSOS_SIM) \
 		--keys "L@40-40,FIRE@80-80" --sym $(BUILD)/mitsos.sym \
 		--watch "txt_lang,mitsos_lives,mezes_left" \
@@ -285,13 +313,13 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@echo "    at 30 leaves the title and the shop is standing by 54. He has"
 	@echo "    weight: five frames of right get him to nine bytes along and"
 	@echo "    half speed, top speed comes at eight, and letting go starts"
-	@echo "    walking it back down at 84 - 208, 160, 112 - until 95, where"
+	@echo "    walking it back down at 83 - 208, 160, 112 - until 95, where"
 	@echo "    his nose has reached the soap at the foot of the crates and"
 	@echo "    nothing takes the rest of it off him at all."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 100 $(MITSOS_SIM) \
 		--keys "FIRE@30-30,RIGHT@60-80" \
 		--sym $(BUILD)/mitsos.sym --watch "mitsos_x,mitsos_vx:s" \
-		| grep -E "frame +(65|68|84|95) "
+		| grep -E "frame +(65|69|83|95) "
 	@echo "=== mitsos, gravity and the four boards of the shelving ==="
 	@echo "    8.8 fixed point, a quarter of a pixel a frame of gravity and"
 	@echo "    four and a half out of a jump: 88 lands on the bottom board and"
@@ -310,11 +338,11 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@echo "    somewhere to get off: her head is level with the third board,"
 	@echo "    so the floor and the two boards over it are hers. There is no"
 	@echo "    jumping over her and nowhere above her but that third board -"
-	@echo "    this is him walking off the end of it at 168. He lands on her"
-	@echo "    head at 170: she sits down for the hundred frames anything"
+	@echo "    this is him walking off the end of it at 171. He lands on her"
+	@echo "    head at 173: she sits down for the hundred frames anything"
 	@echo "    else in here gets, and he leaves at BOUNCE_V, -5.5 against"
-	@echo "    the -4.5 of his own jump, which has him at scanline 81 by"
-	@echo "    177 - over the top board. Where she is standing is poked"
+	@echo "    the -4.5 of his own jump, which has him at scanline 84 by"
+	@echo "    178 - over the top board. Where she is standing is poked"
 	@echo "    rather than waited for: her beat is three seconds"
 	@echo "    long and the check is not."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 190 $(MITSOS_SIM) \
@@ -322,7 +350,7 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		--poke "granny_x=32@160" --poke "granny_dirty=1@160" \
 		--sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_x,mitsos_y,mitsos_vy:s,granny_x,granny_stun,mitsos_lives" \
-		| grep -E "frame +(168|170|177) "
+		| grep -E "frame +(171|173|178) "
 	@echo "=== mitsos, the seagull comes down ==="
 	@echo "    it keeps a beat across the window at scanline 72 until he is"
 	@echo "    within five bytes of being under it, and at 158 it commits: the"
@@ -340,7 +368,7 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@echo "=== mitsos, the mouse that takes the sausage ==="
 	@echo "    a mouse in a grocery is not an obstacle, it is a thief. One"
 	@echo "    walks the counter, and the sausage is on the counter: it gets"
-	@echo "    five seconds head start and then picks it up at 345 - off the"
+	@echo "    five seconds head start and then picks it up at 346 - off the"
 	@echo "    shelf with the same spr_restore that eating it uses, and after"
 	@echo "    that the meze rides eight scanlines up on its back and goes"
 	@echo "    where it goes. It heads for the far end of its beat with it,"
@@ -351,18 +379,18 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 420 $(MITSOS_SIM) \
 		--keys "FIRE@30-30" --sym $(BUILD)/mitsos.sym \
 		--watch "foes+19,foes+35,pickups+18,pickups+19,pickups+21,mezes_left" \
-		| grep -E "frame +(341|345|370|403) "
+		| grep -E "frame +(341|346|370|403) "
 	@echo "=== mitsos, three lives and what they cost ==="
 	@echo "    walking into something still on its feet costs one and puts him"
 	@echo "    back by the door with two seconds of grace, blinking, because"
 	@echo "    reappearing inside Grandma would otherwise take all three"
 	@echo "    without a key being touched. Holding right walks him into her"
-	@echo "    coming the other way at 97, again at 219, and out at 437, which"
+	@echo "    coming the other way at 97, again at 220, and out at 437, which"
 	@echo "    puts GAME OVER up and waits for fire to go back to the title."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 450 $(MITSOS_SIM) \
 		--keys "FIRE@30-30,RIGHT@60-450" --sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_lives,mitsos_grace,mitsos_over,granny_x" \
-		| grep -E "frame +(96|97|219|436|437) "
+		| grep -E "frame +(96|97|220|436|437) "
 	@echo "=== mitsos, the mezedes and the basket they open ==="
 	@echo "    four of them, and the basket on the top board stays shut until"
 	@echo "    the last one is off a shelf. The catnip is not one of the four -"

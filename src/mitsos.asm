@@ -196,15 +196,17 @@ GRANNY_SWEEP    EQU 16                  ; frames between the halves of a stroke
 ;; down beside the player.
 HAS_MUSIC       EQU 1
 
-ART_ORG         EQU #0100               ; clear of the interrupt jump at #0038
-ART_STORE       EQU #7F00               ; where the file carries them, until
+ART_ORG         EQU DATA_ORG            ; clear of the interrupt jump at #0038,
+                                        ; and the same address the other game
+                                        ; puts its own low block at
+ART_STORE       EQU #8000               ; where the file carries them, until
                                         ; the first LDIR of the game. It has
                                         ; to clear the code, and the code grew
                                         ; three kilobytes when the tune and
                                         ; its player came in; the ceiling is
                                         ; #7F03, where ART_LEN would run into
                                         ; AMSDOS's buffers at #A67B
-LINE_TAB_AT     EQU #2900               ; and behind them, the line table
+LINE_TAB_AT     EQU #2A00               ; and behind them, the line table
 LOW_BUFS        EQU LINE_TAB_AT+DISPLAY_LINES*2
 
 ;; --- The seagull's dive ----------------------------------------------------
@@ -373,11 +375,24 @@ LANG            EQU 0
 ;;
 ;; rasm's second ORG argument is the whole of the trick: the bytes are laid
 ;; out to run at ART_ORG and written into the file at ART_STORE.
-    ORG ART_ORG,ART_STORE
+    ORG ART_ORG
 art_start
     include "mitsosart.asm"
+pantomusic_song                         ; the tune rides down with them: the
+    include "pantomusic.asm"            ; player reads it and never runs it
 art_end
 ART_LEN         EQU art_end-art_start
+
+;; ---------------------------------------------------------------------------
+;; And this is what the file actually carries: the same ten kilobytes packed
+;; to under two by tools/mkpack.py, which src/mitsoslow.asm assembled on its
+;; own for the purpose. Masked sprites pack to a sixth of themselves - most of
+;; a sprite is the transparent corner, and a transparent byte is the same two
+;; bytes of mask and data over and over. The bytes above are never saved: the
+;; file starts at mitsos_start and they are below it.
+;; ---------------------------------------------------------------------------
+    ORG ART_STORE
+    include "mitsosartpack.asm"
 
 ;; ---------------------------------------------------------------------------
 ;; The title picture, riding at the top of the file behind the sprites: the
@@ -386,7 +401,7 @@ ART_LEN         EQU art_end-art_start
 ;; which keeps no window at all because the screen is its own window. It is
 ;; read once, where the file left it, and never moved.
 ;; ---------------------------------------------------------------------------
-MENU_STORE      EQU #6700               ; set by hand, like ART_STORE above.
+MENU_STORE      EQU #6800               ; set by hand, like ART_STORE above.
                                         ;
                                         ; It has to be **below #8000**, and
                                         ; the sprites do not: the sprites are
@@ -423,10 +438,15 @@ mitsos_start
     ld bc,#7F00+GA_MODE                 ; mode 0, upper and lower ROM disabled
     out (c),c
 
-    ld hl,ART_STORE                     ; and the pictures go where they were
-    ld de,ART_ORG                       ; built for. Nothing has been pushed
-    ld bc,ART_LEN                       ; yet, which is why the stack can sit
-    ldir                                ; inside what is being read
+    ld hl,art_packed                    ; and the pictures go where they were
+    ld de,ART_ORG                       ; built for, unpacking on the way.
+    call unpack_tables                  ; Nothing has been pushed yet, which is
+                                        ; why the packed copy may lie over
+                                        ; the screen at #8000. It has to lie
+                                        ; over it and not under it: the stack
+                                        ; is just below #8000 and this is a
+                                        ; call, so a return address would land
+                                        ; in the middle of what it is reading
 
     ld hl,pal_blank                     ; build the shop unseen, so none of
     call set_pal                        ; the firmware's leftovers show
@@ -501,16 +521,7 @@ main_loop
 ;; hundred and seventy-two line picture - which is to say all of it flickered,
 ;; every picture. The thinking is now after the draw, where it belongs: it is
 ;; working out the next picture, not this one.
-    call mitsos_erase
-    call picks_erase                    ; and the shelves, which is where a
-    call foes_erase                     ; meze eaten, stolen or put down since
-    call granny_erase                   ; the last picture actually happens
-    call basket_update                  ; the lid, while the shop is bare
-
-    call granny_draw                    ; behind the lot of them
-    call foes_draw
-    call picks_draw                     ; over the mouse that is taking one
-    call mitsos_draw                    ; last, so he is the one in front
+    call cast_rebuild
 
 ;; The picture is up and the beam is walking over it. Everything from here on
 ;; is for the next one.
@@ -1747,12 +1758,30 @@ foes_erase
     ld iy,foes+(FOE_COUNT-1)*E_SIZE
     ld hl,foe_bufs+(FOE_COUNT-1)*FOE_BUF
     ld b,FOE_COUNT
-foes_erase_one
+foes_erase_loop
     push bc
     push hl
+    call foe_erase_one
+    pop hl
+    ld de,-FOE_BUF
+    add hl,de
+    ld de,-E_SIZE
+    add iy,de
+    pop bc
+    djnz foes_erase_loop
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foe_erase_one - IY = one of them, HL = its buffer. Its picture off the
+;; screen, and the shop it was covering back. IY and HL come back as they
+;; went in.
+;; Destroys AF, BC, DE, IX.
+;; ---------------------------------------------------------------------------
+foe_erase_one
     ld a,(iy+E_DRAWN)
     or a
-    jr z,foes_erase_next
+    ret z
+    push hl
     call foe_kind_ptr
     ld a,K_W
     call foe_kind_byte
@@ -1767,14 +1796,7 @@ foes_erase_one
     pop hl
     push hl
     call spr_restore
-foes_erase_next
     pop hl
-    ld de,-FOE_BUF
-    add hl,de
-    ld de,-E_SIZE
-    add iy,de
-    pop bc
-    djnz foes_erase_one
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -1785,8 +1807,26 @@ foes_draw
     ld iy,foes
     ld hl,foe_bufs
     ld b,FOE_COUNT
-foes_draw_one
+foes_draw_loop
     push bc
+    push hl
+    call foe_draw_one
+    pop hl
+    ld de,FOE_BUF
+    add hl,de
+    ld de,E_SIZE
+    add iy,de
+    pop bc
+    djnz foes_draw_loop
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foe_draw_one - IY = one of them, HL = its buffer. The shop it is about to
+;; cover into the buffer, and it over the top. IY and HL come back as they
+;; went in.
+;; Destroys AF, BC, DE, IX.
+;; ---------------------------------------------------------------------------
+foe_draw_one
     push hl
     call foe_kind_ptr                   ; the picture it is showing
     ld a,(iy+E_FRAME)
@@ -1826,12 +1866,6 @@ foes_draw_right
     call spr_draw
     ld (iy+E_DRAWN),1
     pop hl
-    ld de,FOE_BUF
-    add hl,de
-    ld de,E_SIZE
-    add iy,de
-    pop bc
-    djnz foes_draw_one
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -2660,6 +2694,406 @@ granny_bounce_no
     ret
 
 ;; ---------------------------------------------------------------------------
+;; cast_rebuild - the whole picture, and nothing that only thinks inside it.
+;;
+;; Two ways of doing it. The cheap one lifts each of them off and puts it
+;; straight back before going on to the next, which closes the window it is
+;; missing from to its own work - five milliseconds for him instead of the
+;; twenty-seven the whole rebuild takes. The order is the order the beam
+;; reaches them, because the only thing that keeps a sprite out of the beam's
+;; way is being back before the beam gets there, and the top of the screen is
+;; drawn first.
+;;
+;; The cheap one is not always sound. A save taken while everything after it
+;; in the order is still showing last picture's position catches another
+;; sprite instead of the shop, and hands it back a picture later where nothing
+;; will ever erase it again. So when any two of them are standing in each
+;; other - or when the shop itself is about to change under them - the whole
+;; cast comes off before any of it goes back, which is slower and always
+;; right. In this game two of them standing in each other mostly means he has
+;; just been caught.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+CAST_COUNT      EQU FOE_COUNT+2         ; the foes, him, and her
+CAST_SIZE       EQU 4                   ; a box: first and last byte, first
+B_X0            EQU 0                   ; and last scanline
+B_X1            EQU 1
+B_Y0            EQU 2
+B_Y1            EQU 3
+FOE_MAX_W       EQU SPR_SEAGULL_A_W     ; the biggest of them, used for all of
+FOE_MAX_H       EQU SPR_SEAGULL_A_H     ; them: a box too big only costs a
+                                        ; picture done the slow way
+
+cast_rebuild
+    ld a,(granny_whole)                 ; a meze off a shelf or the lid off the
+    or a                                ; basket: the shop changes, and that
+    jr nz,cast_rebuild_whole            ; can only be done with all of them off
+    call picks_moving                   ; a meze on a mouse's back, likewise
+    jr nz,cast_rebuild_whole
+    call cast_tangled
+    jr c,cast_rebuild_whole
+    jp cast_order
+
+cast_rebuild_whole
+    call mitsos_erase                   ; the exact reverse of the draw order
+    call picks_erase                    ; below, because the saves are layered
+    call foes_erase
+    call granny_erase
+    call basket_update                  ; the shop, while it is bare
+    call granny_draw                    ; behind the lot of them
+    call foes_draw
+    call picks_draw                     ; over the mouse that is taking one
+    jp mitsos_draw                      ; last, so he is the one in front
+
+;; ---------------------------------------------------------------------------
+;; cast_order - each of them off and straight back on, highest first.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+cast_order
+    ld hl,cast_y                        ; where the top of each one is
+    ld c,0
+    ld b,CAST_COUNT
+cast_order_fill
+    push bc
+    push hl
+    ld a,c
+    call cast_unit_y
+    pop hl
+    ld (hl),a
+    inc hl
+    pop bc
+    inc c
+    djnz cast_order_fill
+
+cast_order_next
+    ld hl,cast_y                        ; the highest one still to do
+    ld c,0
+    ld b,CAST_COUNT
+    ld d,255
+    ld e,255
+cast_order_scan
+    ld a,(hl)
+    cp d
+    jr nc,cast_order_skip
+    ld d,a
+    ld e,c
+cast_order_skip
+    inc hl
+    inc c
+    djnz cast_order_scan
+
+    ld a,e
+    inc a
+    ret z                               ; all of them are back
+    ld hl,cast_y
+    ld d,0
+    add hl,de
+    ld (hl),255                         ; that one is done
+    ld a,e
+    call cast_unit_do
+    jr cast_order_next
+
+;; ---------------------------------------------------------------------------
+;; cast_unit_y - A = which of them -> A = the top of the ground it covers,
+;; taking where its picture is and where it is going together. 255 for one
+;; that is not on the screen and not about to be.
+;; Destroys AF, BC, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+cast_unit_y
+    cp FOE_COUNT
+    jr nc,cast_unit_y_rest
+    call foe_ptr
+    ld a,(iy+E_DRAWN)
+    or a
+    ld a,(iy+E_Y)
+    ret z                               ; never drawn: wherever it is going
+    ld d,(iy+E_OY)
+    jr cast_unit_y_lower
+
+cast_unit_y_rest
+    sub FOE_COUNT
+    or a
+    jr nz,cast_unit_y_granny
+    ld a,(mitsos_drawn)
+    or a
+    ld a,(mitsos_y)
+    ret z
+    ld a,(mitsos_oy)
+    ld d,a
+    ld a,(mitsos_y)
+cast_unit_y_lower
+    cp d
+    ret c
+    ld a,d
+    ret
+
+cast_unit_y_granny
+    ld a,(granny_dirty)                 ; standing still, so she is already
+    or a                                ; where she should be and can go last
+    ld a,255
+    ret z
+    ld a,GRANNY_H
+    neg
+    add a,FLOOR_TOP
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cast_unit_do - A = which of them; off the screen and straight back on.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+cast_unit_do
+    cp FOE_COUNT
+    jr nc,cast_unit_do_rest
+    call foe_ptr
+    push iy
+    push hl
+    call foe_erase_one
+    pop hl
+    pop iy
+    jp foe_draw_one
+cast_unit_do_rest
+    sub FOE_COUNT
+    or a
+    jr nz,cast_unit_do_granny
+    call mitsos_erase
+    jp mitsos_draw
+cast_unit_do_granny
+    call granny_erase
+    jp granny_draw
+
+;; ---------------------------------------------------------------------------
+;; foe_ptr - A = which foe -> IY = its record, HL = its buffer. Three of them,
+;; so counting up to it beats multiplying by eighteen.
+;; Destroys AF, B, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+foe_ptr
+    ld iy,foes
+    ld hl,foe_bufs
+    or a
+    ret z
+    ld b,a
+foe_ptr_step
+    ld de,E_SIZE
+    add iy,de
+    ld de,FOE_BUF
+    add hl,de
+    djnz foe_ptr_step
+    ret
+
+;; ---------------------------------------------------------------------------
+;; picks_moving - NZ if any meze is not standing exactly where its picture is.
+;; One that is on its way somewhere changes the shop when it is lifted, and
+;; that wants the whole cast off first.
+;; Destroys AF, BC, DE, HL, IY.
+;; ---------------------------------------------------------------------------
+picks_moving
+    ld iy,pickups
+    ld b,PICK_COUNT
+picks_moving_one
+    ld a,(iy+P_OX)
+    inc a
+    jr z,picks_moving_gone              ; nothing of it on the screen
+    dec a
+    cp (iy+P_X)
+    jr nz,picks_moving_yes
+    ld a,(iy+P_OY)
+    cp (iy+P_Y)
+    jr nz,picks_moving_yes
+    ld a,(iy+P_ALIVE)
+    or a
+    jr z,picks_moving_yes               ; eaten, and still on the shelf
+    jr picks_moving_next
+picks_moving_gone
+    ld a,(iy+P_ALIVE)                   ; not drawn and still alive: it is
+    or a                                ; waiting to go down
+    jr nz,picks_moving_yes
+picks_moving_next
+    ld de,P_SIZE
+    add iy,de
+    djnz picks_moving_one
+    xor a                               ; every one of them is where it looks
+    ret
+picks_moving_yes
+    ld a,1
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cast_tangled - carry set if any two of them cover any of the same ground,
+;; counting both where each one's picture is and where it is about to be.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+cast_tangled
+    call cast_box_fill
+    ld ix,cast_box
+    ld c,CAST_COUNT-1
+cast_tangled_i
+    push ix
+    pop hl
+    ld de,CAST_SIZE
+    add hl,de
+    push hl
+    pop iy
+    ld b,c
+cast_tangled_j
+    push bc
+    call cast_overlap
+    pop bc
+    ret c
+    ld de,CAST_SIZE
+    add iy,de
+    djnz cast_tangled_j
+    ld de,CAST_SIZE
+    add ix,de
+    dec c
+    jr nz,cast_tangled_i
+    or a                                ; nothing touches anything
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cast_overlap - carry set if the boxes at IX and IY cover any of the same
+;; ground. A box with its first byte past its last never touches anything,
+;; which is how one that is not on the screen says so.
+;; Destroys AF.
+;; ---------------------------------------------------------------------------
+cast_overlap
+    ld a,(ix+B_X0)
+    cp (iy+B_X1)
+    jr z,cast_overlap_bx
+    ret nc
+cast_overlap_bx
+    ld a,(iy+B_X0)
+    cp (ix+B_X1)
+    jr z,cast_overlap_ay
+    ret nc
+cast_overlap_ay
+    ld a,(ix+B_Y0)
+    cp (iy+B_Y1)
+    jr z,cast_overlap_by
+    ret nc
+cast_overlap_by
+    ld a,(iy+B_Y0)
+    cp (ix+B_Y1)
+    jr z,cast_overlap_yes
+    ret nc
+cast_overlap_yes
+    scf
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cast_box_fill - the ground each of them covers, old picture and new
+;; position taken together. The foes are all given the seagull's size and she
+;; is given her full height whichever pose she is in: a box a byte too big
+;; costs a picture done the slow way and never costs a wrong one.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+cast_box_fill
+    ld hl,cast_box
+    ld iy,foes
+    ld b,FOE_COUNT
+cast_box_foe
+    push bc
+    ld a,(iy+E_DRAWN)
+    or a
+    jr nz,cast_box_foe_both
+    ld a,(iy+E_X)                       ; never drawn: only where it is going
+    ld d,a
+    ld a,(iy+E_Y)
+    ld e,a
+    jr cast_box_foe_put
+cast_box_foe_both
+    ld a,(iy+E_OX)
+    ld d,a
+    ld a,(iy+E_OY)
+    ld e,a
+cast_box_foe_put
+    push de
+    ld a,(iy+E_X)
+    ld c,FOE_MAX_W
+    call cast_span
+    pop de
+    ld a,d
+    ld d,e                              ; the old scanline
+    ld a,(iy+E_Y)
+    ld c,FOE_MAX_H
+    call cast_span
+    ld de,E_SIZE
+    add iy,de
+    pop bc
+    djnz cast_box_foe
+
+    ld a,(mitsos_drawn)                 ; him
+    or a
+    ld a,(mitsos_x)
+    ld d,a
+    jr z,cast_box_mitsos_x
+    ld a,(mitsos_ox)
+    ld d,a
+cast_box_mitsos_x
+    ld a,(mitsos_x)
+    ld c,MITSOS_W
+    call cast_span
+    ld a,(mitsos_drawn)
+    or a
+    ld a,(mitsos_y)
+    ld d,a
+    jr z,cast_box_mitsos_y
+    ld a,(mitsos_oy)
+    ld d,a
+cast_box_mitsos_y
+    ld a,(mitsos_y)
+    ld c,MITSOS_H
+    call cast_span
+
+    ld a,(granny_dirty)                 ; and her, two bytes either side of
+    or a                                ; where she is, which covers both
+    jr nz,cast_box_granny               ; halves wherever they have got to
+    ld (hl),255                         ; standing still: she touches nothing
+    inc hl
+    ld (hl),0
+    inc hl
+    ld (hl),255
+    inc hl
+    ld (hl),0
+    ret
+cast_box_granny
+    ld a,(granny_x)
+    sub 2
+    ld (hl),a
+    inc hl
+    ld a,(granny_x)
+    add a,GRANNY_W+1
+    ld (hl),a
+    inc hl
+    ld a,FLOOR_TOP-GRANNY_H
+    ld (hl),a
+    inc hl
+    ld a,FLOOR_TOP-1
+    ld (hl),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; cast_span - A and D are two positions of the same thing and C is how big it
+;; is; (HL) and (HL+1) become the first and last it covers between them.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+cast_span
+    cp d
+    jr c,cast_span_put
+    ld e,a                              ; A is the further along of the two
+    ld a,d
+    ld d,e
+cast_span_put
+    ld (hl),a
+    inc hl
+    ld a,d
+    add a,c
+    dec a
+    ld (hl),a
+    inc hl
+    ret
+
+;; ---------------------------------------------------------------------------
 ;; Grandma, half of her at a time.
 ;;
 ;; She is ten bytes by ninety-six. Lifting that rectangle off the screen is
@@ -3266,9 +3700,6 @@ pal_shop
 PLY_AKG_REMOVE_HOOKS = 1
     include "playerakg.asm"
 
-pantomusic_song
-    include "pantomusic.asm"
-
 ;; ---------------------------------------------------------------------------
 ;; music_tick - what irq.asm calls once a frame. Everything the player
 ;; destroys is already on the stack when it gets here; see HAS_MUSIC there.
@@ -3350,6 +3781,8 @@ granny_dirty    defs 1              ; has anything about her picture changed
 granny_doing    defs 1              ; and which half of her this rebuild is
                                     ; putting right: 1 top, 2 bottom, 3 both
 granny_pic      defs 2              ; the pose both halves are being cut from
+cast_box        defs CAST_COUNT*CAST_SIZE   ; the ground each of them covers
+cast_y          defs CAST_COUNT     ; and the top of it, until it is put back
 gr_row          defs 1              ; scratch for granny_piece_on: the row of
 gr_off          defs 2              ; her a half starts on, and its offset
 
@@ -3381,10 +3814,11 @@ RUN mitsos_start
 ;; are moved, everything under #4000 has to stay under it, and the whole
 ;; thing has to stay clear of AMSDOS's buffers at #A67B.
 ;; ---------------------------------------------------------------------------
-IMAGE_LEN       EQU ART_STORE+ART_LEN-mitsos_start
+IMAGE_LEN       EQU ART_STORE+ART_PACKED_LEN-mitsos_start
     ASSERT code_end <= MENU_STORE
     ASSERT MENU_STORE+MITSOSMENU_PACKED_LEN <= ART_STORE
-    ASSERT ART_STORE+ART_LEN <= #A67B
+    ASSERT ART_STORE+ART_PACKED_LEN <= #A67B
+    ASSERT ART_LEN == ART_RAW_LEN       ; the two build passes have to agree
     ASSERT ART_ORG+ART_LEN <= LINE_TAB_AT
     ASSERT MENU_STORE+MITSOSMENU_PACKED_LEN <= #8000
 
