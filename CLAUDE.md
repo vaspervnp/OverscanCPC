@@ -457,12 +457,18 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   save and blit back, and a picture is forty. The picture she moved in
   overran and handed its lateness to the next one, which is why the whole shop
   flickered and not only her. Only rebuilding her sometimes fixes the average
-  load and nothing else; the deadline is per picture. She is now rebuilt half
-  of her at a time - the top half in one picture, the bottom half in the next,
-  each half its own slice of the buffer and its own record of where its
-  picture is - which costs a four pixel seam across her apron for one picture
-  in four and halves the spike. A change of pose, or a change to the shop
-  underneath her, still needs the whole of her at once.
+  load and nothing else; the deadline is per picture, and a picture is forty
+  milliseconds. **The deadline is not the budget either**: her top row is
+  scanline 140, the beam is there eleven and a half milliseconds after the
+  frame starts, and half of her is sixteen. A quarter is eight. So she is
+  rebuilt a quarter at a time, each quarter its own slice of the picture and
+  the buffer and its own record of where its picture is. Four quarters is four
+  pictures to a step, so her step had to slow to match - hunting now covers
+  two bytes in eight frames rather than one in four, the same ground in the
+  same time - and what is left is one seam, two bytes wide, walking down her
+  while she does. A change of pose that only moves the broom waits for the top
+  of the next cycle rather than costing a rebuild; a change of pose *height*,
+  or a change to the shop underneath her, still needs the whole of her.
 - **Erase-all-then-draw-all is what makes everything flicker, not the sprite
   that is expensive.** Every sprite is missing for the whole window, which for
   this cast was two hundred and fifty scanlines of a two hundred and
@@ -473,6 +479,23 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   what keeps it sound: when two of them cover any of the same ground, or when
   the shop itself is about to change under them, the whole cast comes off
   before any of it goes back. In ordinary play that is one picture in thirty.
+- **The starting gun is the frame tick and nothing may stand between them.**
+  There are forty blanked scanlines after it - two and a half milliseconds -
+  and they are the whole head start the rebuild gets on the beam. Reading the
+  keyboard is eight hundred microseconds of that and working out whether the
+  cast is tangled is another thousand; both are about the *next* picture, so
+  both belong after the draw. Moving them out bought thirty scanlines for
+  nothing. The music went the same way, off the frame's own interrupt onto the
+  third of the six, for the same reason: the game is waiting on that
+  interrupt.
+- **The cheapest sprite is the one that is already right.** A foe showing the
+  right picture in the right place is left alone - `foe_still` against
+  `E_OX`/`E_OY`/`E_OPOSE`, which is the frame with bit 7 for facing left -
+  and two and a half milliseconds of a twenty millisecond frame is what that
+  is worth each time. Growing that record is also a reminder that `foes_init`
+  is a table of the same shape: it has an ASSERT under it now because getting
+  that wrong lays every foe out one byte further along than the last and the
+  game comes up with no cast at all.
 - **Nothing that only thinks may sit between the erase and the draw.** Four
   and a half milliseconds of physics in the middle of the window is four and a
   half milliseconds every sprite is off the screen for nothing. The price of

@@ -136,7 +136,14 @@ E_OY            EQU 14
 E_DIVE          EQU 15                  ; D_NONE, or which half of a dive
 E_REST          EQU 16                  ; frames before it tries that again
 E_CARRY         EQU 17                  ; a meze it has got hold of, plus one
-E_SIZE          EQU 18
+E_OPOSE         EQU 18                  ; and which picture its picture is: the
+                                        ; frame, with bit 7 for facing left.
+                                        ; One that is showing the right one in
+                                        ; the right place is left alone, and
+                                        ; two and a half milliseconds of a
+                                        ; twenty-millisecond frame is what
+                                        ; that is worth
+E_SIZE          EQU 19
 
 ;; What a kind of enemy is: two pictures each way round, a size, and whether
 ;; it flies. Three bytes and its art is what a new one costs.
@@ -177,7 +184,12 @@ GRANNY_BYTES    EQU GRANNY_W*GRANNY_H
 GRANNY_X0       EQU 30                  ; the beat she walks, in bytes -
 GRANNY_X1       EQU 50                  ; she is ten bytes wide herself
 GRANNY_WALK     EQU 8                   ; frames between her steps
-GRANNY_HUNT     EQU 4                   ; and when she has seen him
+GRANNY_HUNT     EQU 8                   ; and when she has seen him - the same
+                                        ; eight, but two bytes of floor in it
+                                        ; instead of one. Four quarters of her
+                                        ; is four pictures to finish a step,
+                                        ; and a step every four frames could
+                                        ; never be finished at all
 GRANNY_SEE      EQU 16                  ; how far along the floor she can
 GRANNY_SWEEP    EQU 16                  ; frames between the halves of a stroke
 
@@ -401,7 +413,7 @@ ART_LEN         EQU art_end-art_start
 ;; which keeps no window at all because the screen is its own window. It is
 ;; read once, where the file left it, and never moved.
 ;; ---------------------------------------------------------------------------
-MENU_STORE      EQU #6800               ; set by hand, like ART_STORE above.
+MENU_STORE      EQU #68C0               ; set by hand, like ART_STORE above.
                                         ;
                                         ; It has to be **below #8000**, and
                                         ; the sprites do not: the sprites are
@@ -494,16 +506,15 @@ main_title_wait
 ;; ---------------------------------------------------------------------------
 main_loop
     call wait_render                    ; two ticks of irq.asm's 50 Hz
-    call read_controls                  ; the matrix, folded into ctl_now
 
-    ld a,(ctl_pressed)                  ; L, in either screen
-    bit CTL_LANG,a
-    call nz,switch_language
-
-    ld a,(mitsos_over)
-    or a
-    jr nz,main_over
-
+;; The tick is the starting gun and the only thing that may be between it and
+;; the first byte of sprite work is nothing at all. There are forty blanked
+;; scanlines after it - two and a half milliseconds - and they are the whole
+;; head start the rebuild gets on the beam. Reading the keyboard is eight
+;; hundred microseconds of them and working out whether any two of the cast
+;; are standing in each other is another thousand; both belong to the next
+;; picture, not this one, so both happen after the draw. Moving them out of
+;; here is thirty scanlines of head start for nothing.
 ;; Everything comes off the screen before anything goes back on it. One at a
 ;; time would keep each of them off for less of the frame, but then a save
 ;; can catch another sprite's picture instead of the shop and hand it back
@@ -525,6 +536,16 @@ main_loop
 
 ;; The picture is up and the beam is walking over it. Everything from here on
 ;; is for the next one.
+    call read_controls                  ; the matrix, folded into ctl_now
+
+    ld a,(ctl_pressed)                  ; L, in either screen
+    bit CTL_LANG,a
+    call nz,switch_language
+
+    ld a,(mitsos_over)
+    or a
+    jr nz,main_over
+
     ld b,FRAMES_PER_RENDER
 main_loop_think
     push bc
@@ -533,7 +554,9 @@ main_loop_think
     call granny_move
     pop bc
     djnz main_loop_think
-    jr main_loop
+
+    call cast_decide                    ; and whether the next picture can be
+    jr main_loop                        ; done the quick way
 
 ;; Out of lives: the shop stands where it stopped with GAME OVER across it,
 ;; and fire puts the whole thing back.
@@ -694,6 +717,9 @@ game_start
     ld (mitsos_drawn),a
     ld (basket_open),a
     ld (basket_dirty),a
+    inc a                               ; and the first picture of a life is
+    ld (cast_slow),a                    ; built with the whole cast off, since
+    dec a                               ; none of it is on the screen yet
     ld (rush_bars),a
     call rush_stop                      ; his own weight back, and the border
     ld h,a                              ; and nothing on the score
@@ -1865,7 +1891,44 @@ foes_draw_right
     push de
     call spr_draw
     ld (iy+E_DRAWN),1
+    call foe_pose
+    ld (iy+E_OPOSE),a
     pop hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foe_pose - A = which picture the one at IY should be showing: the frame,
+;; with bit 7 set if it is facing left.
+;; Destroys AF.
+;; ---------------------------------------------------------------------------
+foe_pose
+    ld a,(iy+E_DIR)
+    inc a
+    ld a,(iy+E_FRAME)
+    ret nz
+    or #80
+    ret
+
+;; ---------------------------------------------------------------------------
+;; foe_still - Z if the one at IY is already showing the right picture in the
+;; right place, so nothing has to be done to it at all.
+;; Destroys AF.
+;; ---------------------------------------------------------------------------
+foe_still
+    ld a,(iy+E_DRAWN)
+    or a
+    jr z,foe_still_no                   ; never drawn, so it is not showing
+    ld a,(iy+E_X)                       ; anything, let alone the right thing
+    cp (iy+E_OX)
+    ret nz
+    ld a,(iy+E_Y)
+    cp (iy+E_OY)
+    ret nz
+    call foe_pose
+    cp (iy+E_OPOSE)
+    ret
+foe_still_no
+    or 1                                ; anything but Z
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -1961,14 +2024,19 @@ foe_kinds
 ;; way it is going, and then the eight bytes it keeps for itself. This is the
 ;; copy nothing writes to: the game runs on the one it puts in RAM, so a new
 ;; game gets them all back on their feet and where they started.
-foes_init
+foes_init                               ; kind, x, y, y0, x0, x1, dir
+                                        ; tick, frame, anim, stun, phase,
+                                        ; drawn, ox, oy, dive, rest, carry,
+                                        ; and the pose its picture is showing
     defb K_MOUSE, 80, FLOOR_TOP-SPR_MOUSE_A_H, 0, 56, 92, -1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
     ;; and the one that walks the counter, which is where the sausage is
     defb K_MOUSE, 58, SHELF_1-24-SPR_MOUSE_A_H, 0, 58, 84, 1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
     defb K_GULL, 64, 72, 72, 58, 84, 1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+foes_init_end
+    ASSERT foes_init_end-foes_init == FOE_COUNT*E_SIZE
 
 ;; ---------------------------------------------------------------------------
 ;; What he can stand on: first column, last column, top scanline - and #FF at
@@ -2521,8 +2589,10 @@ granny_reset
     ld a,1
     ld (granny_dirty),a                 ; draw_shop has just wiped her off, so
     xor a                               ; neither half of her is on the screen
-    ld (gr_top+GH_ON),a                 ; and the first rebuild is a whole one
-    ld (gr_bot+GH_ON),a
+    ld (gr_pieces+0*GH_SIZE+GH_ON),a    ; and the first rebuild is a whole one
+    ld (gr_pieces+1*GH_SIZE+GH_ON),a
+    ld (gr_pieces+2*GH_SIZE+GH_ON),a
+    ld (gr_pieces+3*GH_SIZE+GH_ON),a
     ld (granny_part),a
     ld (granny_whole),a
     ld (granny_lh),a
@@ -2595,6 +2665,13 @@ granny_move_step
     ld (hl),e                           ; the next step is E frames off
     ld a,(granny_dir)
     ld b,a
+    ld a,d                              ; and it is a double one if she has
+    or a                                ; seen him: same ground covered in the
+    jr z,granny_move_one                ; same time, half as many rebuilds,
+    ld a,b                              ; which is what four quarters of her
+    add a,b                             ; cost
+    ld b,a
+granny_move_one
     ld a,(granny_x)
     add a,b
     cp GRANNY_X0
@@ -2724,14 +2801,24 @@ FOE_MAX_W       EQU SPR_SEAGULL_A_W     ; the biggest of them, used for all of
 FOE_MAX_H       EQU SPR_SEAGULL_A_H     ; them: a box too big only costs a
                                         ; picture done the slow way
 
-cast_rebuild
+cast_decide
+    ld a,1
+    ld (cast_slow),a
     ld a,(granny_whole)                 ; a meze off a shelf or the lid off the
     or a                                ; basket: the shop changes, and that
-    jr nz,cast_rebuild_whole            ; can only be done with all of them off
+    ret nz                              ; can only be done with all of them off
     call picks_moving                   ; a meze on a mouse's back, likewise
-    jr nz,cast_rebuild_whole
+    ret nz
     call cast_tangled
-    jr c,cast_rebuild_whole
+    ret c
+    xor a
+    ld (cast_slow),a
+    ret
+
+cast_rebuild
+    ld a,(cast_slow)                    ; worked out at the end of the last
+    or a                                ; picture, where it costs the beam
+    jr nz,cast_rebuild_whole            ; nothing
     jp cast_order
 
 cast_rebuild_whole
@@ -2803,6 +2890,10 @@ cast_unit_y
     cp FOE_COUNT
     jr nc,cast_unit_y_rest
     call foe_ptr
+    call foe_still
+    ld a,255
+    ret z                               ; already right: it can go last and
+                                        ; cost nothing
     ld a,(iy+E_DRAWN)
     or a
     ld a,(iy+E_Y)
@@ -2832,9 +2923,22 @@ cast_unit_y_granny
     or a                                ; where she should be and can go last
     ld a,255
     ret z
-    ld a,GRANNY_H
-    neg
-    add a,FLOOR_TOP
+    ld a,(granny_part)                  ; the top of the quarter that is due,
+    ld b,a                              ; which is what the beam will reach
+    ld a,0                              ; first of whatever is about to change
+    or b
+    jr z,cast_unit_y_granny_top
+    ld a,GRANNY_H/GRANNY_PIECES
+cast_unit_y_granny_add
+    dec b
+    jr z,cast_unit_y_granny_done
+    add a,GRANNY_H/GRANNY_PIECES
+    jr cast_unit_y_granny_add
+cast_unit_y_granny_done
+    add a,FLOOR_TOP-GRANNY_H
+    ret
+cast_unit_y_granny_top
+    ld a,FLOOR_TOP-GRANNY_H
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -3094,30 +3198,41 @@ cast_span_put
     ret
 
 ;; ---------------------------------------------------------------------------
-;; Grandma, half of her at a time.
+;; Grandma, a quarter of her at a time.
 ;;
 ;; She is ten bytes by ninety-six. Lifting that rectangle off the screen is
 ;; nine milliseconds and saving the shop under it and blitting her back is
-;; twenty-three, and the picture she moves in has thirteen more milliseconds
-;; of shop in it and forty to do the lot in. It does not fit. The picture
-;; that overruns hands its lateness to the next one, and that is why the
-;; whole shop flickered and not only her: every sprite in it was being put
-;; back after the beam had gone past.
+;; twenty-three, and a picture is forty with thirteen milliseconds of shop
+;; already in it. It does not fit, and the picture that overran handed its
+;; lateness to the next one - which is why the whole shop flickered and not
+;; only her.
 ;;
-;; So she is rebuilt a half at a time - the top half in one picture, the
-;; bottom half in the next. Each half is its own little sprite as far as the
-;; screen is concerned: its own slice of the picture, its own corner of
-;; granny_buf, its own record of where its picture actually is. For the one
-;; picture in between, her top half stands four pixels from her bottom half.
-;; That is a seam across her apron for a twenty-fifth of a second once every
-;; four pictures, and it is a great deal less than the shop flickering.
+;; Halving it was not enough either, because the deadline is not the budget:
+;; her top row is scanline 140, the beam is there eleven and a half
+;; milliseconds after the frame starts, and half of her is sixteen. A quarter
+;; is eight, and eight fits.
 ;;
-;; Both halves are cut from the same pose, latched when the top one goes
-;; down, so they are never two different old women. A change of pose, and
-;; anything that changes the shop underneath her, need the whole of her at
-;; once and say so with granny_whole - both are rare enough to pay for whole.
+;; So she is rebuilt a quarter at a time, top down, one quarter to a picture.
+;; Each quarter is its own little sprite as far as the screen is concerned:
+;; its own slice of the picture, its own corner of granny_buf, its own record
+;; of where its picture actually is. All four are cut from the pose latched
+;; when the first one goes down, so she is never two different old women -
+;; and a change of pose that only moves the broom therefore waits politely
+;; for the top of the next cycle rather than costing a whole rebuild.
+;;
+;; Four quarters is four pictures to finish a step, so her step had to slow
+;; down to match: GRANNY_WALK was already eight frames, and hunting now
+;; covers two bytes in the same eight rather than one byte in four. Same
+;; speed across the floor, half as many rebuilds, and a lurch instead of a
+;; walk when she has seen him - which is not the worst thing for an old woman
+;; with a broom. What is left is one seam across her, two bytes wide, walking
+;; down her body while she does.
 ;; ---------------------------------------------------------------------------
-GH_X            EQU 0                   ; where this half's picture is
+GRANNY_PIECES   EQU 4                   ; and it has to divide both her poses
+    ASSERT GRANNY_H/GRANNY_PIECES*GRANNY_PIECES == GRANNY_H
+GRANNY_ALL      EQU (1<<GRANNY_PIECES)-1
+
+GH_X            EQU 0                   ; where this quarter's picture is
 GH_Y            EQU 1
 GH_ROWS         EQU 2                   ; and how many scanlines of it
 GH_ON           EQU 3                   ; is any of it on the screen
@@ -3125,10 +3240,9 @@ GH_BUF          EQU 4                   ; its corner of granny_buf
 GH_SIZE         EQU 6
 
 ;; ---------------------------------------------------------------------------
-;; granny_erase - the half that is due this picture comes off the screen, and
-;; granny_doing remembers which it was for the draw at the other end of the
-;; rebuild. Standing still she is left exactly where she is and costs the
-;; picture nothing at all.
+;; granny_erase - the quarter due this picture comes off the screen, and
+;; granny_doing remembers which for the draw at the other end of the rebuild.
+;; Standing still she is left exactly where she is and costs nothing at all.
 ;; Destroys AF, BC, DE, HL, IX, IY.
 ;; ---------------------------------------------------------------------------
 granny_erase
@@ -3138,77 +3252,101 @@ granny_erase
     or a
     ret z
 
-    ld a,(granny_part)
-    or a
-    jr nz,granny_erase_bottom_due       ; the bottom half, cut from the pose
-                                        ; the top one was cut from
-    call granny_pick_pose               ; the top half is due, so this is where
-    ld (granny_pic),hl                  ; the pose is chosen
+    call granny_pick_pose               ; HL = the picture, A = its height
     ld c,a
     ld a,(granny_lh)
     cp c
-    ld a,c
-    ld (granny_lh),a
-    jr nz,granny_erase_whole            ; a different pose: no half measures
-    ld a,(granny_whole)
+    jr nz,granny_erase_repose           ; a pose of a different height cannot
+                                        ; be done a quarter at a time: the two
+                                        ; ends of her would not meet
+    ld a,(granny_part)
     or a
-    jr nz,granny_erase_whole
-    ld a,1                              ; the top half by itself
+    jr nz,granny_erase_due              ; mid-cycle: keep the latched picture
+    ld (granny_pic),hl                  ; a new cycle, so this is the pose all
+                                        ; four quarters come out of
+granny_erase_due
+    ld a,(granny_whole)                 ; the shop changed under her: she has
+    or a                                ; to re-save every bit of it
+    jr nz,granny_erase_all
+    ld a,(granny_part)                  ; just the one quarter, as a bit
+    ld b,a
+    ld a,1
+    inc b
+    jr granny_erase_shift_in
+granny_erase_shift
+    add a,a
+granny_erase_shift_in
+    djnz granny_erase_shift
     jr granny_erase_go
 
-granny_erase_bottom_due
-    ld a,(granny_whole)
-    or a
-    ld a,2                              ; the bottom half by itself
-    jr z,granny_erase_go
-granny_erase_whole
-    ld a,3
+granny_erase_repose
+    ld a,c
+    ld (granny_lh),a
+    ld (granny_pic),hl
+granny_erase_all
+    ld a,GRANNY_ALL
 granny_erase_go
     ld (granny_doing),a
-    bit 0,a
-    jr z,granny_erase_bot
-    ld iy,gr_top
-    call granny_piece_off
-    ld a,(granny_doing)
-granny_erase_bot
-    bit 1,a
-    ret z
-    ld iy,gr_bot
-    jp granny_piece_off
+    ld c,a
+    ld iy,gr_pieces
+    ld b,GRANNY_PIECES
+granny_erase_loop
+    push bc
+    bit 0,c
+    call nz,granny_piece_off
+    pop bc
+    srl c
+    ld de,GH_SIZE
+    add iy,de
+    djnz granny_erase_loop
+    ret
 
 ;; ---------------------------------------------------------------------------
-;; granny_draw - and back on, the same half or halves, from the latched pose.
+;; granny_draw - and back on, the same quarter or quarters, from the latched
+;; pose; then whose turn it is next.
 ;; Destroys AF, BC, DE, HL, IX, IY.
 ;; ---------------------------------------------------------------------------
 granny_draw
     ld a,(granny_doing)
     or a
     ret z
-    bit 0,a
-    jr z,granny_draw_bottom
-    ld iy,gr_top
-    xor a                               ; her top half starts at her head
+    ld c,a
+    ld iy,gr_pieces
+    ld b,0
+granny_draw_loop
+    push bc
+    bit 0,c
+    jr z,granny_draw_skip
+    ld a,b
     call granny_piece_on
+granny_draw_skip
+    pop bc
+    srl c
+    ld de,GH_SIZE
+    add iy,de
+    inc b
+    ld a,b
+    cp GRANNY_PIECES
+    jr c,granny_draw_loop
+
     ld a,(granny_doing)
-granny_draw_bottom
-    bit 1,a
-    jr z,granny_draw_more
-    ld iy,gr_bot
-    ld a,(granny_lh)
-    srl a                               ; and her bottom half at her apron
-    call granny_piece_on
-    xor a                               ; and now the whole of her is where it
-    ld (granny_part),a                  ; should be
+    cp GRANNY_ALL
+    jr z,granny_draw_settled
+    ld a,(granny_part)
+    inc a
+    cp GRANNY_PIECES
+    jr nc,granny_draw_settled
+    ld (granny_part),a                  ; the next quarter follows next picture
+    ret
+granny_draw_settled
+    xor a                               ; the whole of her is where it belongs
+    ld (granny_part),a
     ld (granny_dirty),a
     ld (granny_whole),a
     ret
-granny_draw_more
-    ld a,1                              ; the bottom half follows next picture
-    ld (granny_part),a
-    ret
 
 ;; ---------------------------------------------------------------------------
-;; granny_piece_off - IY = a half's record; whatever of it is on the screen
+;; granny_piece_off - IY = a quarter's record; whatever of it is on the screen
 ;; comes off, and the shop it was covering goes back.
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
@@ -3232,9 +3370,9 @@ granny_piece_off
     ret
 
 ;; ---------------------------------------------------------------------------
-;; granny_piece_on - IY = a half's record, A = the row of her it starts on.
-;; Both halves come out of the one picture and the one buffer, each taking
-;; its own slice of each.
+;; granny_piece_on - IY = a quarter's record, A = which quarter it is. All
+;; four come out of the one picture and the one buffer, each taking its own
+;; slice of each.
 ;;
 ;; Her feet are on the floor in every pose, so where the picture starts is
 ;; worked out from the height of whichever one is going down rather than kept
@@ -3242,25 +3380,29 @@ granny_piece_off
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 granny_piece_on
-    ld (gr_row),a
+    ld (gr_piece),a
 
-    ld a,(granny_lh)                    ; how many rows this half is: the top
-    srl a                               ; one is half of her, and the bottom
-    ld c,a                              ; one is whatever is left over
-    ld a,(gr_row)
-    or a
-    jr z,granny_piece_rows
-    ld a,(granny_lh)
-    sub c
+    ld a,(granny_lh)                    ; how many rows a quarter of her is
+    srl a
+    srl a
     ld c,a
-granny_piece_rows
-    ld a,c
     ld (iy+GH_ROWS),a
+
+    ld a,(gr_piece)                     ; and which row this one starts on
+    ld b,a
+    or a
+    ld a,0
+    jr z,granny_piece_first
+granny_piece_add
+    add a,c
+    djnz granny_piece_add
+granny_piece_first
+    ld (gr_row),a
 
     ld hl,(granny_pic)
     call spr_size                       ; -> spr_w, spr_h, HL at the pixels
     ld a,c
-    ld (spr_h),a                        ; but only this half of them
+    ld (spr_h),a                        ; but only this quarter of them
 
     push hl
     ld a,(gr_row)
@@ -3269,7 +3411,7 @@ granny_piece_rows
     add hl,hl                           ; and, mask and data, twice that into
     pop de                              ; the picture
     add hl,de
-    push hl                             ; HL = the pixels of this half
+    push hl                             ; HL = the pixels of this quarter
 
     ld a,(granny_x)                     ; where it goes
     ld (spr_x),a
@@ -3278,7 +3420,7 @@ granny_piece_rows
     neg
     add a,FLOOR_TOP                     ; her feet stay on the floor
     ld hl,gr_row
-    add a,(hl)                          ; and this half starts that far down
+    add a,(hl)                          ; and this quarter starts that far down
     ld (iy+GH_Y),a
     call spr_row_ptr                    ; wants DE and HL for itself
 
@@ -3762,11 +3904,10 @@ steal_x         defs 1              ; the mouse's own rectangle, while it
 steal_y         defs 1              ; looks along the shelf for a meze
 
 granny_x        defs 1              ; where she is, in bytes
-gr_top          defs GH_SIZE        ; and where each half of her picture is,
-gr_bot          defs GH_SIZE        ; because the two of them are a picture
-                                    ; apart while she is walking
-granny_part     defs 1              ; whose turn is next: 0 the top, 1 the
-                                    ; bottom
+gr_pieces       defs GRANNY_PIECES*GH_SIZE  ; where each quarter of her
+                                    ; picture is, because they are up to four
+                                    ; pictures apart while she is walking
+granny_part     defs 1              ; whose turn is next, counting down her
 granny_whole    defs 1              ; unless the shop under her changed, in
                                     ; which case both of them, now
 granny_lh       defs 1              ; how tall the pose both halves are cut
@@ -3783,8 +3924,11 @@ granny_doing    defs 1              ; and which half of her this rebuild is
 granny_pic      defs 2              ; the pose both halves are being cut from
 cast_box        defs CAST_COUNT*CAST_SIZE   ; the ground each of them covers
 cast_y          defs CAST_COUNT     ; and the top of it, until it is put back
-gr_row          defs 1              ; scratch for granny_piece_on: the row of
-gr_off          defs 2              ; her a half starts on, and its offset
+cast_slow       defs 1              ; and whether the next picture has to be
+                                    ; done with the whole cast off first
+gr_piece        defs 1              ; scratch for granny_piece_on: which
+gr_row          defs 1              ; quarter, the row of her it starts on,
+gr_off          defs 2              ; and its offset into the buffer
 
 score           defs SCORE_BYTES    ; packed BCD, most significant byte first
 mezes_left      defs 1              ; how many the basket is still waiting for
