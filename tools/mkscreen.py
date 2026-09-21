@@ -26,10 +26,16 @@ Two things are written:
 it is there for one reason: the packed size. A photograph or a painted
 picture carries detail far finer than 192x272 can hold, and what does not
 survive the scaling comes out as single stray pixels that the packer has to
-spend a literal on each. A pixel of blur at the source is a fifth of a pixel
-at this size - invisible - and it bought the second game's title screen two
-hundred bytes it did not have. Reach for it only when the picture does not
-fit; the asserts at the bottom of the game say when.
+spend a literal on each. Blurring the source costs detail that was never
+going to arrive and saves those literals: the second game's title screen is
+5896 bytes at 1.6 pixels of blur and 6357 with none.
+
+It is the wrong end to squeeze, though, and neither game uses it now. Four
+hundred bytes of picture is four hundred bytes of picture, and the same four
+hundred bytes came out of the code for nothing by sending the font, the
+strings and the box lists down to #0100 with the sprites - where they were
+going to be packed anyway. Reach for --smooth only when there is genuinely
+nothing left to move; the asserts at the bottom of the game say when.
 
 --repen x0,y0,x1,y1,from,to changes one pen to another inside a rectangle,
 after the quantising and before anything else. Sixteen pens is few enough

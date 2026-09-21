@@ -11,7 +11,8 @@
 ;; The song rides down there with the pictures for the same reason: the AKG
 ;; player reads it and never executes it, and it is two hundred and forty-two
 ;; bytes of a sixteen kilobyte address space that has a title picture to fit
-;; in as well.
+;; in as well. So do the box lists the shop is drawn from, the table that
+;; stocks its shelves and the palette, which is another eight hundred.
 ;;
 ;; This pass assembles both files at exactly the address they run at and
 ;; saves it raw; tools/mkpack.py packs that into src/mitsosartpack.asm, which
@@ -21,12 +22,16 @@
 ;; ===========================================================================
 
     include "config.asm"
+    include "mitsosshop.asm"
 
     ORG DATA_ORG
 art_start
+    include "font.asm"
+    include "mitsosstr.asm"
     include "mitsosart.asm"
 pantomusic_song
     include "pantomusic.asm"
+    include "mitsosdata.asm"
 art_end
 
     SAVE "build/mitsosart.bin",art_start,art_end-art_start

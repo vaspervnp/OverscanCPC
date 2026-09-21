@@ -208,15 +208,26 @@ assume an effect that works in one emulator works on another type.
   bottom of loukoumas.asm are what catch a build that has grown past it.
   The second game ended up with the same three regions as the first, for the
   same reasons and in the same order: **code from #4000, the title picture,
-  then the packed sprites.** Its low block - `src/mitsosart.asm` and the song
-  - is assembled at #0100 for its labels only, and what the file actually
-  carries is the packed copy, exactly the way `lowblock.asm`/`tablepack.asm`
-  work for the first game: `src/mitsoslow.asm` assembles the same two files at
-  the address they run at and saves them raw, `tools/mkpack.py` packs that,
-  and `unpack_tables` puts it back in the first dozen instructions. Ten
-  kilobytes becomes under two, because masked sprites are mostly transparent
-  corner and a transparent byte is the same two bytes of mask and data over
-  and over. That is what paid for the picture.
+  then the packed low block.** That block is assembled at #0100 for its labels
+  only, and what the file actually carries is the packed copy, exactly the way
+  `lowblock.asm`/`tablepack.asm` work for the first game: `src/mitsoslow.asm`
+  assembles the same files at the address they run at and saves them raw,
+  `tools/mkpack.py` packs that, and `unpack_tables` puts it back in the first
+  dozen instructions. Eleven kilobytes becomes under three, most of the saving
+  coming from the masked sprites, which are mostly transparent corner - and a
+  transparent byte is the same two bytes of mask and data over and over.
+  **What belongs down there is everything that is never written to and never
+  executed**, and the test is that and nothing else: the sprites went first,
+  then the song, then the font and the two string tables, then the box lists
+  the shop is drawn from, `pickups_init` and the palette (`mitsosdata.asm`,
+  with the shelf constants both passes need split out into
+  `mitsosshop.asm`). The box lists and the song barely pack at all - they go
+  down for the address space, not for the file. Each move is a byte off
+  `code_end` and a byte the title picture can have, and it is the right end to
+  squeeze: the alternative is blurring the picture, which costs detail. The
+  one rule is that `mitsoslow.asm` and the game's own `ORG ART_ORG` block must
+  include the same files in the same order - `make check` unpacks what the Z80
+  produces and `cmp`s it against the raw binary.
   **The picture has to be below #8000 and the sprites do not.** The sprites
   are moved before anything looks at the screen, so the file may lie over the
   screen while it loads; the picture is read from where the file left it,
@@ -225,8 +236,9 @@ assume an effect that works in one emulator works on another type.
   also have to be above the stack, which sits just under #8000: the unpack is
   a call, and a return address landing in the middle of the stream is the same
   bug from the other end.
-  Under #4000 are the unpacked sprites at #0100, the line table at #2A00, the
-  four buffers of saved background, and then **the whole of the workspace** -
+  Under #4000 are the unpacked low block at #0100, the line table after it -
+  `LINE_TAB_AT`, which has had to move up twice as the block grew - the four
+  buffers of saved background, and then **the whole of the workspace** -
   uninitialised RAM costs a byte of disc for every byte of it if it is
   declared above #4000, and two hundred and sixty-four bytes of this one were
   being carried for no reason.
@@ -443,14 +455,20 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
 - **A picture of a room beats drawing one, when there is room for it.** The
   second game's title screen was the shop drawn out of its own box lists,
   which cost nothing to carry and a second to paint. It is now a painted
-  picture put through `tools/mkscreen.py` - and the two switches that made it
-  fit are worth knowing: `--smooth` blurs the source by a pixel before it is
-  scaled down, which is invisible at 192x272 and took two hundred bytes off
-  the packed size, and `--repen` changes one pen to another inside a
-  rectangle. Sixteen pens is few enough that two things which are different
-  colours in the source land on the same pen, and if they touch, the thing in
-  front disappears into the thing behind it: Grandma's face came out the same
-  coral as the brick wall she stands against.
+  picture put through `tools/mkscreen.py`, and two of that tool's switches are
+  worth knowing. `--repen` changes one pen to another inside a rectangle:
+  sixteen pens is few enough that two things which are different colours in
+  the source land on the same pen, and if they touch, the thing in front
+  disappears into the thing behind it - Grandma's face came out the same coral
+  as the brick wall she stands against. `--smooth` blurs the source before it
+  is scaled down, which takes several hundred bytes off the packed size
+  because what does not survive the scaling arrives as stray single pixels the
+  packer spends a literal on each. **Do not reach for `--smooth` until there
+  is nothing left to move out of the #4000 block.** It was carrying this
+  picture at 1.6 pixels of blur; sending the font, the strings and the box
+  lists down to #0100 freed a kilobyte of code space and it is now packed with
+  no blur at all, which is 6357 bytes against 5896 and visibly sharper. Blur
+  spends picture to buy code; moving read-only data spends nothing.
 - **Something the size of a person can be a sprite, but only if it is rarely
   redrawn - and "rarely" does not save the frame it is redrawn in.** Grandma
   at ten bytes by ninety-six is nine milliseconds to lift and twenty-three to

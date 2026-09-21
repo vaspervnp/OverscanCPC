@@ -107,7 +107,7 @@ src/titlepic.asm build/title.bin: assets/art/title.jpg tools/mkscreen.py
 src/mitsosmenupic.asm build/mitsosmenu.bin: assets/art/mitsos/mitsosmenu.jpg \
                                             tools/mkscreen.py
 	$(PYTHON) tools/mkscreen.py assets/art/mitsos/mitsosmenu.jpg mitsosmenu \
-		--smooth 1.6 --repen 93,87,101,104,1,15
+		--repen 93,87,101,104,1,15
 
 # The screen shots the manuals and the inlay are made of, in both languages -
 # the HUD and the room name are text, so an English booklet cannot carry a

@@ -30,32 +30,7 @@ BUILDSNA
 BANKSET 0
     ENDIF
 
-;; --- The shop --------------------------------------------------------------
-;; Scanlines down and bytes across. A byte is two mode 0 pixels, which is four
-;; pixels on the monitor, so the 96 bytes of a line are the full 384.
-FLOOR_TOP       EQU 236                 ; the tiles start here
-DADO_TOP        EQU 188                 ; and the painted lower wall here
-GROUT_STEP      EQU 8                   ; a floor tile is this many bytes
-SOAP_H          EQU 10                  ; how deep a puddle of it looks
-
-;; The wall is brick, and at this scale a course is about
-;; a hand's width: 16 scanlines to a course, 8 bytes to a brick - 32 pixels on
-;; the monitor - and every other course offset by half a brick, which is what
-;; makes it read as a wall rather than as a grid. The joints are a byte wide
-;; because a byte is the narrowest thing a fill can put down: two mode 0
-;; pixels, four on the tube.
-BRICK_COURSE    EQU 16
-BRICK_MORTAR    EQU 2
-BRICK_W         EQU 8
-
-;; The shelf boards, the counter top and the crate lids are all pen 2, and
-;; they are 32 scanlines apart, because that is what a cat clears in a jump.
-;; "Butter yellow means you can stand on it" is the visual grammar of both
-;; games on this engine and it does not change from room to room.
-SHELF_1         EQU 204
-SHELF_2         EQU 172
-SHELF_3         EQU 140
-SHELF_4         EQU 108
+    include "mitsosshop.asm"
 
 ;; --- Mitsos ----------------------------------------------------------------
 ;; Twelve mode 0 pixels across - six bytes, twenty-four on the monitor - and
@@ -211,14 +186,16 @@ HAS_MUSIC       EQU 1
 ART_ORG         EQU DATA_ORG            ; clear of the interrupt jump at #0038,
                                         ; and the same address the other game
                                         ; puts its own low block at
-ART_STORE       EQU #8000               ; where the file carries them, until
-                                        ; the first LDIR of the game. It has
-                                        ; to clear the code, and the code grew
-                                        ; three kilobytes when the tune and
-                                        ; its player came in; the ceiling is
-                                        ; #7F03, where ART_LEN would run into
-                                        ; AMSDOS's buffers at #A67B
-LINE_TAB_AT     EQU #2A00               ; and behind them, the line table
+ART_STORE       EQU #8000               ; where the file carries them, packed,
+                                        ; until the first call of the game. It
+                                        ; is above the stack on purpose - see
+                                        ; unpack_tables below - and the ceiling
+                                        ; is #A67B, where AMSDOS's buffers are
+LINE_TAB_AT     EQU #2E00               ; and behind them, the line table. It
+                                        ; has moved up twice, each time the low
+                                        ; block grew: everything that is only
+                                        ; ever read is down there now, and this
+                                        ; has to start past the end of it
 LOW_BUFS        EQU LINE_TAB_AT+DISPLAY_LINES*2
 
 ;; --- The seagull's dive ----------------------------------------------------
@@ -373,35 +350,43 @@ LANG            EQU 0
     ENDIF
 
 ;; ---------------------------------------------------------------------------
-;; The pictures, assembled where they run and not where the file carries them.
+;; The low block, assembled where it runs and not where the file carries it.
 ;;
-;; Ten kilobytes of sprites, and the game has sixteen between #4000 and the
-;; screen at #8000 for the code, the pictures and its own workspace. The
-;; pictures do not have to be in that: they are read and only read, and they
-;; go into place before anything else happens. #0000-#3FFF is sixteen more
+;; Eleven kilobytes of it, and the game has sixteen between #4000 and the
+;; screen at #8000 for the code, the pictures and its own workspace. None of
+;; this has to be in that: it is read and only read, and it goes into place
+;; before anything else happens. #0000-#3FFF is sixteen more
 ;; kilobytes that nothing is using once both ROMs are off - only the interrupt
 ;; jump at #0038 is in it - and a program cannot be *loaded* there, because
 ;; AMSDOS hands over with the lower ROM still enabled and a program down there
-;; would be ROM. So the file carries them at ART_STORE, above the code, and
-;; the first four instructions of the game move them down.
+;; would be ROM. So the file carries it at ART_STORE, above the code, and the
+;; first four instructions of the game move it down.
 ;;
-;; rasm's second ORG argument is the whole of the trick: the bytes are laid
-;; out to run at ART_ORG and written into the file at ART_STORE.
+;; What is down here is every byte of the game that is never written to and
+;; never executed: the font, the two languages, the sprites, the tune, and the
+;; box lists the shop is drawn from. Each of them went down for the same
+;; reason and each of them bought the same thing - room below #8000 for the
+;; title picture, which is the one thing that has to be there.
     ORG ART_ORG
 art_start
+    include "font.asm"                  ; the font and the two languages, as
+    include "mitsosstr.asm"             ; the other game already has them
     include "mitsosart.asm"
 pantomusic_song                         ; the tune rides down with them: the
     include "pantomusic.asm"            ; player reads it and never runs it
-art_end
+    include "mitsosdata.asm"            ; and so do the box lists that draw the
+art_end                                 ; shop, for the same reason
 ART_LEN         EQU art_end-art_start
 
 ;; ---------------------------------------------------------------------------
-;; And this is what the file actually carries: the same ten kilobytes packed
-;; to under two by tools/mkpack.py, which src/mitsoslow.asm assembled on its
-;; own for the purpose. Masked sprites pack to a sixth of themselves - most of
-;; a sprite is the transparent corner, and a transparent byte is the same two
-;; bytes of mask and data over and over. The bytes above are never saved: the
-;; file starts at mitsos_start and they are below it.
+;; And this is what the file actually carries: the same eleven kilobytes
+;; packed to under three by tools/mkpack.py, which src/mitsoslow.asm
+;; assembled on its own for the purpose. Masked sprites pack to a sixth of
+;; themselves - most of a sprite is the transparent corner, and a transparent
+;; byte is the same two bytes of mask and data over and over. The box lists
+;; and the tune barely pack at all, and go down for the address space rather
+;; than for the file. The bytes above are never saved: the file starts at
+;; mitsos_start and they are below it.
 ;; ---------------------------------------------------------------------------
     ORG ART_STORE
     include "mitsosartpack.asm"
@@ -412,8 +397,13 @@ ART_LEN         EQU art_end-art_start
 ;; a quarter of that by tools/mkscreen.py and put on the screen by unpack_pic,
 ;; which keeps no window at all because the screen is its own window. It is
 ;; read once, where the file left it, and never moved.
+;;
+;; It is packed with no blurring of the source at all, which is the sharpest
+;; tools/mkscreen.py can make it and six and a half kilobytes rather than
+;; five and three quarters. The difference was paid for by sending the font,
+;; the strings and the box lists down to #0100 with the sprites.
 ;; ---------------------------------------------------------------------------
-MENU_STORE      EQU #68C0               ; set by hand, like ART_STORE above.
+MENU_STORE      EQU #6600               ; set by hand, like ART_STORE above.
                                         ;
                                         ; It has to be **below #8000**, and
                                         ; the sprites do not: the sprites are
@@ -427,6 +417,15 @@ MENU_STORE      EQU #68C0               ; set by hand, like ART_STORE above.
                                         ; it above #8000 is a byte the
                                         ; decompressor overwrites and then
                                         ; reads back as noise.
+                                        ;
+                                        ; So it is squeezed from both sides:
+                                        ; the code has to end below it and the
+                                        ; picture has to end below #8000. As
+                                        ; it stands there are about 430 bytes
+                                        ; of room for the code and 300 for the
+                                        ; picture, and the two asserts at the
+                                        ; bottom of the file are exactly those
+                                        ; two numbers.
                                         ;
                                         ; Not PIC_STORE: config.asm already
                                         ; has one of those for the other game,
@@ -3689,143 +3688,12 @@ wall_row_ptr
     add hl,de
     ret
 
-;; ---------------------------------------------------------------------------
-;; The shop, as boxes. x and y, then the list: dx, dy, width in bytes, height
-;; in scanlines, pen - and #FF at the end of it.
-;; ---------------------------------------------------------------------------
-shop_props
-    defb 58, 24
-    defw box_window
-    defb 4, 76
-    defw box_shelving
-    defb 56, SHELF_1-24
-    defw box_counter
-    defb 38, SHELF_1-8
-    defw box_crates
-    defb 88, 212
-    defw box_sacks
-    defb 255
-
-;; 116 x 64 px: the window onto the harbour, which is the only daylight in it.
-box_window
-    defb  0,  0, 29, 64, 3      ; frame
-    defb  2,  4, 25, 30, 11     ; sky
-    defb  2, 34, 25, 26, 10     ; and the sea under it
-    defb 13,  0,  3, 64, 3      ; the bar down the middle
-    defb  4,  8,  3,  6, 15     ; the sun, in the top corner
-    defb  4, 40,  6,  2, 3      ; two lines of swell
-    defb 18, 48,  7,  2, 3
-    defb #FF
-
-;; 120 x 160 px: the shelving along the back wall, four boards of it.
-box_shelving
-    defb  0,  0, 30,160, 6      ; the carcass
-    defb  2,  4, 26,152, 12     ; the dark inside of it
-    defb  0,  0,  2,160, 6      ; uprights
-    defb 28,  0,  2,160, 6
-    defb  0, SHELF_4-76, 30, 4, 2   ; and the boards, a jump apart
-    defb  0, SHELF_3-76, 30, 4, 2
-    defb  0, SHELF_2-76, 30, 4, 2
-    defb  0, SHELF_1-76, 30, 4, 2
-    defb #FF
-
-;; 128 x 56 px: the counter, with the good stuff behind the glass.
-box_counter
-    defb  0,  0, 32, 56, 6      ; the body of it
-    defb  1,  6, 30, 30, 11     ; the glass front
-    defb  3,  8, 26, 26, 3      ; what is in it, in white trays
-    defb  3, 10, 26,  6, 1
-    defb  3, 22, 26,  6, 2
-    defb  0,  0, 32,  6, 2      ; the top, which he can stand on
-    defb  0, 40, 32, 16, 12     ; the panel under it
-    defb  2, 44, 28,  8, 6
-    defb #FF
-
-;; 56 x 40 px: crates of something, stacked two high.
-box_crates
-    defb  0,  0, 14, 40, 12
-    defb  0,  0, 14,  4, 2      ; the lid is a shelf like any other
-    defb  1,  6, 12,  4, 6      ; slats
-    defb  1, 14, 12,  4, 6
-    defb  1, 22, 12,  4, 6
-    defb  1, 30, 12,  4, 6
-    defb #FF
-
-;; 32 x 24 px: sacks in the corner, because a grocery has sacks in the corner.
-box_sacks
-    defb  0,  4,  8, 20, 15
-    defb  1,  0,  6,  6, 15
-    defb  2,  2,  4,  2, 6      ; the tie round the neck of it
-    defb  0, 14,  8,  2, 6
-    defb #FF
-
-;; ---------------------------------------------------------------------------
-;; What is standing on the shelves: the picture, where it is, whether the way
-;; out waits for it, and whether it is still there. The last of those is why
-;; this is copied into RAM at the top of a game rather than read where it lies.
-;; ---------------------------------------------------------------------------
-pickups_init                                 ; picture, x, y, meze, alive, ox, oy
-    defw spr_fish
-    defb  8, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
-    defw spr_cheese
-    defb 22, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
-    defw spr_sausage
-    defb 62, SHELF_1-24-SPR_FISH_H, 1, 1, #FF, 0  ; on the counter top
-    defw spr_meatball
-    defb 42, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0   ; on the lid of the crates
-    defw spr_catnip
-    defb 10, SHELF_2-SPR_FISH_H, 0, 1, #FF, 0     ; the one nothing waits for
-
-;; 32 x 20 px: the basket by the top board, shut and then not.
-box_basket
-    defb  0,  0,  8, 20, 6
-    defb  1,  2,  6, 16, 15
-    defb  0,  0,  8,  4, 12             ; the lid, while there is one
-    defb  1,  8,  6,  2, 6
-    defb #FF
-
-box_basket_open
-    defb  0,  0,  8, 20, 6
-    defb  1,  2,  6, 16, 0              ; the dark inside of it, and a way out
-    defb  0,  0,  1,  4, 12             ; the lid, tipped off the side
-    defb  7,  0,  1,  4, 12
-    defb  1,  8,  6,  2, 6
-    defb #FF
-
-;; ---------------------------------------------------------------------------
-;; The sixteen pens. Hardware colour numbers, not firmware INK numbers - the
-;; same sixteen the art is drawn in, which is what lets one converter feed
-;; both games. pal_blank, the all-black one every game starts on, is in
-;; crtc.asm.
-;; ---------------------------------------------------------------------------
-pal_shop
-    defb 0,   #40+4             ; navy - shadow, and what a mask lets through
-    defb 1,   #40+7             ; coral - the brick the shop is built of
-    defb 2,   #40+10            ; butter yellow - you can stand on this
-    defb 3,   #40+11            ; bright white
-    defb 4,   #40+20            ; black
-    defb 5,   #40+0             ; grey - the floor tiles
-    defb 6,   #40+30            ; olive - wood
-    defb 7,   #40+14            ; orange - Mitsos
-    defb 8,   #40+22            ; dark green
-    defb 9,   #40+18            ; bright green - catnip, and his eye
-    defb 10,  #40+6             ; teal - the sea, and the painted dado
-    defb 11,  #40+19            ; bright cyan - sky, glass, fish
-    defb 12,  #40+28            ; dark red - shadow in the wood
-    defb 13,  #40+12            ; bright red
-    defb 14,  #40+24            ; purple
-    defb 15,  #40+3             ; pale yellow - the mortar between it
-    defb #10, #40+7             ; the border, so the sliver matches the wall
-    defb #FF
-
     include "crtc.asm"
     include "video.asm"
     include "irq.asm"
     include "keys.asm"
     include "boxes.asm"
     include "text.asm"
-    include "font.asm"
-    include "mitsosstr.asm"
     include "sprite.asm"
     include "unpack.asm"
 
