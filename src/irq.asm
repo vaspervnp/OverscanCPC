@@ -67,7 +67,7 @@ irq_handler
     ld (irq_count),a
     ld hl,frame_count
     inc (hl)
-    jr irq_handler_done
+    jr irq_handler_frame
 
 irq_handler_mid
     ld hl,irq_count
@@ -78,6 +78,48 @@ irq_handler_mid
     ld (hl),0                   ; no interrupt has landed inside VSYNC, so fall
     ld hl,frame_count           ; back on counting - the game still runs
     inc (hl)
+
+;; ---------------------------------------------------------------------------
+;; Once a frame, and only once: the music, if this game has any. A game that
+;; wants one defines HAS_MUSIC and provides `music_tick`; one that does not
+;; assembles exactly the bytes it did before, because the jump above lands on
+;; the same address either way.
+;;
+;; It goes here rather than in the game loop because a tracker replay has to
+;; be stepped fifty times a second and the loop only comes round twenty-five -
+;; and because from here it keeps its beat through a full repaint of the room,
+;; which from the loop it could not. It can never be re-entered either: the
+;; whole of it runs with interrupts off, which matters more than it looks,
+;; because the player moves SP into the song while it reads.
+;;
+;; The price is everything it destroys. It uses both register sets, both index
+;; registers and the alternate accumulator, and sprite.asm blits out of the
+;; shadow set - so everything the handler has not already pushed is pushed
+;; here. Sixteen pushes and pops is about eighty microseconds, one scanline
+;; and a bit, against the forty blanked ones the frame starts with.
+;; ---------------------------------------------------------------------------
+irq_handler_frame
+    IFDEF HAS_MUSIC
+    push de
+    push ix
+    push iy
+    exx
+    ex af,af'
+    push af
+    push bc
+    push de
+    push hl
+    call music_tick
+    pop hl
+    pop de
+    pop bc
+    pop af
+    ex af,af'
+    exx
+    pop iy
+    pop ix
+    pop de
+    ENDIF
 
 irq_handler_done
     pop hl

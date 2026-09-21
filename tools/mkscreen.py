@@ -2,6 +2,8 @@
 """Turn a picture into a mode 0 overscan screen.
 
     tools/mkscreen.py assets/art/title.png TITLE
+    tools/mkscreen.py picture.jpg NAME --smooth 1.1
+    tools/mkscreen.py picture.jpg NAME --repen 95,87,101,100,1,15
 
 The output is 192 mode 0 pixels across by 272 scanlines - the whole overscan
 window, 384x272 on the monitor, because a mode 0 pixel is two scanlines wide.
@@ -19,6 +21,25 @@ Two things are written:
                         that actually fits in the machine. 26 KB of screen does
                         not fit anywhere in a game that has already spent its
                         sixteen kilobytes; around seven does.
+
+--smooth blurs the source by that many pixels before it is scaled down, and
+it is there for one reason: the packed size. A photograph or a painted
+picture carries detail far finer than 192x272 can hold, and what does not
+survive the scaling comes out as single stray pixels that the packer has to
+spend a literal on each. A pixel of blur at the source is a fifth of a pixel
+at this size - invisible - and it bought the second game's title screen two
+hundred bytes it did not have. Reach for it only when the picture does not
+fit; the asserts at the bottom of the game say when.
+
+--repen x0,y0,x1,y1,from,to changes one pen to another inside a rectangle,
+after the quantising and before anything else. Sixteen pens is few enough
+that two things which are different colours in the source can land on the
+same pen, and if they touch, the thing in front disappears into the thing
+behind it: Grandma's face came out the same coral as the brick wall she is
+standing against. A pen is cheaper to move than a wall, and her face is
+seven pixels by fourteen. The rectangle is in mode 0 pixels - 0,0 is the top
+left of the 192x272 picture - and only the pen named is touched, so the
+hair and the eyes inside the same box are left alone.
 
 The compressed format, decoded by src/unpack.asm:
 
@@ -61,10 +82,22 @@ PENS = [
 ]
 
 
-def quantise(path):
+def repen(rows, boxes):
+    """pen `frm` -> pen `to`, inside each rectangle and nowhere else."""
+    for x0, y0, x1, y1, frm, to in boxes:
+        for y in range(max(0, y0), min(DISPLAY_LINES, y1 + 1)):
+            for x in range(max(0, x0), min(WIDTH, x1 + 1)):
+                if rows[y][x] == frm:
+                    rows[y][x] = to
+    return rows
+
+
+def quantise(path, smooth=0.0):
     """The picture as rows of pen numbers, 192 by 272."""
-    from PIL import Image
+    from PIL import Image, ImageFilter
     src = Image.open(path).convert("RGB")
+    if smooth:
+        src = src.filter(ImageFilter.GaussianBlur(smooth))
     small = src.resize((WIDTH, DISPLAY_LINES), Image.LANCZOS)
     pal = Image.new("P", (1, 1))
     flat = [c for pen in PENS for c in pen]
@@ -189,8 +222,18 @@ def main():
     if len(sys.argv) < 3:
         sys.exit("usage: mkscreen.py <image> <name>")
     path, name = sys.argv[1], sys.argv[2].lower()
+    smooth = 0.0
+    if "--smooth" in sys.argv:
+        smooth = float(sys.argv[sys.argv.index("--smooth") + 1])
 
-    q, rows = quantise(path)
+    boxes = []
+    for i, arg in enumerate(sys.argv):
+        if arg == "--repen":
+            boxes.append([int(v) for v in sys.argv[i + 1].split(",")])
+
+    q, rows = quantise(path, smooth)
+    if boxes:
+        rows = repen(rows, boxes)
     raw = encode(rows)
     assert len(raw) == BYTES_PER_LINE * DISPLAY_LINES
 

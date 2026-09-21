@@ -191,9 +191,19 @@ GRANNY_SWEEP    EQU 16                  ; frames between the halves of a stroke
 ;; the program writes before it reads never has to be loaded at all: the line
 ;; table, which build_line_tab fills in, and the four buffers of saved shop.
 ;; It is what PICK_BUFS and LINE_TAB_AT are in the other game.
+;; The shop has a tune, and irq.asm steps it. This has to be set before that
+;; file is included, which is why it is up here with the addresses rather than
+;; down beside the player.
+HAS_MUSIC       EQU 1
+
 ART_ORG         EQU #0100               ; clear of the interrupt jump at #0038
-ART_STORE       EQU #6000               ; where the file carries them, until
-                                        ; the first LDIR of the game
+ART_STORE       EQU #7F00               ; where the file carries them, until
+                                        ; the first LDIR of the game. It has
+                                        ; to clear the code, and the code grew
+                                        ; three kilobytes when the tune and
+                                        ; its player came in; the ceiling is
+                                        ; #7F03, where ART_LEN would run into
+                                        ; AMSDOS's buffers at #A67B
 LINE_TAB_AT     EQU #2900               ; and behind them, the line table
 LOW_BUFS        EQU LINE_TAB_AT+DISPLAY_LINES*2
 
@@ -232,7 +242,12 @@ P_X             EQU 2
 P_Y             EQU 3
 P_MEZE          EQU 4                   ; does the basket wait for this one
 P_ALIVE         EQU 5                   ; A_GONE, A_SHELF or A_MOUSE
-P_SIZE          EQU 6
+P_OX            EQU 6                   ; and where its picture actually is,
+P_OY            EQU 7                   ; which is not where the record says it
+                                        ; is once a mouse has walked off with
+                                        ; it. #FF in P_OX means none of it is
+                                        ; on the screen at all
+P_SIZE          EQU 8
 
 A_GONE          EQU 0                   ; eaten
 A_SHELF         EQU 1                   ; sitting where it was put
@@ -303,18 +318,23 @@ GRACE           EQU 100                 ; frames, at the 50 Hz the game thinks
 ;; the shop itself - the same draw_shop the game uses - and stands the two of
 ;; them in it, which costs nothing that was not already written and says more
 ;; about the game than a drawing of a cat would.
-TITLE_Y         EQU 16                  ; the panel the name stands on, deep
-TITLE_H         EQU 92                  ; enough to take the window with it
-T_NAME_Y        EQU 32                  ; the name, big, with a shadow
-T_NAME_SHADOW   EQU 4                   ; that many scanlines under it
-T_SUB_Y         EQU 84                  ; and the rest of it under that
+;; The picture leaves a band of plain navy across its top - rows 18 to 57 -
+;; and the name goes in it. Nothing has to be cleared for it: the ground is
+;; already one pen, which is the whole reason the band is there.
+T_NAME_Y        EQU 20                  ; the name, big, with a shadow
+T_NAME_SHADOW   EQU 3                   ; that many scanlines under it, which
+                                        ; puts the bottom of the shadow on the
+                                        ; last row of the band
 T_NAME_XS       EQU 1                   ; 24 pixels to a letter
 T_NAME_YS       EQU 5                   ; and 35 scanlines tall
 
-FOOT_Y          EQU 240                 ; the strip along the tiles
-FOOT_H          EQU 26
-Y_PRESS         EQU 244
-Y_LANGHINT      EQU 256
+;; And everything else is in one strip along the tiles, which is cleared
+;; because small text does not blend and because L has to repaint it.
+FOOT_Y          EQU 230                 ; the strip along the tiles
+FOOT_H          EQU 36
+T_SUB_Y         EQU 232                 ; the rest of the title, small
+Y_PRESS         EQU 246
+Y_LANGHINT      EQU 258
 BLINK_BIT       EQU 16                  ; on for 16 frames, off for 16
 
 ;; The HUD is one row of small text across the top of the wall, above
@@ -358,6 +378,36 @@ art_start
     include "mitsosart.asm"
 art_end
 ART_LEN         EQU art_end-art_start
+
+;; ---------------------------------------------------------------------------
+;; The title picture, riding at the top of the file behind the sprites: the
+;; whole overscan window - 192 by 272 mode 0 pixels, 26,112 bytes - packed to
+;; a quarter of that by tools/mkscreen.py and put on the screen by unpack_pic,
+;; which keeps no window at all because the screen is its own window. It is
+;; read once, where the file left it, and never moved.
+;; ---------------------------------------------------------------------------
+MENU_STORE      EQU #6700               ; set by hand, like ART_STORE above.
+                                        ;
+                                        ; It has to be **below #8000**, and
+                                        ; the sprites do not: the sprites are
+                                        ; moved to #0100 by the first LDIR of
+                                        ; the game, before anything has looked
+                                        ; at the screen, so the file may lie
+                                        ; over the screen while it loads. The
+                                        ; picture is read where the file left
+                                        ; it, and read while it is being
+                                        ; written to the screen - so a byte of
+                                        ; it above #8000 is a byte the
+                                        ; decompressor overwrites and then
+                                        ; reads back as noise.
+                                        ;
+                                        ; Not PIC_STORE: config.asm already
+                                        ; has one of those for the other game,
+                                        ; and rasm's labels do not care about
+                                        ; case
+    ORG MENU_STORE
+    include "mitsosmenupic.asm"
+
 SPR_MAX_W       EQU ART_MAX_W           ; the widest of them fits its blit,
 SPR_UNROLL_MAX  EQU ART_MAX_W           ; and Grandma is ten bytes of it
 
@@ -391,8 +441,12 @@ mitsos_start
     ld hl,pal_shop
     call set_pal
 
-    call irq_init                       ; and the 50 Hz tick under everything
-    jr main_title_wait                  ; the title is already up
+    ld hl,pantomusic_song               ; the tune, wound up before the tick
+    xor a                               ; that plays it - the first and only
+    call PLY_AKG_Init                   ; subsong, and interrupts are still off
+
+    call irq_init                       ; and the 50 Hz tick under everything,
+    jr main_title_wait                  ; music included. The title is already up
 
 ;; ---------------------------------------------------------------------------
 ;; Title, then the shop, then back to the title.
@@ -435,11 +489,31 @@ main_loop
 ;; can catch another sprite's picture instead of the shop and hand it back
 ;; where nothing will ever erase it again. With the whole cast lifted first,
 ;; every save is of the shop and nothing else, and the room stays clean.
+;;
+;; The erase order is the exact reverse of the draw order, because the saves
+;; are layered: she saves the shop, a foe saves the shop with her in it, a
+;; meze saves that with the foes in it, and he saves the lot. Undoing them in
+;; any other order hands one of them back where nothing will ever lift it.
+;;
+;; Nothing that only thinks may sit between the two passes. It used to, and
+;; four and a half milliseconds of it in the middle of the window kept the
+;; whole cast off the screen for two hundred and fifty scanlines of a two
+;; hundred and seventy-two line picture - which is to say all of it flickered,
+;; every picture. The thinking is now after the draw, where it belongs: it is
+;; working out the next picture, not this one.
     call mitsos_erase
-    call held_erase                     ; a meze on its way somewhere
-    call foes_erase
-    call granny_erase                   ; last off, because she goes on first
+    call picks_erase                    ; and the shelves, which is where a
+    call foes_erase                     ; meze eaten, stolen or put down since
+    call granny_erase                   ; the last picture actually happens
+    call basket_update                  ; the lid, while the shop is bare
 
+    call granny_draw                    ; behind the lot of them
+    call foes_draw
+    call picks_draw                     ; over the mouse that is taking one
+    call mitsos_draw                    ; last, so he is the one in front
+
+;; The picture is up and the beam is walking over it. Everything from here on
+;; is for the next one.
     ld b,FRAMES_PER_RENDER
 main_loop_think
     push bc
@@ -448,11 +522,6 @@ main_loop_think
     call granny_move
     pop bc
     djnz main_loop_think
-
-    call granny_draw                    ; behind the lot of them
-    call foes_draw
-    call held_draw                      ; over the mouse that is taking it
-    call mitsos_draw                    ; last, so he is the one in front
     jr main_loop
 
 ;; Out of lives: the shop stands where it stopped with GAME OVER across it,
@@ -474,14 +543,17 @@ main_over
 ;; Destroys everything.
 ;; ---------------------------------------------------------------------------
 title_draw
-    call draw_shop                      ; the game's own backdrop, unchanged
-    call title_cast                     ; and the shop's own cast in it, before
-                                        ; the banner goes over the top of them
-
-    ld hl,line_tab+TITLE_Y*2            ; the panel the name stands on: big
-    ld de,TITLE_H                       ; text writes where the letter is and
-    ld a,PEN0_BYTE                      ; skips where it is not, so it needs
-    call clear_rows                     ; ground of its own
+    IF TITLEPIC
+    ld hl,mitsosmenu_packed             ; the whole shop, as a picture: him by
+    call unpack_pic                     ; the door, her with the broom, the
+                                        ; shelves stocked, and a navy band
+                                        ; across the top waiting for the name
+    ELSE
+    ld hl,line_tab                      ; see TITLEPIC in config.asm: the
+    ld de,DISPLAY_LINES                 ; scripted runs cannot afford the
+    ld a,PEN0_BYTE                      ; second and a half it takes
+    call clear_rows
+    ENDIF
 
     ld a,T_NAME_XS
     ld (txt_xs),a
@@ -506,11 +578,6 @@ title_draw
 
     xor a
     ld (txt_big_solid),a
-
-    ld hl,line_tab+T_SUB_Y*2            ; the rest of the title, small
-    ld (txt_row),hl
-    ld a,MSG_TITLE2
-    call msg_small_centre
     ;; fall through to the footer
 
 ;; ---------------------------------------------------------------------------
@@ -523,6 +590,11 @@ title_foot
     ld de,FOOT_H
     ld a,PEN0_BYTE
     call clear_rows
+
+    ld hl,line_tab+T_SUB_Y*2            ; the rest of the title, small, down
+    ld (txt_row),hl                     ; here because the band at the top has
+    ld a,MSG_TITLE2                     ; room for the name and nothing else
+    call msg_small_centre
 
     ld hl,line_tab+Y_LANGHINT*2
     ld (txt_row),hl
@@ -537,40 +609,6 @@ title_foot
     xor BLINK_BIT
     ld (press_state),a
     ret
-
-;; ---------------------------------------------------------------------------
-;; title_cast - him and her, standing in the shop they are about to have the
-;; argument in.
-;; Destroys everything.
-;; ---------------------------------------------------------------------------
-title_cast
-    ld hl,pickups_init                  ; the shelves stocked, so the screen
-    ld de,pickups                       ; says what the game is about
-    ld bc,PICK_COUNT*P_SIZE
-    ldir
-    call draw_pickups
-
-    ld a,GRANNY_X0+8                    ; she is by the crates, where the
-    ld (spr_x),a                        ; shop's middle is
-    ld hl,spr_granny_a
-    call spr_size
-    push hl
-    ld a,GRANNY_TOP
-    call spr_row_ptr
-    pop hl
-    ld de,granny_buf
-    call spr_draw
-
-    ld a,8                              ; and he is by the door, where a life
-    ld (spr_x),a                        ; starts
-    ld hl,spr_mitsos_stand
-    call spr_size
-    push hl
-    ld a,MITSOS_Y0
-    call spr_row_ptr
-    pop hl
-    ld de,mitsos_buf
-    jp spr_draw
 
 ;; ---------------------------------------------------------------------------
 ;; title_loop - one pass per 50 Hz tick until fire. L changes the language
@@ -644,6 +682,7 @@ game_start
     ld (mitsos_grace),a
     ld (mitsos_drawn),a
     ld (basket_open),a
+    ld (basket_dirty),a
     ld (rush_bars),a
     call rush_stop                      ; his own weight back, and the border
     ld h,a                              ; and nothing on the score
@@ -653,7 +692,7 @@ game_start
     ld a,MEZE_COUNT
     ld (mezes_left),a
     call granny_reset
-    call draw_pickups
+    call picks_draw
     call draw_score
     ;; fall through
 
@@ -1462,15 +1501,10 @@ mouse_steal_next
 
 ;; IY is the meze, C is which one of them it is.
 mouse_steal_take
-    push bc
-    call granny_off                     ; the shelf is about to change
-    pop bc
-    ld a,c
-    push bc
-    call pick_buf_ptr
-    call pick_lift                      ; off the shelf it goes
-    ld (iy+P_ALIVE),A_MOUSE
-    pop bc
+    ld (iy+P_ALIVE),A_MOUSE             ; off the shelf at the next rebuild,
+    ld a,1                              ; and the whole of her comes off it
+    ld (granny_dirty),a                 ; first for the same reason as above
+    ld (granny_whole),a
     pop iy                              ; and the mouse again
     ld a,c
     inc a                               ; a meze it has got hold of, plus one
@@ -1586,26 +1620,24 @@ mouse_drop
     ld (iy+P_Y),a
     pop bc
     ld (iy+P_X),b
-    ld (iy+P_ALIVE),A_SHELF
-    ld a,c
-    call pick_buf_ptr
-    call pick_draw                      ; and there it stays
+    ld (iy+P_ALIVE),A_SHELF             ; and there it stays, put down on the
+    ld a,1                              ; screen by the next rebuild
+    ld (granny_dirty),a
+    ld (granny_whole),a
     pop iy
     ret
 
 ;; ---------------------------------------------------------------------------
-;; pick_rec_ptr - A = which pickup -> HL = its record. P_SIZE is 6, which is
-;; two and four added together.
+;; pick_rec_ptr - A = which pickup -> HL = its record. P_SIZE is 8, so three
+;; shifts and no multiply.
 ;; Destroys AF, DE, HL.
 ;; ---------------------------------------------------------------------------
 pick_rec_ptr
     ld l,a
     ld h,0
     add hl,hl                           ; x2
-    ld d,h
-    ld e,l
     add hl,hl                           ; x4
-    add hl,de                           ; x6
+    add hl,hl                           ; x8
     ld de,pickups
     add hl,de
     ret
@@ -2169,31 +2201,6 @@ draw_shop_props_done
     jp draw_boxes
 
 ;; ---------------------------------------------------------------------------
-;; draw_pickups - the five things on the shelves, each keeping the patch of
-;; shop it covers, so that picking it up is putting that patch back.
-;; Destroys AF, BC, DE, HL, IX, IY.
-;; ---------------------------------------------------------------------------
-draw_pickups
-    ld iy,pickups
-    ld hl,pick_back
-    ld b,PICK_COUNT
-draw_pickups_one
-    push bc
-    push hl
-    ld a,(iy+P_ALIVE)
-    cp A_SHELF
-    call z,pick_draw
-draw_pickups_next
-    pop hl
-    ld de,PICK_BUF
-    add hl,de
-    ld de,P_SIZE
-    add iy,de
-    pop bc
-    djnz draw_pickups_one
-    ret
-
-;; ---------------------------------------------------------------------------
 ;; pick_draw - the one at IY, drawn where it says it is, keeping what it
 ;; covers in the buffer at HL. HL comes back as it went in.
 ;; Destroys AF, BC, DE, IX.
@@ -2213,11 +2220,16 @@ pick_draw
     push de
     call spr_draw
     pop hl
+    ld a,(iy+P_X)                       ; and where it now stands, which is
+    ld (iy+P_OX),a                      ; what the next lift has to undo -
+    ld a,(iy+P_Y)                       ; not where the record may have moved
+    ld (iy+P_OY),a                      ; it to in the meantime
     ret
 
 ;; ---------------------------------------------------------------------------
-;; pick_lift - and off again, putting back what it was covering. They are all
-;; one size, so unlike the draw this needs no look at the picture.
+;; pick_lift - and off again, putting back what it was covering, at the place
+;; its picture actually is. They are all one size, so unlike the draw this
+;; needs no look at the picture.
 ;; Destroys AF, BC, DE, IX.
 ;; ---------------------------------------------------------------------------
 pick_lift
@@ -2226,13 +2238,15 @@ pick_lift
     ld (spr_w),a
     ld a,SPR_FISH_H
     ld (spr_h),a
-    ld a,(iy+P_X)
+    ld a,(iy+P_OX)
     ld (spr_x),a
-    ld a,(iy+P_Y)
+    ld a,(iy+P_OY)
     call spr_row_ptr
     pop hl
     push hl
     call spr_restore
+    ld a,#FF                            ; nothing of it on the screen now
+    ld (iy+P_OX),a
     pop hl
     ret
 
@@ -2266,42 +2280,60 @@ pick_buf_ptr
 ;; still the position in the record and nothing has to remember it.
 ;; Destroys AF, BC, DE, HL, IX, IY.
 ;; ---------------------------------------------------------------------------
-held_erase
+picks_erase
     ld iy,pickups
     ld hl,pick_back
     ld b,PICK_COUNT
-held_erase_one
+picks_erase_one
     push bc
     push hl
+    ld a,(iy+P_OX)
+    inc a
+    jr z,picks_erase_next               ; none of it on the screen
     ld a,(iy+P_ALIVE)
-    cp A_MOUSE
-    call z,pick_lift
+    or a
+    jr z,picks_erase_lift               ; eaten since the last picture
+    ld a,(iy+P_OX)                      ; or carried off it
+    cp (iy+P_X)
+    jr nz,picks_erase_lift
+    ld a,(iy+P_OY)
+    cp (iy+P_Y)
+    jr z,picks_erase_next               ; standing exactly where it is drawn,
+                                        ; so it is left alone and costs nothing
+picks_erase_lift
+    call pick_lift
+picks_erase_next
     pop hl
     ld de,PICK_BUF
     add hl,de
     ld de,P_SIZE
     add iy,de
     pop bc
-    djnz held_erase_one
+    djnz picks_erase_one
     ret
 
-held_draw
+picks_draw
     ld iy,pickups
     ld hl,pick_back
     ld b,PICK_COUNT
-held_draw_one
+picks_draw_one
     push bc
     push hl
     ld a,(iy+P_ALIVE)
-    cp A_MOUSE
-    call z,pick_draw
+    or a
+    jr z,picks_draw_next                ; eaten
+    ld a,(iy+P_OX)
+    inc a
+    jr nz,picks_draw_next               ; already standing where it belongs
+    call pick_draw
+picks_draw_next
     pop hl
     ld de,PICK_BUF
     add hl,de
     ld de,P_SIZE
     add iy,de
     pop bc
-    djnz held_draw_one
+    djnz picks_draw_one
     ret
 
 ;; ---------------------------------------------------------------------------
@@ -2343,11 +2375,11 @@ mitsos_collect_one
     jr nc,mitsos_collect_next
 
 mitsos_collect_take
-    call granny_off                     ; the shelf is about to change, and she
-    ld (iy+P_ALIVE),A_GONE              ; may be standing in front of it
-    pop hl
-    push hl
-    call pick_lift                      ; the shelf, back the way it was
+    ld (iy+P_ALIVE),A_GONE              ; the shelf changes at the next rebuild,
+    ld a,1                              ; which is the one window it may - and
+    ld (granny_dirty),a                 ; the whole of her has to come off it
+    ld (granny_whole),a                 ; first, because her buffer is holding
+                                        ; this meze
 
     ld a,CATNIP_POINTS                  ; and what it was worth
     bit 0,(iy+P_MEZE)
@@ -2381,9 +2413,24 @@ mitsos_collect_next
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 open_basket
-    call granny_off                     ; same again: the lid is background
     ld a,1
     ld (basket_open),a
+    ld (basket_dirty),a                 ; the lid is background, so it is put
+    ld (granny_dirty),a                 ; on in the rebuild and not here, and
+    ld (granny_whole),a                 ; the whole of her has to be off it
+    ret
+
+;; ---------------------------------------------------------------------------
+;; basket_update - the lid, painted in the one window the cast is all off the
+;; screen. Anything else in here that changes the shop belongs here too.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+basket_update
+    ld a,(basket_dirty)
+    or a
+    ret z
+    xor a
+    ld (basket_dirty),a
     ld a,BASKET_X
     ld (prop_x),a
     ld a,BASKET_Y
@@ -2435,13 +2482,16 @@ mitsos_escape
 granny_reset
     ld a,GRANNY_X1                      ; the far end of her beat, walking
     ld (granny_x),a                     ; back towards the door - which is the
-    ld (granny_ox),a                    ; length of the shop's worth of warning
-    ld a,-1                             ; he gets at the start of a life
-    ld (granny_dir),a
+    ld a,-1                             ; length of the shop's worth of warning
+    ld (granny_dir),a                   ; he gets at the start of a life
     ld a,1
-    ld (granny_dirty),a                 ; draw_shop has just wiped her off
-    xor a
-    ld (granny_drawn),a
+    ld (granny_dirty),a                 ; draw_shop has just wiped her off, so
+    xor a                               ; neither half of her is on the screen
+    ld (gr_top+GH_ON),a                 ; and the first rebuild is a whole one
+    ld (gr_bot+GH_ON),a
+    ld (granny_part),a
+    ld (granny_whole),a
+    ld (granny_lh),a
     ld (granny_frame),a
     ld (granny_stun),a
     ld a,GRANNY_WALK
@@ -2610,88 +2660,242 @@ granny_bounce_no
     ret
 
 ;; ---------------------------------------------------------------------------
-;; granny_erase - her picture off the screen, but only if it is about to be
-;; drawn again somewhere else. Standing still she is left exactly where she
-;; is, and costs the frame nothing at all - which at this size is the
-;; difference between her fitting in a frame and not.
-;; Destroys AF, BC, DE, HL, IX.
+;; Grandma, half of her at a time.
+;;
+;; She is ten bytes by ninety-six. Lifting that rectangle off the screen is
+;; nine milliseconds and saving the shop under it and blitting her back is
+;; twenty-three, and the picture she moves in has thirteen more milliseconds
+;; of shop in it and forty to do the lot in. It does not fit. The picture
+;; that overruns hands its lateness to the next one, and that is why the
+;; whole shop flickered and not only her: every sprite in it was being put
+;; back after the beam had gone past.
+;;
+;; So she is rebuilt a half at a time - the top half in one picture, the
+;; bottom half in the next. Each half is its own little sprite as far as the
+;; screen is concerned: its own slice of the picture, its own corner of
+;; granny_buf, its own record of where its picture actually is. For the one
+;; picture in between, her top half stands four pixels from her bottom half.
+;; That is a seam across her apron for a twenty-fifth of a second once every
+;; four pictures, and it is a great deal less than the shop flickering.
+;;
+;; Both halves are cut from the same pose, latched when the top one goes
+;; down, so they are never two different old women. A change of pose, and
+;; anything that changes the shop underneath her, need the whole of her at
+;; once and say so with granny_whole - both are rare enough to pay for whole.
+;; ---------------------------------------------------------------------------
+GH_X            EQU 0                   ; where this half's picture is
+GH_Y            EQU 1
+GH_ROWS         EQU 2                   ; and how many scanlines of it
+GH_ON           EQU 3                   ; is any of it on the screen
+GH_BUF          EQU 4                   ; its corner of granny_buf
+GH_SIZE         EQU 6
+
+;; ---------------------------------------------------------------------------
+;; granny_erase - the half that is due this picture comes off the screen, and
+;; granny_doing remembers which it was for the draw at the other end of the
+;; rebuild. Standing still she is left exactly where she is and costs the
+;; picture nothing at all.
+;; Destroys AF, BC, DE, HL, IX, IY.
 ;; ---------------------------------------------------------------------------
 granny_erase
-    ld a,(granny_drawn)
-    or a
-    ret z
+    xor a
+    ld (granny_doing),a
     ld a,(granny_dirty)
     or a
     ret z
-    ;; fall through
+
+    ld a,(granny_part)
+    or a
+    jr nz,granny_erase_bottom_due       ; the bottom half, cut from the pose
+                                        ; the top one was cut from
+    call granny_pick_pose               ; the top half is due, so this is where
+    ld (granny_pic),hl                  ; the pose is chosen
+    ld c,a
+    ld a,(granny_lh)
+    cp c
+    ld a,c
+    ld (granny_lh),a
+    jr nz,granny_erase_whole            ; a different pose: no half measures
+    ld a,(granny_whole)
+    or a
+    jr nz,granny_erase_whole
+    ld a,1                              ; the top half by itself
+    jr granny_erase_go
+
+granny_erase_bottom_due
+    ld a,(granny_whole)
+    or a
+    ld a,2                              ; the bottom half by itself
+    jr z,granny_erase_go
+granny_erase_whole
+    ld a,3
+granny_erase_go
+    ld (granny_doing),a
+    bit 0,a
+    jr z,granny_erase_bot
+    ld iy,gr_top
+    call granny_piece_off
+    ld a,(granny_doing)
+granny_erase_bot
+    bit 1,a
+    ret z
+    ld iy,gr_bot
+    jp granny_piece_off
 
 ;; ---------------------------------------------------------------------------
-;; granny_off - her picture off the screen whatever she is doing, because
-;; something is about to change the shop underneath her: a meze coming off a
-;; shelf, or the lid coming off the basket. Her buffer would otherwise still
-;; hold the old shop and hand it back the next time she moved.
-;; Destroys AF, BC, DE, HL, IX.
+;; granny_draw - and back on, the same half or halves, from the latched pose.
+;; Destroys AF, BC, DE, HL, IX, IY.
 ;; ---------------------------------------------------------------------------
-granny_off
-    ld a,(granny_drawn)
+granny_draw
+    ld a,(granny_doing)
     or a
     ret z
-    ld a,GRANNY_W                       ; every pose is the same width; only
-    ld (spr_w),a                        ; the height changes, and what came
-    ld a,(granny_oh)                    ; back has to be what went down
-    ld (spr_h),a
-    ld a,(granny_ox)
-    ld (spr_x),a
-    ld a,(granny_oy)
-    call spr_row_ptr
-    ld hl,granny_buf
-    call spr_restore
-    xor a
-    ld (granny_drawn),a
-    ld a,1
+    bit 0,a
+    jr z,granny_draw_bottom
+    ld iy,gr_top
+    xor a                               ; her top half starts at her head
+    call granny_piece_on
+    ld a,(granny_doing)
+granny_draw_bottom
+    bit 1,a
+    jr z,granny_draw_more
+    ld iy,gr_bot
+    ld a,(granny_lh)
+    srl a                               ; and her bottom half at her apron
+    call granny_piece_on
+    xor a                               ; and now the whole of her is where it
+    ld (granny_part),a                  ; should be
     ld (granny_dirty),a
+    ld (granny_whole),a
+    ret
+granny_draw_more
+    ld a,1                              ; the bottom half follows next picture
+    ld (granny_part),a
     ret
 
 ;; ---------------------------------------------------------------------------
-;; granny_draw - the shop she covers into her buffer, and her over it.
+;; granny_piece_off - IY = a half's record; whatever of it is on the screen
+;; comes off, and the shop it was covering goes back.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+granny_piece_off
+    ld a,(iy+GH_ON)
+    or a
+    ret z
+    ld a,GRANNY_W                       ; every pose is the same width; only
+    ld (spr_w),a                        ; the height changes
+    ld a,(iy+GH_ROWS)
+    ld (spr_h),a
+    ld a,(iy+GH_X)
+    ld (spr_x),a
+    ld a,(iy+GH_Y)
+    call spr_row_ptr
+    ld l,(iy+GH_BUF)
+    ld h,(iy+GH_BUF+1)
+    call spr_restore
+    xor a
+    ld (iy+GH_ON),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_piece_on - IY = a half's record, A = the row of her it starts on.
+;; Both halves come out of the one picture and the one buffer, each taking
+;; its own slice of each.
 ;;
 ;; Her feet are on the floor in every pose, so where the picture starts is
 ;; worked out from the height of whichever one is going down rather than kept
 ;; as a constant: sat on the floor she is a little over half her own height.
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
-granny_draw
-    ld a,(granny_drawn)
+granny_piece_on
+    ld (gr_row),a
+
+    ld a,(granny_lh)                    ; how many rows this half is: the top
+    srl a                               ; one is half of her, and the bottom
+    ld c,a                              ; one is whatever is left over
+    ld a,(gr_row)
     or a
-    ret nz                              ; still standing where she was
+    jr z,granny_piece_rows
+    ld a,(granny_lh)
+    sub c
+    ld c,a
+granny_piece_rows
+    ld a,c
+    ld (iy+GH_ROWS),a
+
+    ld hl,(granny_pic)
+    call spr_size                       ; -> spr_w, spr_h, HL at the pixels
+    ld a,c
+    ld (spr_h),a                        ; but only this half of them
+
+    push hl
+    ld a,(gr_row)
+    call granny_row_bytes               ; the rows above it, in bytes
+    ld (gr_off),hl                      ; which is its offset into the buffer
+    add hl,hl                           ; and, mask and data, twice that into
+    pop de                              ; the picture
+    add hl,de
+    push hl                             ; HL = the pixels of this half
+
+    ld a,(granny_x)                     ; where it goes
+    ld (spr_x),a
+    ld (iy+GH_X),a
+    ld a,(granny_lh)
+    neg
+    add a,FLOOR_TOP                     ; her feet stay on the floor
+    ld hl,gr_row
+    add a,(hl)                          ; and this half starts that far down
+    ld (iy+GH_Y),a
+    call spr_row_ptr                    ; wants DE and HL for itself
+
+    ld hl,(gr_off)                      ; its own corner of the buffer
+    ld de,granny_buf
+    add hl,de
+    ld (iy+GH_BUF),l
+    ld (iy+GH_BUF+1),h
+    ex de,hl
+    pop hl                              ; the pixels again
+    ld a,1
+    ld (iy+GH_ON),a
+    jp spr_draw
+
+;; ---------------------------------------------------------------------------
+;; granny_pick_pose - HL = the picture she should be showing, A = how tall it
+;; is. The height is the byte after the width, which is where spr_size looks.
+;; Destroys AF, HL.
+;; ---------------------------------------------------------------------------
+granny_pick_pose
     ld a,(granny_stun)
     or a
     ld hl,spr_granny_sat
-    jr nz,granny_draw_pose
+    jr nz,granny_pose_height
     ld a,(granny_frame)
     or a
     ld hl,spr_granny_a
-    jr z,granny_draw_pose
+    jr z,granny_pose_height
     ld hl,spr_granny_b
-granny_draw_pose
-    call spr_size                       ; -> spr_w, spr_h, HL at the pixels
-    ld a,(granny_x)
-    ld (spr_x),a
-    ld (granny_ox),a
-    ld a,(spr_h)
-    ld (granny_oh),a
-    neg
-    add a,FLOOR_TOP                     ; her feet stay on the floor
-    ld (granny_oy),a
-    push hl
-    call spr_row_ptr                    ; wants DE and HL for itself
-    pop hl
-    ld de,granny_buf
-    ld a,1
-    ld (granny_drawn),a
-    xor a
-    ld (granny_dirty),a
-    jp spr_draw
+granny_pose_height
+    inc hl
+    ld a,(hl)
+    dec hl
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_row_bytes - A rows of her -> HL bytes of one of her pictures.
+;; GRANNY_W is ten, which is eight and two.
+;; Destroys AF, DE, HL.
+;; ---------------------------------------------------------------------------
+    ASSERT GRANNY_W == 10
+granny_row_bytes
+    ld l,a
+    ld h,0
+    add hl,hl                           ; x2
+    ld e,l
+    ld d,h
+    add hl,hl                           ; x4
+    add hl,hl                           ; x8
+    add hl,de                           ; x10
+    ret
 
 ;; ---------------------------------------------------------------------------
 ;; rush_start - the catnip is down him.
@@ -2984,17 +3188,17 @@ box_sacks
 ;; out waits for it, and whether it is still there. The last of those is why
 ;; this is copied into RAM at the top of a game rather than read where it lies.
 ;; ---------------------------------------------------------------------------
-pickups_init
+pickups_init                                 ; picture, x, y, meze, alive, ox, oy
     defw spr_fish
-    defb  8, SHELF_4-SPR_FISH_H, 1, 1
+    defb  8, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
     defw spr_cheese
-    defb 22, SHELF_3-SPR_FISH_H, 1, 1
+    defb 22, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
     defw spr_sausage
-    defb 62, SHELF_1-24-SPR_FISH_H, 1, 1     ; on the counter top
+    defb 62, SHELF_1-24-SPR_FISH_H, 1, 1, #FF, 0  ; on the counter top
     defw spr_meatball
-    defb 42, SHELF_1-8-SPR_FISH_H, 1, 1      ; on the lid of the crates
+    defb 42, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0   ; on the lid of the crates
     defw spr_catnip
-    defb 10, SHELF_2-SPR_FISH_H, 0, 1        ; and the one nothing waits for
+    defb 10, SHELF_2-SPR_FISH_H, 0, 1, #FF, 0     ; the one nothing waits for
 
 ;; 32 x 20 px: the basket by the top board, shut and then not.
 box_basket
@@ -3047,8 +3251,48 @@ pal_shop
     include "font.asm"
     include "mitsosstr.asm"
     include "sprite.asm"
+    include "unpack.asm"
+
+;; ---------------------------------------------------------------------------
+;; The tune, and the player that reads it. Both come from Arkos Tracker 3 and
+;; both are the same pair the first game carries: src/playerakg.asm is
+;; Targhan's AKG player, copied in from the tracker's own distribution so that
+;; a build needs nothing outside this repository.
+;;
+;; It is self-modifying code and it borrows the stack for its own ends - it
+;; saves and restores SP itself - so every call to it has to be made with
+;; interrupts disabled.
+;; ---------------------------------------------------------------------------
+PLY_AKG_REMOVE_HOOKS = 1
+    include "playerakg.asm"
+
+pantomusic_song
+    include "pantomusic.asm"
+
+;; ---------------------------------------------------------------------------
+;; music_tick - what irq.asm calls once a frame. Everything the player
+;; destroys is already on the stack when it gets here; see HAS_MUSIC there.
+;; ---------------------------------------------------------------------------
+music_tick
+    jp PLY_AKG_Play
 
 code_end
+
+;; ---------------------------------------------------------------------------
+;; And here the file stops and the RAM starts. Everything below this line is
+;; written by the program and never read off the disc, so it belongs under
+;; #4000 with the pictures, the line table and the buffers - where it costs
+;; the file nothing at all. Two hundred and sixty-four bytes of it were being
+;; carried on the disc for no reason, which is most of what the title picture
+;; needed.
+;; ---------------------------------------------------------------------------
+granny_buf      EQU LOW_BUFS        ; the shop she is standing in front of
+mitsos_buf      EQU granny_buf+GRANNY_BYTES
+foe_bufs        EQU mitsos_buf+MITSOS_BYTES
+pick_back       EQU foe_bufs+FOE_COUNT*FOE_BUF
+LOW_RAM         EQU pick_back+PICK_COUNT*PICK_BUF
+
+    ORG LOW_RAM
 
     include "workspace.asm"
 
@@ -3087,21 +3331,32 @@ steal_x         defs 1              ; the mouse's own rectangle, while it
 steal_y         defs 1              ; looks along the shelf for a meze
 
 granny_x        defs 1              ; where she is, in bytes
-granny_ox       defs 1              ; and where the picture of her still is,
-granny_oy       defs 1              ; which scanline it starts on and how tall
-granny_oh       defs 1              ; it is - sitting down she is shorter, and
+gr_top          defs GH_SIZE        ; and where each half of her picture is,
+gr_bot          defs GH_SIZE        ; because the two of them are a picture
+                                    ; apart while she is walking
+granny_part     defs 1              ; whose turn is next: 0 the top, 1 the
+                                    ; bottom
+granny_whole    defs 1              ; unless the shop under her changed, in
+                                    ; which case both of them, now
+granny_lh       defs 1              ; how tall the pose both halves are cut
+                                    ; from is - sitting down she is shorter, and
                                     ; what came back has to be what went down
 granny_dir      defs 1              ; 1 or -1
 granny_tick     defs 1              ; frames until her next step
 granny_frame    defs 1              ; which half of the stroke
 granny_anim     defs 1              ; frames until the other half
 granny_stun     defs 1              ; frames left sitting on the floor
-granny_drawn    defs 1              ; is her picture on the screen
-granny_dirty    defs 1              ; and has anything about it changed
+granny_dirty    defs 1              ; has anything about her picture changed
+granny_doing    defs 1              ; and which half of her this rebuild is
+                                    ; putting right: 1 top, 2 bottom, 3 both
+granny_pic      defs 2              ; the pose both halves are being cut from
+gr_row          defs 1              ; scratch for granny_piece_on: the row of
+gr_off          defs 2              ; her a half starts on, and its offset
 
 score           defs SCORE_BYTES    ; packed BCD, most significant byte first
 mezes_left      defs 1              ; how many the basket is still waiting for
 basket_open     defs 1              ; and whether it has stopped waiting
+basket_dirty    defs 1              ; and whether its lid is still to be painted
 mitsos_lives    defs 1              ; three, and the HUD prints this one
 mitsos_grace    defs 1              ; frames of blinking left after losing one
 mitsos_over     defs 1              ; out of them, and waiting for fire
@@ -3112,36 +3367,26 @@ foes            defs FOE_COUNT*E_SIZE
 ;; The shelves as they stand.
 pickups         defs PICK_COUNT*P_SIZE
 mitsos_end
-
-;; Everything above has to fit between the code and the stack, which sits
-;; under the screen at #8000. Grandma's three pictures are five kilobytes of
-;; the sixteen and this is what catches the next thing that does not fit.
-    ASSERT mitsos_end < STACK_TOP-256
-
-;; And the four buffers of saved shop, down below #4000 with the line table -
-;; see LINE_TAB_AT for why they can be.
-granny_buf      EQU LOW_BUFS        ; the shop she is standing in front of
-mitsos_buf      EQU granny_buf+GRANNY_BYTES
-foe_bufs        EQU mitsos_buf+MITSOS_BYTES
-pick_back       EQU foe_bufs+FOE_COUNT*FOE_BUF
-LOW_END         EQU pick_back+PICK_COUNT*PICK_BUF
-    ASSERT LOW_END <= #4000
+    ASSERT mitsos_end <= #4000
 
     IF TARGET==1
 RUN mitsos_start
     ENDIF
 
 ;; ---------------------------------------------------------------------------
-;; What the file is: the code from #4000, then whatever is left between the
-;; workspace and ART_STORE, then the pictures. Three asserts hold it together
-;; - the code and its RAM have to stop before the pictures start, the
-;; pictures have to fit below the line table once they are moved, and the
-;; whole thing has to stay clear of AMSDOS's buffers at #A67B.
+;; What the file is: the code from #4000, then the sprites, then the title
+;; picture - and nothing else, because the workspace went below #4000 with
+;; the buffers. Four asserts hold it together: the code has to stop before
+;; the sprites start, the sprites have to fit below the line table once they
+;; are moved, everything under #4000 has to stay under it, and the whole
+;; thing has to stay clear of AMSDOS's buffers at #A67B.
 ;; ---------------------------------------------------------------------------
 IMAGE_LEN       EQU ART_STORE+ART_LEN-mitsos_start
-    ASSERT mitsos_end <= ART_STORE
-    ASSERT ART_ORG+ART_LEN <= LINE_TAB_AT
+    ASSERT code_end <= MENU_STORE
+    ASSERT MENU_STORE+MITSOSMENU_PACKED_LEN <= ART_STORE
     ASSERT ART_STORE+ART_LEN <= #A67B
+    ASSERT ART_ORG+ART_LEN <= LINE_TAB_AT
+    ASSERT MENU_STORE+MITSOSMENU_PACKED_LEN <= #8000
 
     IF TARGET==2
     SAVE "MITSOS.BIN",mitsos_start,IMAGE_LEN,DSK,"build/mitsos.dsk"

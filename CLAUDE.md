@@ -531,8 +531,30 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   the rest of the logic. The logic steps are skipped once the game is over, and
   an effect that stops being stepped never reaches its last frame, which is the
   frame that shuts the channel up. The death effect held its note for ever.
-- There is no music. Three channels and a tracker replay is a different job and
-  there are about ninety bytes left between `game_end` and `PIC_STORE`.
+- There is no music in the first game's rooms. Three channels and a tracker replay
+  is a different job and there are about ninety bytes left between `game_end` and
+  `PIC_STORE`; its title screen has a tune and `PLY_AKG_Stop` hands the chip back
+  to `sound.asm` before the room is painted.
+- **The second game has a tune and it never stops, because nothing else wants the
+  chip** - it has no effects at all. Arkos Tracker 3 again: `src/pantomusic.asm` is
+  the song, `src/playerakg.asm` is the same player, and three kilobytes of it moved
+  `ART_STORE` from #6000 to #6600.
+- **A tracker replay is stepped from the interrupt, not from the game loop**, and
+  `irq.asm` has a hook for it: define `HAS_MUSIC` and provide `music_tick`, and the
+  handler calls it on the one interrupt in six that is the frame. A game that does
+  not assembles the bytes it always did. Two reasons it belongs there and not in the
+  loop: the replay wants fifty ticks a second and the loop comes round twenty-five,
+  and from the interrupt it keeps its beat through a second-long repaint of the room
+  that would otherwise be silence. It is also the only place it cannot be re-entered,
+  which matters more than it sounds - the player moves SP into the song while it
+  reads, so an interrupt landing inside it would push onto the music.
+- The price is everything the player destroys: both register sets, both index
+  registers and the alternate accumulator - and `sprite.asm` blits out of the shadow
+  set. So the handler pushes sixteen more words around the call, about eighty
+  microseconds, against the forty blanked scanlines the frame opens with. The player
+  itself is about fifty instructions a tick, which is why this was affordable at all;
+  `tools/z80check.py` was what said so, by counting the instructions with the call in
+  and with it out.
 
 ## 11. Game state
 
