@@ -12,7 +12,11 @@ MSG_LIVES      EQU 1
 MSG_GAMEOVER   EQU 2
 MSG_DONE       EQU 3
 MSG_AGAIN      EQU 4
-MSG_COUNT EQU 5
+MSG_TITLE1     EQU 5
+MSG_TITLE2     EQU 6
+MSG_PRESS      EQU 7
+MSG_LANGHINT   EQU 8
+MSG_COUNT EQU 9
 
 ;; language -> table of message pointers
 lang_tables
@@ -25,6 +29,10 @@ msgtab_en
     defw str_en_GAMEOVER
     defw str_en_DONE
     defw str_en_AGAIN
+    defw str_en_TITLE1
+    defw str_en_TITLE2
+    defw str_en_PRESS
+    defw str_en_LANGHINT
 
 msgtab_el
     defw str_el_SCORE
@@ -32,6 +40,10 @@ msgtab_el
     defw str_el_GAMEOVER
     defw str_el_DONE
     defw str_el_AGAIN
+    defw str_el_TITLE1
+    defw str_el_TITLE2
+    defw str_el_PRESS
+    defw str_el_LANGHINT
 
 str_en_SCORE
     defb 5
@@ -49,6 +61,21 @@ str_en_AGAIN
     defb 23
     defb 16,18,5,19,19,0,6,9,18,5,0,20,15,0,20,18
     defb 25,0,1,7,1,9,14
+str_en_TITLE1
+    defb 6
+    defb 13,9,20,19,15,19
+str_en_TITLE2
+    defb 17
+    defb 20,8,5,0,7,18,15,3,5,18,25,0,8,5,9,19
+    defb 20
+str_en_PRESS
+    defb 19
+    defb 16,18,5,19,19,0,6,9,18,5,0,20,15,0,19,20
+    defb 1,18,20
+str_en_LANGHINT
+    defb 17
+    defb 16,18,5,19,19,0,12,0,6,15,18,0,7,18,5,5
+    defb 11
 
 str_el_SCORE
     defb 4
@@ -66,3 +93,17 @@ str_el_AGAIN
     defb 18
     defb 32,1,20,1,0,6,9,18,5,0,27,9,1,0,31,1
     defb 14,1
+str_el_TITLE1
+    defb 7
+    defb 32,1,14,9,11,15,33
+str_el_TITLE2
+    defb 15
+    defb 33,20,15,0,32,1,14,20,15,32,36,30,5,9,15
+str_el_PRESS
+    defb 18
+    defb 32,1,20,1,0,6,9,18,5,0,27,9,1,0,1,16
+    defb 24,8
+str_el_LANGHINT
+    defb 18
+    defb 32,1,20,1,0,12,0,27,9,1,0,1,27,27,30,9
+    defb 11,1

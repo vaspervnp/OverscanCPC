@@ -8,3 +8,8 @@ LIVES     = ΖΩΕΣ
 GAMEOVER  = ΤΕΛΟΣ
 DONE      = ΜΠΡΑΒΟ
 AGAIN     = ΠΑΤΑ FIRE ΓΙΑ ΞΑΝΑ
+
+TITLE1    = ΠΑΝΙΚΟΣ
+TITLE2    = ΣΤΟ ΠΑΝΤΟΠΩΛΕΙΟ
+PRESS     = ΠΑΤΑ FIRE ΓΙΑ ΑΡΧΗ
+LANGHINT  = ΠΑΤΑ L ΓΙΑ ΑΓΓΛΙΚΑ

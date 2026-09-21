@@ -191,7 +191,10 @@ GRANNY_SWEEP    EQU 16                  ; frames between the halves of a stroke
 ;; the program writes before it reads never has to be loaded at all: the line
 ;; table, which build_line_tab fills in, and the four buffers of saved shop.
 ;; It is what PICK_BUFS and LINE_TAB_AT are in the other game.
-LINE_TAB_AT     EQU #2000               ; 544 bytes of scanline addresses
+ART_ORG         EQU #0100               ; clear of the interrupt jump at #0038
+ART_STORE       EQU #6000               ; where the file carries them, until
+                                        ; the first LDIR of the game
+LINE_TAB_AT     EQU #2900               ; and behind them, the line table
 LOW_BUFS        EQU LINE_TAB_AT+DISPLAY_LINES*2
 
 ;; --- The seagull's dive ----------------------------------------------------
@@ -294,6 +297,26 @@ STEAL_START     EQU 250                 ; and five at the top of a life, so the
 START_LIVES     EQU 3
 GRACE           EQU 100                 ; frames, at the 50 Hz the game thinks
 
+;; --- The title screen ------------------------------------------------------
+;; There is no picture: a picture of this screen is twenty-six kilobytes and
+;; the other game spends a second and a half unpacking one. This one puts up
+;; the shop itself - the same draw_shop the game uses - and stands the two of
+;; them in it, which costs nothing that was not already written and says more
+;; about the game than a drawing of a cat would.
+TITLE_Y         EQU 16                  ; the panel the name stands on, deep
+TITLE_H         EQU 92                  ; enough to take the window with it
+T_NAME_Y        EQU 32                  ; the name, big, with a shadow
+T_NAME_SHADOW   EQU 4                   ; that many scanlines under it
+T_SUB_Y         EQU 84                  ; and the rest of it under that
+T_NAME_XS       EQU 1                   ; 24 pixels to a letter
+T_NAME_YS       EQU 5                   ; and 35 scanlines tall
+
+FOOT_Y          EQU 240                 ; the strip along the tiles
+FOOT_H          EQU 26
+Y_PRESS         EQU 244
+Y_LANGHINT      EQU 256
+BLINK_BIT       EQU 16                  ; on for 16 frames, off for 16
+
 ;; The HUD is one row of small text across the top of the wall, above
 ;; everything the game does - SHOP_TOP is the ceiling and it is below this.
 HUD_Y           EQU 2
@@ -315,6 +338,29 @@ LIVES_X         EQU 72
 LANG            EQU 0
     ENDIF
 
+;; ---------------------------------------------------------------------------
+;; The pictures, assembled where they run and not where the file carries them.
+;;
+;; Ten kilobytes of sprites, and the game has sixteen between #4000 and the
+;; screen at #8000 for the code, the pictures and its own workspace. The
+;; pictures do not have to be in that: they are read and only read, and they
+;; go into place before anything else happens. #0000-#3FFF is sixteen more
+;; kilobytes that nothing is using once both ROMs are off - only the interrupt
+;; jump at #0038 is in it - and a program cannot be *loaded* there, because
+;; AMSDOS hands over with the lower ROM still enabled and a program down there
+;; would be ROM. So the file carries them at ART_STORE, above the code, and
+;; the first four instructions of the game move them down.
+;;
+;; rasm's second ORG argument is the whole of the trick: the bytes are laid
+;; out to run at ART_ORG and written into the file at ART_STORE.
+    ORG ART_ORG,ART_STORE
+art_start
+    include "mitsosart.asm"
+art_end
+ART_LEN         EQU art_end-art_start
+SPR_MAX_W       EQU ART_MAX_W           ; the widest of them fits its blit,
+SPR_UNROLL_MAX  EQU ART_MAX_W           ; and Grandma is ten bytes of it
+
     ORG #4000                           ; RAM whatever the ROMs are doing, and
                                         ; clear of the screen at #8000
 ;; ---------------------------------------------------------------------------
@@ -327,20 +373,34 @@ mitsos_start
     ld bc,#7F00+GA_MODE                 ; mode 0, upper and lower ROM disabled
     out (c),c
 
+    ld hl,ART_STORE                     ; and the pictures go where they were
+    ld de,ART_ORG                       ; built for. Nothing has been pushed
+    ld bc,ART_LEN                       ; yet, which is why the stack can sit
+    ldir                                ; inside what is being read
+
     ld hl,pal_blank                     ; build the shop unseen, so none of
     call set_pal                        ; the firmware's leftovers show
 
+    ld a,LANG
+    ld (txt_lang),a
+
     call build_line_tab
-    call draw_shop
+    call title_draw                     ; the first picture, drawn unseen
 
     call setup_crtc                     ; only now switch the display over
     ld hl,pal_shop
     call set_pal
 
     call irq_init                       ; and the 50 Hz tick under everything
+    jr main_title_wait                  ; the title is already up
 
-    ld a,LANG
-    ld (txt_lang),a
+;; ---------------------------------------------------------------------------
+;; Title, then the shop, then back to the title.
+;; ---------------------------------------------------------------------------
+main_title
+    call title_draw
+main_title_wait
+    call title_loop                     ; until fire
     ld a,START_LIVES
     ld (mitsos_lives),a
     call game_start
@@ -401,10 +461,166 @@ main_over
     ld a,(ctl_pressed)
     bit CTL_FIRE,a
     jr z,main_loop
-    ld a,START_LIVES
-    ld (mitsos_lives),a
-    call game_start
-    jr main_loop
+    jp main_title
+
+;; ---------------------------------------------------------------------------
+;; title_draw - the shop, the name over it, and the two of them standing in
+;; it waiting for the player to press something.
+;;
+;; The cast is drawn through spr_draw, which saves what it covers into the
+;; same buffers the game uses. That does not matter and is not tidied up:
+;; game_start repaints the whole shop and puts every drawn flag back to zero,
+;; so whatever those buffers are holding is thrown away unread.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+title_draw
+    call draw_shop                      ; the game's own backdrop, unchanged
+    call title_cast                     ; and the shop's own cast in it, before
+                                        ; the banner goes over the top of them
+
+    ld hl,line_tab+TITLE_Y*2            ; the panel the name stands on: big
+    ld de,TITLE_H                       ; text writes where the letter is and
+    ld a,PEN0_BYTE                      ; skips where it is not, so it needs
+    call clear_rows                     ; ground of its own
+
+    ld a,T_NAME_XS
+    ld (txt_xs),a
+    ld a,T_NAME_YS
+    ld (txt_ys),a
+    ld a,1
+    ld (txt_big_solid),a
+
+    ld a,PEN4_BYTE                      ; the shadow first, a few scanlines
+    ld (txt_big_pen),a                  ; under where the name will be
+    ld hl,line_tab+(T_NAME_Y+T_NAME_SHADOW)*2
+    ld (txt_row),hl
+    ld a,MSG_TITLE1
+    call msg_big_centre
+
+    ld a,PEN7_BYTE                      ; and the name over it, in his own
+    ld (txt_big_pen),a                  ; orange. Both are centred the same
+    ld hl,line_tab+T_NAME_Y*2           ; way, so the shadow is what shows
+    ld (txt_row),hl                     ; below the letters
+    ld a,MSG_TITLE1
+    call msg_big_centre
+
+    xor a
+    ld (txt_big_solid),a
+
+    ld hl,line_tab+T_SUB_Y*2            ; the rest of the title, small
+    ld (txt_row),hl
+    ld a,MSG_TITLE2
+    call msg_small_centre
+    ;; fall through to the footer
+
+;; ---------------------------------------------------------------------------
+;; title_foot - the strip along the tiles: how to start, and how to read it
+;; in the other language. Repainted on its own when L is pressed.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+title_foot
+    ld hl,line_tab+FOOT_Y*2
+    ld de,FOOT_H
+    ld a,PEN0_BYTE
+    call clear_rows
+
+    ld hl,line_tab+Y_LANGHINT*2
+    ld (txt_row),hl
+    ld a,MSG_LANGHINT
+    call msg_small_centre
+
+    ;; The "press fire" row belongs to title_blink. Leaving press_state
+    ;; disagreeing with the phase the blink is actually in makes the next
+    ;; frame paint it, whichever half of the cycle that is.
+    ld a,(frame_count)
+    and BLINK_BIT
+    xor BLINK_BIT
+    ld (press_state),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; title_cast - him and her, standing in the shop they are about to have the
+;; argument in.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+title_cast
+    ld hl,pickups_init                  ; the shelves stocked, so the screen
+    ld de,pickups                       ; says what the game is about
+    ld bc,PICK_COUNT*P_SIZE
+    ldir
+    call draw_pickups
+
+    ld a,GRANNY_X0+8                    ; she is by the crates, where the
+    ld (spr_x),a                        ; shop's middle is
+    ld hl,spr_granny_a
+    call spr_size
+    push hl
+    ld a,GRANNY_TOP
+    call spr_row_ptr
+    pop hl
+    ld de,granny_buf
+    call spr_draw
+
+    ld a,8                              ; and he is by the door, where a life
+    ld (spr_x),a                        ; starts
+    ld hl,spr_mitsos_stand
+    call spr_size
+    push hl
+    ld a,MITSOS_Y0
+    call spr_row_ptr
+    pop hl
+    ld de,mitsos_buf
+    jp spr_draw
+
+;; ---------------------------------------------------------------------------
+;; title_loop - one pass per 50 Hz tick until fire. L changes the language
+;; while it waits, and only the words are repainted.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+title_loop
+    call wait_frame
+    call read_controls
+    ld a,(ctl_pressed)
+    bit CTL_FIRE,a
+    ret nz
+
+    bit CTL_LANG,a
+    jr z,title_loop_blink
+    ld a,(txt_lang)
+    xor 1
+    ld (txt_lang),a
+    call title_draw                     ; the name changes with it, so this is
+                                        ; the whole screen again
+title_loop_blink
+    call title_blink
+    jr title_loop
+
+;; ---------------------------------------------------------------------------
+;; title_blink - the one line that moves on this screen. It is painted and
+;; cleared on the two halves of a sixteen frame cycle, and only on the frames
+;; the cycle actually turns over.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+title_blink
+    ld a,(frame_count)
+    and BLINK_BIT
+    ld b,a
+    ld a,(press_state)
+    cp b
+    ret z                               ; still the same half of it
+    ld a,b
+    ld (press_state),a
+    or a
+    jr nz,title_blink_hide
+    ld hl,line_tab+Y_PRESS*2
+    ld (txt_row),hl
+    ld a,MSG_PRESS
+    jp msg_small_centre
+title_blink_hide
+    ld hl,line_tab+Y_PRESS*2
+    ld de,8
+    ld a,PEN0_BYTE
+    jp clear_rows
 
 ;; ---------------------------------------------------------------------------
 ;; game_start - the shop as it was and everybody back where they came in.
@@ -2830,9 +3046,6 @@ pal_shop
     include "text.asm"
     include "font.asm"
     include "mitsosstr.asm"
-    include "mitsosart.asm"             ; in front of sprite.asm, which asserts
-SPR_MAX_W       EQU ART_MAX_W           ; the widest of them fits its blit,
-SPR_UNROLL_MAX  EQU ART_MAX_W           ; and Grandma is ten bytes of it
     include "sprite.asm"
 
 code_end
@@ -2868,6 +3081,8 @@ mitsos_rush     defs 2              ; frames of catnip left in him
 rush_bars       defs 1              ; and how many of them the meter is showing
 
 ;; Grandma, who is boxes rather than a sprite and keeps her own patch of shop.
+title_x         defs 1              ; where the name was centred, so the
+                                    ; shadow and the name can agree on it
 steal_x         defs 1              ; the mouse's own rectangle, while it
 steal_y         defs 1              ; looks along the shelf for a meze
 
@@ -2916,10 +3131,22 @@ LOW_END         EQU pick_back+PICK_COUNT*PICK_BUF
 RUN mitsos_start
     ENDIF
 
+;; ---------------------------------------------------------------------------
+;; What the file is: the code from #4000, then whatever is left between the
+;; workspace and ART_STORE, then the pictures. Three asserts hold it together
+;; - the code and its RAM have to stop before the pictures start, the
+;; pictures have to fit below the line table once they are moved, and the
+;; whole thing has to stay clear of AMSDOS's buffers at #A67B.
+;; ---------------------------------------------------------------------------
+IMAGE_LEN       EQU ART_STORE+ART_LEN-mitsos_start
+    ASSERT mitsos_end <= ART_STORE
+    ASSERT ART_ORG+ART_LEN <= LINE_TAB_AT
+    ASSERT ART_STORE+ART_LEN <= #A67B
+
     IF TARGET==2
-    SAVE "MITSOS.BIN",mitsos_start,code_end-mitsos_start,DSK,"build/mitsos.dsk"
+    SAVE "MITSOS.BIN",mitsos_start,IMAGE_LEN,DSK,"build/mitsos.dsk"
     ENDIF
 
     IF TARGET==3
-    SAVE "build/out.bin",mitsos_start,code_end-mitsos_start
+    SAVE "build/out.bin",mitsos_start,IMAGE_LEN
     ENDIF

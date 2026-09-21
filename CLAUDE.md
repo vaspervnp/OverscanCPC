@@ -208,10 +208,16 @@ assume an effect that works in one emulator works on another type.
   bottom of loukoumas.asm are what catch a build that has grown past it.
   The second game has the same arrangement for a different reason: it loads at
   #4000 with the screen at #8000, so its sixteen kilobytes have to hold the
-  code, the pictures and the workspace at once. Its four buffers of saved
-  background sit at #2000 (`granny_buf` and the three after it), which is what
-  made room above #4000 for Grandma's five kilobytes of pictures, and
-  `mitsos_end` asserts that what is left still clears the stack.
+  code, the pictures and the workspace at once. Grandma cost five kilobytes of
+  pictures and the title screen would not fit after her, so everything that is
+  only ever read went down the same way the first game's tables did:
+  `ORG ART_ORG,ART_STORE` assembles `src/mitsosart.asm` to run at #0100 while
+  storing it at #6000 in the file, and one LDIR in the first dozen instructions
+  moves it. Under #4000 with it are the line table at #2900 and the four
+  buffers of saved background after that (`granny_buf` and the three following
+  it, to #3180), neither of which costs a byte of disc. What is left above
+  #4000 is code and workspace only - #4000 to #58E4 - and `mitsos_end` asserts
+  that it still clears the stack.
 - A 32 KB overscan screen collides with firmware territory. Firmware variables live around
   &B100-&BFFF and the firmware stack sits just below &C000. Overscan work runs with the
   firmware off: own IM 1 (or IM 2) handler, own stack placed somewhere the display does
@@ -385,6 +391,15 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   text still wants ground cleared under it, which is why the title screen has two panels:
   pressing L has to repaint a line, and a line lying on a picture can only be repainted if
   something cleared the ground first.
+- **The second game's title screen is not a picture at all - it is the room.** There was
+  no seven kilobytes to spare for a packed one, and `draw_shop` already paints the whole
+  26 KB out of box lists in about a second: so the title is the shop drawn the way the
+  game draws it, with the shelves stocked by an LDIR from `pickups_init`, him by the door
+  and Grandma by the crates, and a cleared panel with the name on it over the top. The
+  cast goes down before the panel, so the panel covers what falls inside it rather than
+  leaving a fish floating on the blue. Pressing L repaints the lot, which is why it takes
+  about a second and why `make check` cannot press fire for another forty virtual frames
+  after it.
 - **The game renders 25 times a second, on every second VSYNC, and thinks 50.**
   `wait_render` counts two ticks; `play_loop` then takes FRAMES_PER_RENDER logic
   steps inside one picture, so the jump arc, the patrol speed and every timer are
