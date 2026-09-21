@@ -133,7 +133,9 @@ E_PHASE         EQU 11                  ; where it is in the bob
 E_DRAWN         EQU 12                  ; is the buffer under it worth anything
 E_OX            EQU 13                  ; and where its picture still is
 E_OY            EQU 14
-E_SIZE          EQU 15
+E_DIVE          EQU 15                  ; D_NONE, or which half of a dive
+E_REST          EQU 16                  ; frames before it may try another
+E_SIZE          EQU 17
 
 ;; What a kind of enemy is: two pictures each way round, a size, and whether
 ;; it flies. Three bytes and its art is what a new one costs.
@@ -177,6 +179,40 @@ GRANNY_WALK     EQU 8                   ; frames between her steps
 GRANNY_HUNT     EQU 4                   ; and when she has seen him
 GRANNY_SEE      EQU 16                  ; how far along the floor she can
 GRANNY_SWEEP    EQU 16                  ; frames between the halves of a stroke
+
+;; --- What lives below #4000 ------------------------------------------------
+;; The game loads at #4000 with the screen from #8000, so sixteen kilobytes
+;; have to hold the code, the pictures and everything the program builds for
+;; itself - and Grandma's three pictures are five of them. #0000-#3FFF is
+;; sixteen more that nothing is using once both ROMs are off, with only the
+;; interrupt jump at #0038 in it. A program cannot be *loaded* down there,
+;; because AMSDOS hands over with the lower ROM still enabled, but anything
+;; the program writes before it reads never has to be loaded at all: the line
+;; table, which build_line_tab fills in, and the four buffers of saved shop.
+;; It is what PICK_BUFS and LINE_TAB_AT are in the other game.
+LINE_TAB_AT     EQU #2000               ; 544 bytes of scanline addresses
+LOW_BUFS        EQU LINE_TAB_AT+DISPLAY_LINES*2
+
+;; --- The seagull's dive ----------------------------------------------------
+;; A gull over a harbour town does not patrol: it hangs about looking bored
+;; and then falls out of the sky at whatever is holding food. This one keeps
+;; its beat across the window until the cat is underneath it, then comes down
+;; the whole height of the shop at three scanlines a frame - about four fifths
+;; of a second from the window to the tiles - pulls out just above the floor,
+;; and labours back up at two.
+;;
+;; It is dangerous all the way down and it can be landed on all the way down,
+;; which is the trade: standing still under a gull is the worst thing to do
+;; and jumping at one is the best.
+DIVE_SEE        EQU 5                   ; bytes either side it will come for
+DIVE_DOWN       EQU 3                   ; scanlines a frame, going down
+DIVE_UP         EQU 2                   ; and climbing back, which is harder
+DIVE_FLOOR      EQU FLOOR_TOP-SPR_SEAGULL_A_H   ; where it pulls out
+DIVE_REST       EQU 100                 ; two seconds before it tries again
+
+D_NONE          EQU 0                   ; on its beat
+D_DOWN          EQU 1                   ; coming down
+D_UP            EQU 2                   ; and going back up
 
 ;; --- What he came for ------------------------------------------------------
 ;; Four mezedes on the shelves, and the basket by the top board does not open
@@ -1133,6 +1169,70 @@ mitsos_bounce_next
     ret
 
 ;; ---------------------------------------------------------------------------
+;; foe_dive - the seagull, and only the seagull.
+;;
+;; On its beat it looks down every frame: if the cat is within DIVE_SEE bytes
+;; either way, and it has got its breath back from the last one, it drops. The
+;; wings stop flapping the whole of the way down, because a bird coming down
+;; on something holds them still - and that costs nothing at all, being one
+;; write over the frame it was going to use anyway.
+;;
+;; The horizontal beat goes on underneath all of this, so it comes down at an
+;; angle rather than straight, and turns at the ends of its beat as always.
+;; Destroys AF, HL.
+;; ---------------------------------------------------------------------------
+foe_dive
+    call foe_kind_ptr
+    ld a,K_FLY
+    call foe_kind_byte
+    or a
+    ret z                               ; a mouse does not do this
+    ld a,(iy+E_DIVE)
+    cp D_DOWN
+    jr z,foe_dive_down
+    cp D_UP
+    jr z,foe_dive_up
+
+    ld a,(iy+E_REST)                    ; on its beat: over the last one yet?
+    or a
+    jr z,foe_dive_look
+    dec (iy+E_REST)
+    ret
+foe_dive_look
+    ld a,(mitsos_x)
+    sub (iy+E_X)
+    jr nc,foe_dive_ahead
+    neg                                 ; he is behind it
+foe_dive_ahead
+    cp DIVE_SEE+1
+    ret nc                              ; not underneath it yet
+    ld (iy+E_DIVE),D_DOWN
+    ret
+
+foe_dive_down
+    ld (iy+E_FRAME),0                   ; wings held, all the way down
+    ld a,(iy+E_Y)
+    add a,DIVE_DOWN
+    ld (iy+E_Y),a
+    cp DIVE_FLOOR
+    ret c
+    ld (iy+E_Y),DIVE_FLOOR              ; pulled out just off the tiles
+    ld (iy+E_DIVE),D_UP
+    ret
+
+foe_dive_up
+    ld a,(iy+E_Y)
+    sub DIVE_UP
+    ld (iy+E_Y),a
+    cp (iy+E_Y0)
+    ret nc                              ; still below the line it flies
+    ld a,(iy+E_Y0)
+    ld (iy+E_Y),a
+    ld (iy+E_DIVE),D_NONE
+    ld (iy+E_REST),DIVE_REST
+    ret
+
+;; ---------------------------------------------------------------------------
 ;; foe_kind_ptr - HL = the kind record of the enemy at IY.
 ;; foe_kind_byte - A = an offset into it -> A = that byte of it. HL survives.
 ;; Destroys AF, DE.
@@ -1278,12 +1378,15 @@ foes_move_one
 
 foes_move_awake
     dec (iy+E_ANIM)                     ; its two pictures
-    jr nz,foes_move_step
+    jr nz,foes_move_dive
     ld (iy+E_ANIM),FOE_ANIM
     ld a,(iy+E_FRAME)
     xor 1
     ld (iy+E_FRAME),a
 
+foes_move_dive
+    call foe_dive                       ; the gull's own business, and it runs
+                                        ; every frame rather than every tick
 foes_move_step
     dec (iy+E_TICK)
     jr nz,foes_move_next
@@ -1301,6 +1404,9 @@ foes_move_turn
     ld (iy+E_DIR),a
 
 foes_move_bob
+    ld a,(iy+E_DIVE)                    ; the bob would only fight the dive
+    or a
+    jr nz,foes_move_next
     call foe_kind_ptr
     ld a,K_FLY
     call foe_kind_byte
@@ -1345,9 +1451,9 @@ foe_kinds
 ;; game gets them all back on their feet and where they started.
 foes_init
     defb K_MOUSE, 80, FLOOR_TOP-SPR_MOUSE_A_H, 0, 56, 92, -1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0
     defb K_GULL, 64, 72, 72, 58, 84, 1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0
 
 ;; ---------------------------------------------------------------------------
 ;; What he can stand on: first column, last column, top scanline - and #FF at
@@ -2470,20 +2576,9 @@ mitsos_end
 ;; the sixteen and this is what catches the next thing that does not fit.
     ASSERT mitsos_end < STACK_TOP-256
 
-;; ---------------------------------------------------------------------------
-;; And the four buffers of saved shop, below #4000 where they cost nothing.
-;;
-;; The game has #4000 to #7FFF and the screen starts at #8000: sixteen
-;; kilobytes for the code, the pictures and everything the program builds for
-;; itself. The pictures are most of it now - Grandma on her own is five - and
-;; #0000-#3FFF is sixteen more kilobytes that nothing is using once both ROMs
-;; are off, with only the interrupt jump at #0038 in it. A program cannot be
-;; *loaded* down there, because AMSDOS hands over with the lower ROM still
-;; enabled; these four are scratch, written before they are ever read, so
-;; they never have to be loaded at all. It is what PICK_BUFS is in the other
-;; game, for the same reason.
-;; ---------------------------------------------------------------------------
-granny_buf      EQU #2000           ; the shop she is standing in front of
+;; And the four buffers of saved shop, down below #4000 with the line table -
+;; see LINE_TAB_AT for why they can be.
+granny_buf      EQU LOW_BUFS        ; the shop she is standing in front of
 mitsos_buf      EQU granny_buf+GRANNY_BYTES
 foe_bufs        EQU mitsos_buf+MITSOS_BYTES
 pick_back       EQU foe_bufs+FOE_COUNT*FOE_BUF

@@ -293,6 +293,20 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		--sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_x,mitsos_y,mitsos_vy:s,granny_x,granny_stun,mitsos_lives" \
 		| grep -E "frame +(155|157|163) "
+	@echo "=== mitsos, the seagull comes down ==="
+	@echo "    it keeps a beat across the window at scanline 72 until he is"
+	@echo "    within five bytes of being under it, and at 148 it commits: the"
+	@echo "    whole height of the shop at three scanlines a frame, with its"
+	@echo "    wings held and its beat still carrying it sideways, so it comes"
+	@echo "    down at an angle. 170 is halfway. It pulls out at 218, a gull's"
+	@echo "    height off the tiles, labours back up at two, and is on its line"
+	@echo "    again at 271 with two seconds to get over it before it may try"
+	@echo "    again. It is dangerous the whole way down and can be landed on"
+	@echo "    the whole way down, which is the trade it offers."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 280 $(MITSOS_SIM) \
+		--keys "RIGHT@50-280" --sym $(BUILD)/mitsos.sym \
+		--watch "mitsos_x,foes+19,foes+32,foes+33" \
+		| grep -E "frame +(146|148|170|198|271) "
 	@echo "=== mitsos, three lives and what they cost ==="
 	@echo "    walking into something still on its feet costs one and puts him"
 	@echo "    back by the door with two seconds of grace, blinking, because"
