@@ -407,6 +407,16 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   per machine cycle, `US_EXTRA` for the rest - and its frame is 19968 us, not a
   number of instructions. Before that it could not see beam timing at all, which
   is why two attempts at this bug were guesses.
+- **Anything the size of a person is not a sprite.** Grandma Evdoxia in the second
+  game is 7 bytes by 80 scanlines - three and a half of the cat - and a masked blit of
+  that rectangle, twice, is most of a frame for one figure. She is a box list like the
+  furniture, drawn over a rectangle of room saved with a run of LDIs and put back before
+  she moves: about half the cost, and no art to carry. She is also only rebuilt on the
+  frames she actually changes on, which for something that steps a byte every eighth
+  frame is one in four. The price of that last part is `granny_off` - anything that
+  changes the background under her has to take her off the screen first, or her buffer
+  hands the old background back the next time she moves, and that is debris nothing will
+  ever clean up.
 - **Never pace anything in the game off `frame_count` parity.** It is a free-running
   interrupt counter, and a frame the loop overruns bumps it by two without changing the
   parity, so anything keyed on it either runs every update or none of them. The robots

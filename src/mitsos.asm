@@ -114,7 +114,7 @@ BOUNCE_V        EQU #FA80               ; -5.5 px/frame, about 60 scanlines
 STUN_TIME       EQU 100                 ; two seconds flat, at 50 Hz
 FOE_TICK        EQU 3                   ; frames between an enemy's steps
 FOE_ANIM        EQU 6                   ; and between its two pictures
-FOE_COUNT       EQU 3
+FOE_COUNT       EQU 2
 
 ;; One enemy. IY addresses these, because IX is the line table cursor inside
 ;; the sprite routines and there is only one of each.
@@ -143,11 +143,40 @@ K_H             EQU 9
 K_FLY           EQU 10
 K_SIZE          EQU 11
 
-K_BROOM         EQU 0
-K_MOUSE         EQU 1
-K_GULL          EQU 2
+K_MOUSE         EQU 0
+K_GULL          EQU 1
 
-FOE_BUF         EQU SPR_BROOM_A_W*SPR_BROOM_A_H  ; the biggest of them
+FOE_BUF         EQU SPR_SEAGULL_A_W*SPR_SEAGULL_A_H  ; the biggest of them
+
+;; --- Grandma Evdoxia -------------------------------------------------------
+;; Eighty scanlines of her, which is three and a third of him, and she is the
+;; reason the floor of this shop is not a place to stand about on.
+;;
+;; She is not a sprite. At this size a masked blit of her would be most of a
+;; frame on its own, and the rule this shop was built on says it anyway: a cat
+;; is drawn, and anything the size of a person is boxes. So she is a box list
+;; like the counter and the crates - except that she keeps the patch of shop
+;; she is standing in front of, the way a sprite does, and puts it back before
+;; she moves. Boxes in, LDIs out: about half what the same rectangle would
+;; cost through the masked blit, and the reason she fits at all.
+;;
+;; She is also only rebuilt on the frames she actually changes on. An old
+;; woman crossing a shop floor moves a byte every eighth frame and swings the
+;; broom every twelfth, so seven pictures out of eight she is simply left
+;; standing where she is, and costs nothing. The price of that is granny_off:
+;; anything that changes the shop underneath her has to take her off the
+;; screen first, or her buffer carries the old shop about with her.
+GRANNY_W        EQU 7                   ; 28 pixels on the monitor
+GRANNY_H        EQU 80
+GRANNY_TOP      EQU FLOOR_TOP-GRANNY_H  ; she stands on the floor like he does
+GRANNY_BYTES      EQU GRANNY_W*GRANNY_H
+
+GRANNY_X0       EQU 30                  ; the beat she walks, in bytes
+GRANNY_X1       EQU 56
+GRANNY_WALK     EQU 8                   ; frames between her steps
+GRANNY_HUNT     EQU 4                   ; and when she has seen him
+GRANNY_SEE      EQU 16                  ; how far along the floor she can
+GRANNY_SWEEP     EQU 12                  ; frames between the halves of a stroke
 
 ;; --- What he came for ------------------------------------------------------
 ;; Four mezedes on the shelves, and the basket by the top board does not open
@@ -292,15 +321,18 @@ main_loop
 ;; every save is of the shop and nothing else, and the room stays clean.
     call mitsos_erase
     call foes_erase
+    call granny_erase                   ; last off, because she goes on first
 
     ld b,FRAMES_PER_RENDER
 main_loop_think
     push bc
     call mitsos_move
     call foes_move
+    call granny_move
     pop bc
     djnz main_loop_think
 
+    call granny_draw                    ; behind the lot of them
     call foes_draw
     call mitsos_draw                    ; last, so he is the one in front
     jr main_loop
@@ -346,6 +378,7 @@ game_start
     ld (score+1),hl
     ld a,MEZE_COUNT
     ld (mezes_left),a
+    call granny_reset
     call draw_pickups
     call draw_score
     ;; fall through
@@ -961,6 +994,11 @@ mitsos_hurt
     or a
     ret nz
 
+    call granny_hurt                    ; she is the biggest thing in the shop
+    ld a,(mitsos_grace)
+    or a
+    ret nz                              ; and she has just had him
+
     ld iy,foes
     ld b,FOE_COUNT
 mitsos_hurt_one
@@ -1055,6 +1093,8 @@ mitsos_hurt_next
 ;; Destroys AF, BC, DE, HL, IY.
 ;; ---------------------------------------------------------------------------
 mitsos_bounce
+    call granny_bounce                  ; her head is the highest thing that
+    ret c                               ; can be landed on in here
     ld iy,foes
     ld b,FOE_COUNT
 mitsos_bounce_one
@@ -1294,8 +1334,6 @@ foe_bob
 ;; each way round, how big it is, and whether it flies.
 ;; ---------------------------------------------------------------------------
 foe_kinds
-    defw spr_broom_a, spr_broom_b, spr_broom_a_l, spr_broom_b_l
-    defb SPR_BROOM_A_W, SPR_BROOM_A_H, 0
     defw spr_mouse_a, spr_mouse_b, spr_mouse_a_l, spr_mouse_b_l
     defb SPR_MOUSE_A_W, SPR_MOUSE_A_H, 0
     defw spr_seagull_a, spr_seagull_b, spr_seagull_a_l, spr_seagull_b_l
@@ -1306,8 +1344,6 @@ foe_kinds
 ;; copy nothing writes to: the game runs on the one it puts in RAM, so a new
 ;; game gets them all back on their feet and where they started.
 foes_init
-    defb K_BROOM, 40, FLOOR_TOP-SPR_BROOM_A_H, 0, 34, 52, 1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
     defb K_MOUSE, 80, FLOOR_TOP-SPR_MOUSE_A_H, 0, 56, 92, -1
     defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0
     defb K_GULL, 64, 72, 72, 58, 84, 1
@@ -1653,7 +1689,8 @@ mitsos_collect_one
     jr nc,mitsos_collect_next
 
 mitsos_collect_take
-    ld (iy+P_ALIVE),0
+    call granny_off                     ; the shelf is about to change, and she
+    ld (iy+P_ALIVE),0                   ; may be standing in front of it
     ld a,SPR_FISH_W
     ld (spr_w),a
     ld a,SPR_FISH_H
@@ -1698,6 +1735,7 @@ mitsos_collect_next
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 open_basket
+    call granny_off                     ; same again: the lid is background
     ld a,1
     ld (basket_open),a
     ld a,BASKET_X
@@ -1727,6 +1765,475 @@ mitsos_escape
     ld (mitsos_over),a
     call rush_stop
     jp draw_done
+
+
+;; ===========================================================================
+;; Grandma Evdoxia.
+;;
+;; Eighty scanlines of black, which is three and a third of him, sweeping a
+;; stretch of the shop floor and picking up speed when she catches sight of
+;; him. Touching her costs a life; coming down on her head from a shelf sits
+;; her down for the two seconds anything else in here gets, and so does the
+;; catnip. There is no getting past her on the floor otherwise, which is the
+;; point of her: the shelves are the way through the shop.
+;;
+;; She is boxes over a saved rectangle rather than a masked sprite - see the
+;; note with GRANNY_W - so drawing her is draw_boxes and lifting her off is
+;; seven LDIs a scanline.
+;; ===========================================================================
+
+;; ---------------------------------------------------------------------------
+;; granny_reset - back at the end of her beat, broom in hand.
+;; Destroys AF.
+;; ---------------------------------------------------------------------------
+granny_reset
+    ld a,GRANNY_X1                      ; the far end of her beat, walking
+    ld (granny_x),a                     ; back towards the door - which is the
+    ld (granny_ox),a                    ; length of the shop's worth of warning
+    ld a,-1                             ; he gets at the start of a life
+    ld (granny_dir),a
+    ld a,1
+    ld (granny_dirty),a                 ; draw_shop has just wiped her off
+    xor a
+    ld (granny_drawn),a
+    ld (granny_frame),a
+    ld (granny_stun),a
+    ld a,GRANNY_WALK
+    ld (granny_tick),a
+    ld a,GRANNY_SWEEP
+    ld (granny_anim),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_move - one 50 Hz step of her.
+;;
+;; She walks her beat a byte at a time and turns at either end of it. If he is
+;; within GRANNY_SEE bytes she turns towards him and steps twice as often -
+;; which is the whole of "if she spots you, she comes at you waving it".
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+granny_move
+    ld hl,granny_stun
+    ld a,(hl)
+    or a
+    jr z,granny_move_up
+    dec (hl)
+    ret nz
+    ld a,1                              ; and she is back on her feet
+    ld (granny_dirty),a
+    ret
+
+granny_move_up
+    ld hl,granny_anim                   ; the broom goes back and forth
+    dec (hl)                            ; whatever her feet are doing
+    jr nz,granny_move_look
+    ld (hl),GRANNY_SWEEP
+    ld a,(granny_frame)
+    xor 1
+    ld (granny_frame),a
+    ld a,1
+    ld (granny_dirty),a
+
+granny_move_look
+    ld e,GRANNY_WALK                    ; the beat she keeps when she cannot
+    ld d,0                              ; see him, and whether she can
+    ld a,(granny_x)
+    ld b,a
+    ld a,(mitsos_x)
+    sub b                               ; how far along he is from her
+    jr z,granny_move_right
+    jr nc,granny_move_ahead
+    neg                                 ; he is behind her
+    cp GRANNY_SEE
+    jr nc,granny_move_step
+    ld a,-1
+    jr granny_move_seen
+granny_move_ahead
+    cp GRANNY_SEE
+    jr nc,granny_move_step
+granny_move_right
+    ld a,1
+granny_move_seen
+    ld (granny_dir),a
+    ld e,GRANNY_HUNT
+    ld d,1
+
+granny_move_step
+    ld hl,granny_tick
+    dec (hl)
+    ret nz
+    ld (hl),e                           ; the next step is E frames off
+    ld a,(granny_dir)
+    ld b,a
+    ld a,(granny_x)
+    add a,b
+    cp GRANNY_X0
+    jr c,granny_move_end
+    cp GRANNY_X1+1
+    jr nc,granny_move_end
+    ld (granny_x),a
+    ld a,1
+    ld (granny_dirty),a
+    ret
+
+;; The end of her beat. Patrolling she turns round and walks back; with him
+;; in sight she stays where she is and keeps facing him, because a woman who
+;; has just seen a cat in the mezedes does not walk away from it - and because
+;; turning round every four frames in the corner would have her jittering
+;; there and repainting eighty scanlines of herself for nothing.
+granny_move_end
+    ld a,d
+    or a
+    ret nz
+    ld a,(granny_dir)
+    neg                                 ; and the broom changes hands with her
+    ld (granny_dir),a
+    ld a,1
+    ld (granny_dirty),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_hurt - walking into eighty scanlines of grandmother.
+;;
+;; Her whole rectangle counts, broom and all, which is why a cat on the floor
+;; near her is a cat about to lose something. Full of catnip he goes through
+;; her instead and she sits down.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+granny_hurt
+    ld a,(granny_stun)
+    or a
+    ret nz                              ; sitting down, and harmless
+    ld a,(granny_x)
+    ld b,a
+    add a,GRANNY_W-1
+    call mitsos_overlap
+    ret nc
+    ld a,(mitsos_y)
+    add a,MITSOS_H-1                    ; his feet down to her head at all?
+    cp GRANNY_TOP
+    ret c
+
+    ld hl,(mitsos_rush)
+    ld a,h
+    or l
+    jp z,mitsos_lose
+    ld a,STUN_TIME                      ; she goes over like everything else
+    ld (granny_stun),a
+    ld a,1
+    ld (granny_dirty),a
+    ld a,RUSH_POINTS
+    jp add_score
+
+;; ---------------------------------------------------------------------------
+;; granny_bounce - the same test the shelves and the mice get, against the
+;; top of her head. It is 80 scanlines up from the floor, so the only place he
+;; can be falling from to meet it is the third board - which makes sitting her
+;; down a thing that has to be set up rather than blundered into.
+;; Carry set if it happened.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+granny_bounce
+    ld a,(granny_stun)
+    or a
+    jr nz,granny_bounce_no
+    ld a,(mitsos_ofeet)
+    cp GRANNY_TOP
+    jr z,granny_bounce_below
+    jr nc,granny_bounce_no              ; his feet were already past her head
+granny_bounce_below
+    ld a,(mitsos_nfeet)
+    cp GRANNY_TOP
+    jr c,granny_bounce_no               ; and still are not down to it
+    ld a,(granny_x)
+    ld b,a
+    add a,GRANNY_W-1
+    call mitsos_overlap
+    jr nc,granny_bounce_no
+
+    ld a,STUN_TIME
+    ld (granny_stun),a
+    ld a,1
+    ld (granny_dirty),a
+    ld hl,BOUNCE_V
+    ld (mitsos_vy),hl
+    scf
+    ret
+granny_bounce_no
+    or a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_erase - her picture off the screen, but only if it is about to be
+;; drawn again somewhere else. Standing still she is left exactly where she
+;; is, and costs the frame nothing at all.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+granny_erase
+    ld a,(granny_drawn)
+    or a
+    ret z
+    ld a,(granny_dirty)
+    or a
+    ret z
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; granny_off - her picture off the screen whatever she is doing, because
+;; something is about to change the shop underneath her: a meze coming off a
+;; shelf, or the lid coming off the basket. Her buffer would otherwise still
+;; hold the old shop and hand it back the next time she moved.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+granny_off
+    ld a,(granny_drawn)
+    or a
+    ret z
+    call granny_place
+    xor a
+    ld (granny_drawn),a
+    ld a,1
+    ld (granny_dirty),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_draw - the shop she covers into her buffer, then her over it.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+granny_draw
+    ld a,(granny_drawn)
+    or a
+    ret nz                              ; still standing where she was
+    ld a,(granny_x)
+    ld (granny_ox),a
+    ld (prop_x),a
+    call granny_lift
+    ld a,GRANNY_TOP
+    ld (prop_y),a
+
+    ld a,(granny_stun)
+    or a
+    ld hl,granny_sat
+    jr nz,granny_draw_list
+
+    call granny_facing                  ; the body first, whichever way round
+    ld a,e
+    srl a                               ; one body a side against two brooms,
+    ld e,a                              ; so the body index is half of it -
+                                        ; and srl, not rra: granny_facing
+                                        ; leaves the carry set on the way out
+    ld hl,granny_bodies
+    add hl,de
+    ld a,(hl)
+    inc hl
+    ld h,(hl)
+    ld l,a
+    call draw_boxes
+
+    call granny_facing                  ; and then the broom in her hands -
+    ld a,(granny_frame)                 ; draw_boxes has had DE, so the side
+    add a,a                             ; is worked out again rather than kept
+    add a,e
+    ld e,a
+    ld hl,granny_brooms
+    add hl,de
+    ld a,(hl)
+    inc hl
+    ld h,(hl)
+    ld l,a
+granny_draw_list
+    call draw_boxes
+    ld a,1
+    ld (granny_drawn),a
+    xor a
+    ld (granny_dirty),a
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_facing - DE = 0 if the broom is on her right, 4 if it is on her
+;; left, which is where the mirrored pair of each list sits.
+;; Destroys AF, DE.
+;; ---------------------------------------------------------------------------
+granny_facing
+    ld d,0
+    ld e,d
+    ld a,(granny_dir)
+    add a,a
+    ret nc
+    ld e,4
+    ret
+
+;; ---------------------------------------------------------------------------
+;; granny_lift - the seven bytes of each of her eighty scanlines, out of the
+;; screen and into her buffer.
+;;
+;; An unrolled run of LDIs rather than an LDIR: five microseconds a byte
+;; against six, and no counter to set up every row. BC is scratch here - LDI
+;; decrements it and nobody asks. The row counter lives in the alternate B,
+;; the way sprite.asm does it, because LDI would eat any other.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+granny_lift
+    ld ix,line_tab+GRANNY_TOP*2
+    ld de,granny_buf
+    exx
+    ld b,GRANNY_H
+    exx
+granny_lift_row
+    ld a,(granny_ox)
+    ld l,(ix+0)
+    ld h,(ix+1)
+    inc ix
+    inc ix
+    add a,l
+    ld l,a
+    jr nc,granny_lift_go
+    inc h
+granny_lift_go
+    REPEAT GRANNY_W
+    ldi
+    REND
+    exx
+    djnz granny_lift_more
+    exx
+    ret
+granny_lift_more
+    exx
+    jr granny_lift_row
+
+;; ---------------------------------------------------------------------------
+;; granny_place - and the same the other way round, which is how she is
+;; rubbed out.
+;; Destroys AF, BC, DE, HL, IX.
+;; ---------------------------------------------------------------------------
+granny_place
+    ld ix,line_tab+GRANNY_TOP*2
+    ld hl,granny_buf
+    exx
+    ld b,GRANNY_H
+    exx
+granny_place_row
+    ld a,(granny_ox)
+    ld e,(ix+0)
+    ld d,(ix+1)
+    inc ix
+    inc ix
+    add a,e
+    ld e,a
+    jr nc,granny_place_go
+    inc d
+granny_place_go
+    REPEAT GRANNY_W
+    ldi
+    REND
+    exx
+    djnz granny_place_more
+    exx
+    ret
+granny_place_more
+    exx
+    jr granny_place_row
+
+;; ---------------------------------------------------------------------------
+;; What she is made of. Boxes, like the counter and the crates, and for the
+;; same reason: a woman is furniture-sized and there is no such thing as a
+;; bitmap of one in this machine.
+;; ---------------------------------------------------------------------------
+granny_bodies
+    defw granny_body, granny_body_l
+
+;; Two halves of a stroke facing right, then the same two facing left.
+granny_brooms
+    defw granny_broom_a, granny_broom_b
+    defw granny_broom_a_l, granny_broom_b_l
+
+;; Facing right: the body on the left five columns, the broom on the other two.
+granny_body
+    defb  1, 0, 3, 6, 4     ; the crown of the scarf
+    defb  0, 3, 1,11, 4     ; and the sides of it, down past her ears
+    defb  4, 3, 1,11, 4
+    defb  1, 6, 3, 8,15     ; the face inside it
+    defb  1, 8, 1, 2, 4     ; two eyes
+    defb  3, 8, 1, 2, 4
+    defb  2,11, 1, 2,12     ; and a mouth that is not a smile
+    defb  1,14, 3, 3, 4     ; the knot under her chin
+    defb  0,17, 5, 6, 4     ; shoulders
+    defb  1,19, 3, 2, 3     ; with a white collar on them
+    defb  1,23, 3,23, 4     ; the body
+    defb  1,26, 3,14, 3     ; and the apron over it
+    defb  0,46, 5,30, 4     ; the skirt, all the way to the floor
+    defb  0,58, 5, 2,12     ; with two pleats in it
+    defb  0,70, 5, 2,12
+    defb  1,76, 1, 4, 5     ; and her shoes under the hem
+    defb  3,76, 1, 4, 5
+    defb #FF
+
+;; And facing left, which is the same list read from the other end.
+granny_body_l
+    defb  3, 0, 3, 6, 4     ; the crown of the scarf
+    defb  6, 3, 1,11, 4     ; and the sides of it, down past her ears
+    defb  2, 3, 1,11, 4
+    defb  3, 6, 3, 8,15     ; the face inside it
+    defb  5, 8, 1, 2, 4     ; two eyes
+    defb  3, 8, 1, 2, 4
+    defb  4,11, 1, 2,12     ; and a mouth that is not a smile
+    defb  3,14, 3, 3, 4     ; the knot under her chin
+    defb  2,17, 5, 6, 4     ; shoulders
+    defb  3,19, 3, 2, 3     ; with a white collar on them
+    defb  3,23, 3,23, 4     ; the body
+    defb  3,26, 3,14, 3     ; and the apron over it
+    defb  2,46, 5,30, 4     ; the skirt, all the way to the floor
+    defb  2,58, 5, 2,12     ; with two pleats in it
+    defb  2,70, 5, 2,12
+    defb  5,76, 1, 4, 5     ; and her shoes under the hem
+    defb  3,76, 1, 4, 5
+    defb #FF
+
+;; The two halves of a stroke of the broom, each way round.
+granny_broom_a
+    defb  4,28, 1, 2,15     ; her hand on the handle
+    defb  5,30, 1,18, 6     ; the handle
+    defb  6,46, 1,20, 6
+    defb  4,64, 3,14,15     ; and the straw of it, out at her feet
+    defb #FF
+
+
+granny_broom_b
+    defb  4,26, 1, 2,15     ; the same, half a stroke later
+    defb  5,28, 1,22, 6
+    defb  5,50, 1,16, 6
+    defb  3,62, 3,16,15
+    defb #FF
+
+
+granny_broom_a_l
+    defb  2,28, 1, 2,15     ; her hand on the handle
+    defb  1,30, 1,18, 6     ; the handle
+    defb  0,46, 1,20, 6
+    defb  0,64, 3,14,15     ; and the straw of it, out at her feet
+    defb #FF
+
+
+granny_broom_b_l
+    defb  2,26, 1, 2,15     ; the same, half a stroke later
+    defb  1,28, 1,22, 6
+    defb  1,50, 1,16, 6
+    defb  1,62, 3,16,15
+    defb #FF
+
+;; And sat down in a heap, which is what a cat landing on her head does.
+granny_sat
+    defb  1,30, 3, 6, 4     ; the scarf, a good deal closer to the floor
+    defb  1,36, 3, 8,15     ; her face in it
+    defb  1,38, 1, 2,12     ; and two eyes that are not focused on anything
+    defb  3,38, 1, 2,12
+    defb  0,44, 5, 6, 4     ; shoulders, hunched
+    defb  0,50, 7,30, 4     ; and the whole of the skirt spread on the floor
+    defb  2,54, 2,10, 3     ; the apron on her lap
+    defb  0,66, 2, 4, 5     ; and two feet stuck out in front of her
+    defb  0,74, 7, 4, 6     ; the broom, flat, where it fell
+    defb  5,70, 2, 8,15
+    defb #FF
 
 ;; ---------------------------------------------------------------------------
 ;; rush_start - the catnip is down him.
@@ -2117,6 +2624,18 @@ vx_acc          defs 2              ; and what a frame of a key adds to it
 
 mitsos_rush     defs 2              ; frames of catnip left in him
 rush_bars       defs 1              ; and how many of them the meter is showing
+
+;; Grandma, who is boxes rather than a sprite and keeps her own patch of shop.
+granny_x        defs 1              ; where she is, in bytes
+granny_ox       defs 1              ; and where the picture of her still is
+granny_dir      defs 1              ; 1 or -1, and which side the broom is on
+granny_tick     defs 1              ; frames until her next step
+granny_frame    defs 1              ; which half of the stroke
+granny_anim     defs 1              ; frames until the other half
+granny_stun     defs 1              ; frames left sitting on the floor
+granny_drawn    defs 1              ; is her picture on the screen
+granny_dirty    defs 1              ; and has anything about it changed
+granny_buf      defs GRANNY_BYTES     ; the shop she is standing in front of
 
 score           defs SCORE_BYTES    ; packed BCD, most significant byte first
 mezes_left      defs 1              ; how many the basket is still waiting for
