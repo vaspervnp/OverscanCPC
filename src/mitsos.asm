@@ -149,34 +149,34 @@ K_GULL          EQU 1
 FOE_BUF         EQU SPR_SEAGULL_A_W*SPR_SEAGULL_A_H  ; the biggest of them
 
 ;; --- Grandma Evdoxia -------------------------------------------------------
-;; Eighty scanlines of her, which is three and a third of him, and she is the
-;; reason the floor of this shop is not a place to stand about on.
+;; Ninety-six scanlines of her against his twenty-four, and forty pixels
+;; across the monitor: four cats tall and getting on for two wide. Her head is
+;; level with the third board, which makes the floor and the two boards above
+;; it hers, and the top two the only way through the shop.
 ;;
-;; She is not a sprite. At this size a masked blit of her would be most of a
-;; frame on its own, and the rule this shop was built on says it anyway: a cat
-;; is drawn, and anything the size of a person is boxes. So she is a box list
-;; like the counter and the crates - except that she keeps the patch of shop
-;; she is standing in front of, the way a sprite does, and puts it back before
-;; she moves. Boxes in, LDIs out: about half what the same rectangle would
-;; cost through the masked blit, and the reason she fits at all.
+;; She is a masked sprite like everything else that moves - drawn in Aseprite,
+;; blitted through sprite.asm - and for a rectangle this size that is real
+;; money: nine hundred and sixty bytes saved, blitted and handed back is most
+;; of a frame. Two things pay for it. She is only rebuilt on the frames she
+;; actually changes on, and an old woman crossing a shop floor changes about
+;; one picture in four; and she is never mirrored, because at two kilobytes a
+;; copy of her the other way round is an eighth of the address space for a
+;; broom that changes hands.
 ;;
-;; She is also only rebuilt on the frames she actually changes on. An old
-;; woman crossing a shop floor moves a byte every eighth frame and swings the
-;; broom every twelfth, so seven pictures out of eight she is simply left
-;; standing where she is, and costs nothing. The price of that is granny_off:
-;; anything that changes the shop underneath her has to take her off the
-;; screen first, or her buffer carries the old shop about with her.
-GRANNY_W        EQU 7                   ; 28 pixels on the monitor
-GRANNY_H        EQU 80
+;; The price of only rebuilding her sometimes is granny_off: anything that
+;; changes the shop underneath her has to take her off the screen first, or
+;; her buffer carries the old shop about with her.
+GRANNY_W        EQU SPR_GRANNY_A_W      ; 10 bytes - 40 pixels on the monitor
+GRANNY_H        EQU SPR_GRANNY_A_H      ; 96 scanlines, the full height of her
 GRANNY_TOP      EQU FLOOR_TOP-GRANNY_H  ; she stands on the floor like he does
-GRANNY_BYTES      EQU GRANNY_W*GRANNY_H
+GRANNY_BYTES    EQU GRANNY_W*GRANNY_H
 
-GRANNY_X0       EQU 30                  ; the beat she walks, in bytes
-GRANNY_X1       EQU 56
+GRANNY_X0       EQU 30                  ; the beat she walks, in bytes -
+GRANNY_X1       EQU 50                  ; she is ten bytes wide herself
 GRANNY_WALK     EQU 8                   ; frames between her steps
 GRANNY_HUNT     EQU 4                   ; and when she has seen him
 GRANNY_SEE      EQU 16                  ; how far along the floor she can
-GRANNY_SWEEP     EQU 12                  ; frames between the halves of a stroke
+GRANNY_SWEEP    EQU 16                  ; frames between the halves of a stroke
 
 ;; --- What he came for ------------------------------------------------------
 ;; Four mezedes on the shelves, and the basket by the top board does not open
@@ -1966,7 +1966,8 @@ granny_bounce_no
 ;; ---------------------------------------------------------------------------
 ;; granny_erase - her picture off the screen, but only if it is about to be
 ;; drawn again somewhere else. Standing still she is left exactly where she
-;; is, and costs the frame nothing at all.
+;; is, and costs the frame nothing at all - which at this size is the
+;; difference between her fitting in a frame and not.
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 granny_erase
@@ -1989,7 +1990,16 @@ granny_off
     ld a,(granny_drawn)
     or a
     ret z
-    call granny_place
+    ld a,GRANNY_W                       ; every pose is the same width; only
+    ld (spr_w),a                        ; the height changes, and what came
+    ld a,(granny_oh)                    ; back has to be what went down
+    ld (spr_h),a
+    ld a,(granny_ox)
+    ld (spr_x),a
+    ld a,(granny_oy)
+    call spr_row_ptr
+    ld hl,granny_buf
+    call spr_restore
     xor a
     ld (granny_drawn),a
     ld a,1
@@ -1997,243 +2007,45 @@ granny_off
     ret
 
 ;; ---------------------------------------------------------------------------
-;; granny_draw - the shop she covers into her buffer, then her over it.
+;; granny_draw - the shop she covers into her buffer, and her over it.
+;;
+;; Her feet are on the floor in every pose, so where the picture starts is
+;; worked out from the height of whichever one is going down rather than kept
+;; as a constant: sat on the floor she is a little over half her own height.
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 granny_draw
     ld a,(granny_drawn)
     or a
     ret nz                              ; still standing where she was
-    ld a,(granny_x)
-    ld (granny_ox),a
-    ld (prop_x),a
-    call granny_lift
-    ld a,GRANNY_TOP
-    ld (prop_y),a
-
     ld a,(granny_stun)
     or a
-    ld hl,granny_sat
-    jr nz,granny_draw_list
-
-    call granny_facing                  ; the body first, whichever way round
-    ld a,e
-    srl a                               ; one body a side against two brooms,
-    ld e,a                              ; so the body index is half of it -
-                                        ; and srl, not rra: granny_facing
-                                        ; leaves the carry set on the way out
-    ld hl,granny_bodies
-    add hl,de
-    ld a,(hl)
-    inc hl
-    ld h,(hl)
-    ld l,a
-    call draw_boxes
-
-    call granny_facing                  ; and then the broom in her hands -
-    ld a,(granny_frame)                 ; draw_boxes has had DE, so the side
-    add a,a                             ; is worked out again rather than kept
-    add a,e
-    ld e,a
-    ld hl,granny_brooms
-    add hl,de
-    ld a,(hl)
-    inc hl
-    ld h,(hl)
-    ld l,a
-granny_draw_list
-    call draw_boxes
+    ld hl,spr_granny_sat
+    jr nz,granny_draw_pose
+    ld a,(granny_frame)
+    or a
+    ld hl,spr_granny_a
+    jr z,granny_draw_pose
+    ld hl,spr_granny_b
+granny_draw_pose
+    call spr_size                       ; -> spr_w, spr_h, HL at the pixels
+    ld a,(granny_x)
+    ld (spr_x),a
+    ld (granny_ox),a
+    ld a,(spr_h)
+    ld (granny_oh),a
+    neg
+    add a,FLOOR_TOP                     ; her feet stay on the floor
+    ld (granny_oy),a
+    push hl
+    call spr_row_ptr                    ; wants DE and HL for itself
+    pop hl
+    ld de,granny_buf
     ld a,1
     ld (granny_drawn),a
     xor a
     ld (granny_dirty),a
-    ret
-
-;; ---------------------------------------------------------------------------
-;; granny_facing - DE = 0 if the broom is on her right, 4 if it is on her
-;; left, which is where the mirrored pair of each list sits.
-;; Destroys AF, DE.
-;; ---------------------------------------------------------------------------
-granny_facing
-    ld d,0
-    ld e,d
-    ld a,(granny_dir)
-    add a,a
-    ret nc
-    ld e,4
-    ret
-
-;; ---------------------------------------------------------------------------
-;; granny_lift - the seven bytes of each of her eighty scanlines, out of the
-;; screen and into her buffer.
-;;
-;; An unrolled run of LDIs rather than an LDIR: five microseconds a byte
-;; against six, and no counter to set up every row. BC is scratch here - LDI
-;; decrements it and nobody asks. The row counter lives in the alternate B,
-;; the way sprite.asm does it, because LDI would eat any other.
-;; Destroys AF, BC, DE, HL, IX.
-;; ---------------------------------------------------------------------------
-granny_lift
-    ld ix,line_tab+GRANNY_TOP*2
-    ld de,granny_buf
-    exx
-    ld b,GRANNY_H
-    exx
-granny_lift_row
-    ld a,(granny_ox)
-    ld l,(ix+0)
-    ld h,(ix+1)
-    inc ix
-    inc ix
-    add a,l
-    ld l,a
-    jr nc,granny_lift_go
-    inc h
-granny_lift_go
-    REPEAT GRANNY_W
-    ldi
-    REND
-    exx
-    djnz granny_lift_more
-    exx
-    ret
-granny_lift_more
-    exx
-    jr granny_lift_row
-
-;; ---------------------------------------------------------------------------
-;; granny_place - and the same the other way round, which is how she is
-;; rubbed out.
-;; Destroys AF, BC, DE, HL, IX.
-;; ---------------------------------------------------------------------------
-granny_place
-    ld ix,line_tab+GRANNY_TOP*2
-    ld hl,granny_buf
-    exx
-    ld b,GRANNY_H
-    exx
-granny_place_row
-    ld a,(granny_ox)
-    ld e,(ix+0)
-    ld d,(ix+1)
-    inc ix
-    inc ix
-    add a,e
-    ld e,a
-    jr nc,granny_place_go
-    inc d
-granny_place_go
-    REPEAT GRANNY_W
-    ldi
-    REND
-    exx
-    djnz granny_place_more
-    exx
-    ret
-granny_place_more
-    exx
-    jr granny_place_row
-
-;; ---------------------------------------------------------------------------
-;; What she is made of. Boxes, like the counter and the crates, and for the
-;; same reason: a woman is furniture-sized and there is no such thing as a
-;; bitmap of one in this machine.
-;; ---------------------------------------------------------------------------
-granny_bodies
-    defw granny_body, granny_body_l
-
-;; Two halves of a stroke facing right, then the same two facing left.
-granny_brooms
-    defw granny_broom_a, granny_broom_b
-    defw granny_broom_a_l, granny_broom_b_l
-
-;; Facing right: the body on the left five columns, the broom on the other two.
-granny_body
-    defb  1, 0, 3, 6, 4     ; the crown of the scarf
-    defb  0, 3, 1,11, 4     ; and the sides of it, down past her ears
-    defb  4, 3, 1,11, 4
-    defb  1, 6, 3, 8,15     ; the face inside it
-    defb  1, 8, 1, 2, 4     ; two eyes
-    defb  3, 8, 1, 2, 4
-    defb  2,11, 1, 2,12     ; and a mouth that is not a smile
-    defb  1,14, 3, 3, 4     ; the knot under her chin
-    defb  0,17, 5, 6, 4     ; shoulders
-    defb  1,19, 3, 2, 3     ; with a white collar on them
-    defb  1,23, 3,23, 4     ; the body
-    defb  1,26, 3,14, 3     ; and the apron over it
-    defb  0,46, 5,30, 4     ; the skirt, all the way to the floor
-    defb  0,58, 5, 2,12     ; with two pleats in it
-    defb  0,70, 5, 2,12
-    defb  1,76, 1, 4, 5     ; and her shoes under the hem
-    defb  3,76, 1, 4, 5
-    defb #FF
-
-;; And facing left, which is the same list read from the other end.
-granny_body_l
-    defb  3, 0, 3, 6, 4     ; the crown of the scarf
-    defb  6, 3, 1,11, 4     ; and the sides of it, down past her ears
-    defb  2, 3, 1,11, 4
-    defb  3, 6, 3, 8,15     ; the face inside it
-    defb  5, 8, 1, 2, 4     ; two eyes
-    defb  3, 8, 1, 2, 4
-    defb  4,11, 1, 2,12     ; and a mouth that is not a smile
-    defb  3,14, 3, 3, 4     ; the knot under her chin
-    defb  2,17, 5, 6, 4     ; shoulders
-    defb  3,19, 3, 2, 3     ; with a white collar on them
-    defb  3,23, 3,23, 4     ; the body
-    defb  3,26, 3,14, 3     ; and the apron over it
-    defb  2,46, 5,30, 4     ; the skirt, all the way to the floor
-    defb  2,58, 5, 2,12     ; with two pleats in it
-    defb  2,70, 5, 2,12
-    defb  5,76, 1, 4, 5     ; and her shoes under the hem
-    defb  3,76, 1, 4, 5
-    defb #FF
-
-;; The two halves of a stroke of the broom, each way round.
-granny_broom_a
-    defb  4,28, 1, 2,15     ; her hand on the handle
-    defb  5,30, 1,18, 6     ; the handle
-    defb  6,46, 1,20, 6
-    defb  4,64, 3,14,15     ; and the straw of it, out at her feet
-    defb #FF
-
-
-granny_broom_b
-    defb  4,26, 1, 2,15     ; the same, half a stroke later
-    defb  5,28, 1,22, 6
-    defb  5,50, 1,16, 6
-    defb  3,62, 3,16,15
-    defb #FF
-
-
-granny_broom_a_l
-    defb  2,28, 1, 2,15     ; her hand on the handle
-    defb  1,30, 1,18, 6     ; the handle
-    defb  0,46, 1,20, 6
-    defb  0,64, 3,14,15     ; and the straw of it, out at her feet
-    defb #FF
-
-
-granny_broom_b_l
-    defb  2,26, 1, 2,15     ; the same, half a stroke later
-    defb  1,28, 1,22, 6
-    defb  1,50, 1,16, 6
-    defb  1,62, 3,16,15
-    defb #FF
-
-;; And sat down in a heap, which is what a cat landing on her head does.
-granny_sat
-    defb  1,30, 3, 6, 4     ; the scarf, a good deal closer to the floor
-    defb  1,36, 3, 8,15     ; her face in it
-    defb  1,38, 1, 2,12     ; and two eyes that are not focused on anything
-    defb  3,38, 1, 2,12
-    defb  0,44, 5, 6, 4     ; shoulders, hunched
-    defb  0,50, 7,30, 4     ; and the whole of the skirt spread on the floor
-    defb  2,54, 2,10, 3     ; the apron on her lap
-    defb  0,66, 2, 4, 5     ; and two feet stuck out in front of her
-    defb  0,74, 7, 4, 6     ; the broom, flat, where it fell
-    defb  5,70, 2, 8,15
-    defb #FF
+    jp spr_draw
 
 ;; ---------------------------------------------------------------------------
 ;; rush_start - the catnip is down him.
@@ -2589,7 +2401,8 @@ pal_shop
     include "font.asm"
     include "mitsosstr.asm"
     include "mitsosart.asm"             ; in front of sprite.asm, which asserts
-SPR_MAX_W       EQU ART_MAX_W           ; the widest of them fits its blit
+SPR_MAX_W       EQU ART_MAX_W           ; the widest of them fits its blit,
+SPR_UNROLL_MAX  EQU ART_MAX_W           ; and Grandma is ten bytes of it
     include "sprite.asm"
 
 code_end
@@ -2613,7 +2426,6 @@ mitsos_drawn    defs 1              ; is there anything in his buffer yet
 mitsos_face     defs 1              ; FACE_RIGHT / FACE_LEFT
 mitsos_frame    defs 1              ; 0 standing, 1 and 2 the waddle
 mitsos_tick     defs 1              ; frames until the next one
-mitsos_buf      defs MITSOS_BYTES
 
 ;; What the keys can push him to, and how hard. In RAM rather than in the
 ;; instructions because the catnip doubles both of them for eight seconds;
@@ -2627,15 +2439,17 @@ rush_bars       defs 1              ; and how many of them the meter is showing
 
 ;; Grandma, who is boxes rather than a sprite and keeps her own patch of shop.
 granny_x        defs 1              ; where she is, in bytes
-granny_ox       defs 1              ; and where the picture of her still is
-granny_dir      defs 1              ; 1 or -1, and which side the broom is on
+granny_ox       defs 1              ; and where the picture of her still is,
+granny_oy       defs 1              ; which scanline it starts on and how tall
+granny_oh       defs 1              ; it is - sitting down she is shorter, and
+                                    ; what came back has to be what went down
+granny_dir      defs 1              ; 1 or -1
 granny_tick     defs 1              ; frames until her next step
 granny_frame    defs 1              ; which half of the stroke
 granny_anim     defs 1              ; frames until the other half
 granny_stun     defs 1              ; frames left sitting on the floor
 granny_drawn    defs 1              ; is her picture on the screen
 granny_dirty    defs 1              ; and has anything about it changed
-granny_buf      defs GRANNY_BYTES     ; the shop she is standing in front of
 
 score           defs SCORE_BYTES    ; packed BCD, most significant byte first
 mezes_left      defs 1              ; how many the basket is still waiting for
@@ -2644,14 +2458,37 @@ mitsos_lives    defs 1              ; three, and the HUD prints this one
 mitsos_grace    defs 1              ; frames of blinking left after losing one
 mitsos_over     defs 1              ; out of them, and waiting for fire
 
-;; The cast as it stands, copied from foes_init at the top of a game, and one
-;; patch of shop per enemy, all of them the size of the biggest.
+;; The cast as it stands, copied from foes_init at the top of a game.
 foes            defs FOE_COUNT*E_SIZE
-foe_bufs        defs FOE_COUNT*FOE_BUF
 
-;; The shelves as they stand, and the patch of shop under each thing on them.
+;; The shelves as they stand.
 pickups         defs PICK_COUNT*P_SIZE
-pick_back       defs PICK_COUNT*PICK_BUF
+mitsos_end
+
+;; Everything above has to fit between the code and the stack, which sits
+;; under the screen at #8000. Grandma's three pictures are five kilobytes of
+;; the sixteen and this is what catches the next thing that does not fit.
+    ASSERT mitsos_end < STACK_TOP-256
+
+;; ---------------------------------------------------------------------------
+;; And the four buffers of saved shop, below #4000 where they cost nothing.
+;;
+;; The game has #4000 to #7FFF and the screen starts at #8000: sixteen
+;; kilobytes for the code, the pictures and everything the program builds for
+;; itself. The pictures are most of it now - Grandma on her own is five - and
+;; #0000-#3FFF is sixteen more kilobytes that nothing is using once both ROMs
+;; are off, with only the interrupt jump at #0038 in it. A program cannot be
+;; *loaded* down there, because AMSDOS hands over with the lower ROM still
+;; enabled; these four are scratch, written before they are ever read, so
+;; they never have to be loaded at all. It is what PICK_BUFS is in the other
+;; game, for the same reason.
+;; ---------------------------------------------------------------------------
+granny_buf      EQU #2000           ; the shop she is standing in front of
+mitsos_buf      EQU granny_buf+GRANNY_BYTES
+foe_bufs        EQU mitsos_buf+MITSOS_BYTES
+pick_back       EQU foe_bufs+FOE_COUNT*FOE_BUF
+LOW_END         EQU pick_back+PICK_COUNT*PICK_BUF
+    ASSERT LOW_END <= #4000
 
     IF TARGET==1
 RUN mitsos_start

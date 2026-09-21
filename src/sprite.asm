@@ -34,7 +34,14 @@
 ;; How many bytes wide the unrolled blit in spr_draw is written out for. Every
 ;; masked sprite the game moves has to fit; the furniture does not, because it
 ;; goes down once through spr_blit and is never lifted off again.
+;;
+;; A game sets its own if it moves something wider - the chains are entered at
+;; a computed offset, so a longer one costs a few bytes of code and no time at
+;; all, but those bytes come out of whichever game asked for them rather than
+;; out of both.
+    IFNDEF SPR_UNROLL_MAX
 SPR_UNROLL_MAX  EQU 6
+    ENDIF
     ASSERT SPR_MAX_W <= SPR_UNROLL_MAX
     ASSERT ART_MAX_W <= SPR_UNROLL_MAX
 

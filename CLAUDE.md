@@ -206,6 +206,12 @@ assume an effect that works in one emulator works on another type.
   moved 544 bytes of line table out of the file for free. The limit that
   matters is #A67B, where AMSDOS's buffers start, and the three asserts at the
   bottom of loukoumas.asm are what catch a build that has grown past it.
+  The second game has the same arrangement for a different reason: it loads at
+  #4000 with the screen at #8000, so its sixteen kilobytes have to hold the
+  code, the pictures and the workspace at once. Its four buffers of saved
+  background sit at #2000 (`granny_buf` and the three after it), which is what
+  made room above #4000 for Grandma's five kilobytes of pictures, and
+  `mitsos_end` asserts that what is left still clears the stack.
 - A 32 KB overscan screen collides with firmware territory. Firmware variables live around
   &B100-&BFFF and the firmware stack sits just below &C000. Overscan work runs with the
   firmware off: own IM 1 (or IM 2) handler, own stack placed somewhere the display does
@@ -407,16 +413,30 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   per machine cycle, `US_EXTRA` for the rest - and its frame is 19968 us, not a
   number of instructions. Before that it could not see beam timing at all, which
   is why two attempts at this bug were guesses.
-- **Anything the size of a person is not a sprite.** Grandma Evdoxia in the second
-  game is 7 bytes by 80 scanlines - three and a half of the cat - and a masked blit of
-  that rectangle, twice, is most of a frame for one figure. She is a box list like the
-  furniture, drawn over a rectangle of room saved with a run of LDIs and put back before
-  she moves: about half the cost, and no art to carry. She is also only rebuilt on the
-  frames she actually changes on, which for something that steps a byte every eighth
-  frame is one in four. The price of that last part is `granny_off` - anything that
-  changes the background under her has to take her off the screen first, or her buffer
-  hands the old background back the next time she moves, and that is debris nothing will
-  ever clean up.
+- **Something the size of a person can be a sprite, but only if it is rarely
+  redrawn.** Grandma Evdoxia is 10 bytes by 96 scanlines - four of the cat, 960 bytes
+  - and saving, blitting and handing back that rectangle is about nineteen
+  milliseconds, most of a frame for one figure. She was boxes over a saved rectangle
+  first, which is half the cost and no art at all, and the thing that made a real
+  sprite affordable was not making the blit cheaper: it was **only rebuilding her on
+  the frames she changes on**. An old woman crosses a shop floor a byte every eighth
+  frame and swings the broom every sixteenth, so three pictures out of four she is left
+  exactly where she is and costs nothing, and the profile puts the whole game at
+  two thirds of its time rather than three fifths.
+- The price of that is `granny_off`: anything that changes the background under
+  something being left standing has to take it off the screen first, or its buffer
+  hands the old background back the next time it moves, and that is debris nothing will
+  ever clean up. Collecting a meze and opening the basket both call it.
+- **A picture that is never turned round should not be assembled twice.** `mkart.py`
+  writes a mirrored copy of every masked sprite; `NOFLIP` names the ones that never
+  face the other way - the mezedes sitting on shelves, and Grandma, who sweeps facing
+  the shop whichever way her feet are going - and writes `spr_x_l EQU spr_x` instead.
+  Her mirror alone would be two kilobytes of a sixteen kilobyte address space.
+- **`SPR_UNROLL_MAX` is per game.** The unrolled blit and LDI chains in sprite.asm are
+  entered at a computed offset, so writing them out for a wider sprite costs a few
+  bytes of code and no time at all - but those bytes should come out of the game that
+  asked for them. Mitsos sets it to `ART_MAX_W`; Loukoumas leaves it at 6 and its
+  binary does not move a byte.
 - **Never pace anything in the game off `frame_count` parity.** It is a free-running
   interrupt counter, and a frame the loop overruns bumps it by two without changing the
   parity, so anything keyed on it either runs every update or none of them. The robots

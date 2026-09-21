@@ -276,33 +276,34 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		--watch "mitsos_y,mitsos_state,score+1,mezes_left" \
 		| grep -E "frame +(45|80|108|136|164) "
 	@echo "=== mitsos, Grandma Evdoxia and the belly bounce ==="
-	@echo "    eighty scanlines of her against his twenty-four, which is what"
-	@echo "    makes the floor of this shop somewhere to get off. She walks her"
-	@echo "    beat a byte every eighth frame and there is no jumping over"
-	@echo "    her - the only thing above her head is the third board, and"
-	@echo "    this is him stepping off it. He comes down on her at 167: she"
-	@echo "    sits down for the hundred frames anything else in here gets,"
-	@echo "    and he leaves at -5.25 against the -4.5 of his own jump, which"
-	@echo "    puts him at scanline 75 by 185 - a board and a half up. Where"
-	@echo "    she is standing is poked rather than waited for: her beat is"
-	@echo "    four seconds long and the check is not."
-	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 190 $(MITSOS_SIM) \
+	@echo "    ninety-six scanlines of her against his twenty-four and forty"
+	@echo "    pixels across, which is what makes the floor of this shop"
+	@echo "    somewhere to get off: her head is level with the third board,"
+	@echo "    so the floor and the two boards over it are hers. There is no"
+	@echo "    jumping over her and nowhere above her but that third board -"
+	@echo "    this is him walking off the end of it at 155. He lands on her"
+	@echo "    head at 157: she sits down for the hundred frames anything"
+	@echo "    else in here gets, and he leaves at -5.25 against the -4.5 of"
+	@echo "    his own jump, which has him at scanline 84 by 163 - over the"
+	@echo "    top board. Where she is standing is poked rather than waited"
+	@echo "    for: her beat is three seconds long and the check is not."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 170 $(MITSOS_SIM) \
 		--keys "FIRE@50-53,FIRE@78-81,FIRE@106-109,RIGHT@140-152" \
-		--poke "granny_x=48@150" --poke "granny_dirty=1@150" \
+		--poke "granny_x=32@150" --poke "granny_dirty=1@150" \
 		--sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_x,mitsos_y,mitsos_vy:s,granny_x,granny_stun,mitsos_lives" \
-		| grep -E "frame +(155|165|167|185) "
+		| grep -E "frame +(155|157|163) "
 	@echo "=== mitsos, three lives and what they cost ==="
 	@echo "    walking into something still on its feet costs one and puts him"
 	@echo "    back by the door with two seconds of grace, blinking, because"
 	@echo "    reappearing inside Grandma would otherwise take all three"
 	@echo "    without a key being touched. Holding right walks him into her"
-	@echo "    coming the other way at 93, again at 207, and out at 423, which"
+	@echo "    coming the other way at 87, again at 207, and out at 423, which"
 	@echo "    puts GAME OVER up and waits for fire."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 440 $(MITSOS_SIM) \
 		--keys "RIGHT@50-440" --sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_lives,mitsos_grace,mitsos_over,granny_x" \
-		| grep -E "frame +(92|93|207|422|423) "
+		| grep -E "frame +(86|87|207|422|423) "
 	@echo "=== mitsos, the mezedes and the basket they open ==="
 	@echo "    four of them, and the basket on the top board stays shut until"
 	@echo "    the last one is off a shelf. The catnip is not one of the four -"
@@ -318,18 +319,18 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin \
 		| grep -E "poked|frame +(81|136|137|190) "
 	@echo "=== mitsos, the catnip rush ==="
 	@echo "    what the catnip is for, and it is not the five hundred points."
-	@echo "    82 is him eating it: 384 frames of double speed - 512 against"
+	@echo "    81 is him eating it: 384 frames of double speed - 512 against"
 	@echo "    the 256 a byte a frame is - of nothing in the shop being able to"
 	@echo "    touch him, and of everything he walks into going over instead."
-	@echo "    He goes straight through Grandma at 117, which nothing else in"
+	@echo "    He goes straight through Grandma at 113, which nothing else in"
 	@echo "    the game can do, runs to the wall, comes back over the mouse at"
 	@echo "    155, and still has three lives at 219 - where the same walk"
-	@echo "    without it costs him one at 93."
+	@echo "    without it costs him one at 87."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 220 $(MITSOS_SIM) \
 		--keys "FIRE@50-53,FIRE@78-81,RIGHT@95-135,LEFT@140-220" \
 		--sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_x,mitsos_vx:s,mitsos_rush:w,mitsos_lives,granny_stun,foes+10" \
-		| grep -E "frame +(81|82|103|117|155|219) "
+		| grep -E "frame +(80|81|103|113|155|219) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

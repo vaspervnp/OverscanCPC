@@ -61,7 +61,18 @@ MASKED = {
     "loukoumas": "the enemies, and the saucer of milk",
     "mitsos": "Mitsos himself, what is after him, and what he is after",
 }
+#: Sprites the game never turns round, so the mirrored copy is an EQU rather
+#: than a second picture. A meze sitting on a shelf does not face anything,
+#: and Grandma sweeps facing the shop whichever way her feet are going - and
+#: at ten bytes by ninety-six a mirror of her is two kilobytes of a sixteen
+#: kilobyte address space.
+NOFLIP = {
+    "loukoumas": set(),
+    "mitsos": {"FISH", "SAUSAGE", "CHEESE", "MEATBALL", "CATNIP",
+               "GRANNY_A", "GRANNY_B", "GRANNY_SAT"},
+}
 ART = OUT = None
+GAME = "loukoumas"
 
 PIXELS_PER_BYTE = 2
 
@@ -187,9 +198,9 @@ def show(want):
 
 
 def main():
-    global ART, OUT
-    game = next((a for a in sys.argv[1:] if not a.startswith("-")
-                 and a in GAMES), "loukoumas")
+    global ART, OUT, GAME
+    game = GAME = next((a for a in sys.argv[1:] if not a.startswith("-")
+                        and a in GAMES), "loukoumas")
     art, out = GAMES[game]
     ART = os.path.join(ROOT, art)
     OUT = os.path.join(ROOT, out)
@@ -222,8 +233,8 @@ def main():
                        default=0))
         for name, w, h, rows in sprites:
             for suffix, art in (("", rows), ("_l", mirrored(rows))):
-                if suffix and art == rows:
-                    # symmetric: it looks the same going the other way, so both
+                if suffix and (art == rows or name in NOFLIP[GAME]):
+                    # symmetric, or never turned round: either way both
                     # directions can point at the one copy
                     fh.write("\nspr_%s_l EQU spr_%s          ; the same either way\n"
                              % (name.lower(), name.lower()))
@@ -263,9 +274,9 @@ def main():
                          % (",".join("#%02X" % b for b in encode_raw(row)),
                             picture(row)))
 
-    sbytes = sum((2 if mirrored(r) != r else 1)
+    sbytes = sum((2 if mirrored(r) != r and n not in NOFLIP[game] else 1)
                  * (2 * (w // PIXELS_PER_BYTE) * h + 2)
-                 for _n, w, h, r in sprites)
+                 for n, w, h, r in sprites)
     dbytes = sum((w // PIXELS_PER_BYTE) * h + 2 for _n, w, h, _r in decals)
     print("mkart: %d masked sprites (%d bytes), %d decals (%d bytes)"
           % (len(sprites), sbytes, len(decals), dbytes))
