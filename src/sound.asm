@@ -56,28 +56,7 @@ sfx_tab
     defw 0
     defb 10
 
-;; ---------------------------------------------------------------------------
-;; psg_set - A = PSG register, E = value.
-;; Destroys AF, BC.
-;;
-;; Port C bits 6-7 are the PSG function: 11 select, 10 write, 00 inactive.
-;; ---------------------------------------------------------------------------
-psg_set
-    ld bc,#F400
-    out (c),a                   ; port A = the register number
-    ld b,#F6
-    ld a,#C0
-    out (c),a                   ; select it
-    xor a
-    out (c),a                   ; inactive, so the latch holds
-    ld b,#F4
-    out (c),e                   ; port A = the value
-    ld b,#F6
-    ld a,#80
-    out (c),a                   ; write it
-    xor a
-    out (c),a
-    ret
+    include "psg.asm"
 
 ;; ---------------------------------------------------------------------------
 ;; sfx_init - everything off. Called once, before interrupts.

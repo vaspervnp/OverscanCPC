@@ -157,8 +157,12 @@ src/tablepack.asm: $(BUILD)/tables.bin tools/mkpack.py
 # most of a sprite is the transparent corner, and a transparent byte is the
 # same two bytes of mask and data over and over - so ten kilobytes of the file
 # becomes under two, which is what paid for the title picture.
-MITSOSLOW := src/mitsoslow.asm src/config.asm src/mitsosart.asm \
-             src/pantomusic.asm
+# Every file mitsoslow.asm includes has to be in here, or a change to one of
+# them rebuilds the game against a packed copy that no longer matches it - and
+# the ASSERT at the bottom of mitsos.asm is what catches that.
+MITSOSLOW := src/mitsoslow.asm src/config.asm src/mitsosshop.asm \
+             src/font.asm src/mitsosstr.asm src/mitsosart.asm \
+             src/pantomusic.asm src/mitsosdata.asm
 
 $(BUILD)/mitsosart.bin: $(MITSOSLOW) | $(BUILD)
 	$(RASM) src/mitsoslow.asm
@@ -418,6 +422,27 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin $(BUILD)/mitsosart.bin \
 		--sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_x,mitsos_vx:s,mitsos_rush:w,mitsos_lives,granny_stun,foes+10" \
 		| grep -E "frame +(89|90|115|124|165|229) "
+	@echo "=== mitsos, an effect on a chip the music already owns ==="
+	@echo "    the tune is one voice - the melody is on channel B, and the"
+	@echo "    mixer the player writes is 61: tone B on and nothing else. An"
+	@echo "    effect takes channel A and is written after the player on the"
+	@echo "    same interrupt, so what the chip is left holding is the effect;"
+	@echo "    the mixer and the noise pitch are put back on every tick for as"
+	@echo "    long as it lasts, and let go when it ends."
+	@echo "    He jumps at 61: the mixer goes to 60 - tone A as well - and"
+	@echo "    channel A fades 7 down to 1 over the eight frames of it, then"
+	@echo "    69 hands it back. The bounce off Grandma at 167 is noise"
+	@echo "    instead: mixer 53, noise pitch 22 over the player's 0, ten"
+	@echo "    frames of it, handed back at 177. In both of them psg9 - the"
+	@echo "    melody - goes on stepping through, which is the whole point."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 80 $(MITSOS_SIM) \
+		--keys "FIRE@30-30,FIRE@60-62" \
+		--sym $(BUILD)/mitsos.sym --watch "psg7,psg8,psg9,mitsos_state" \
+		| grep -E "frame +(59|62|68|69) "
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 190 $(MITSOS_SIM) \
+		--keys "FIRE@30-30,FIRE@60-63,FIRE@88-91,FIRE@116-119,RIGHT@150-162" \
+		--sym $(BUILD)/mitsos.sym --watch "psg7,psg6,psg8,psg9,granny_stun" \
+		| grep -E "frame +(166|168|176|177) "
 	@echo "=== loukoumas, English ==="
 	@./tools/z80check.py $(BUILD)/loukoumas_en.bin --frames 30 --ascii
 	@echo "=== loukoumas, Greek ==="

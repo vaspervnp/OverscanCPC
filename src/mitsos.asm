@@ -475,6 +475,7 @@ mitsos_start
     ld hl,pantomusic_song               ; the tune, wound up before the tick
     xor a                               ; that plays it - the first and only
     call PLY_AKG_Init                   ; subsong, and interrupts are still off
+    call sfx_init                       ; and nothing asking for the chip yet
 
     call irq_init                       ; and the 50 Hz tick under everything,
     jr main_title_wait                  ; music included. The title is already up
@@ -1143,7 +1144,8 @@ mitsos_ground
     ld (mitsos_vy),hl
     ld a,ST_AIR
     ld (mitsos_state),a
-    ret
+    ld a,SFX_JUMP
+    jp sfx_play
 
 ;; Still over the thing he was standing on? Walking off the end of a shelf is
 ;; a fall with no push behind it, which is what leaving vy at zero means.
@@ -1395,6 +1397,8 @@ mitsos_hurt_rows
 ;; Destroys everything.
 ;; ---------------------------------------------------------------------------
 mitsos_lose
+    ld a,SFX_LOSE
+    call sfx_play
     ld hl,mitsos_lives
     ld a,(hl)
     or a
@@ -1423,6 +1427,8 @@ mitsos_hurt_sweep
     ld (iy+E_STUN),STUN_TIME
     ld a,RUSH_POINTS
     call add_score
+    ld a,SFX_SWEEP
+    call sfx_play
 
 mitsos_hurt_next
     pop bc
@@ -1470,6 +1476,8 @@ mitsos_bounce_below
     ld (iy+E_STUN),STUN_TIME            ; flat on its back, and harmless
     ld hl,BOUNCE_V
     ld (mitsos_vy),hl
+    ld a,SFX_BOUNCE
+    call sfx_play
     pop bc
     scf
     ret
@@ -2492,8 +2500,12 @@ mitsos_collect_score
     bit 0,(iy+P_MEZE)
     jr nz,mitsos_collect_meze
     call rush_start                     ; the catnip, and what it is really for
+    ld a,SFX_CATNIP
+    call sfx_play
     jr mitsos_collect_next
 mitsos_collect_meze
+    ld a,SFX_MEZE                       ; and if it was the last one the
+    call sfx_play                       ; basket speaks over the top of this
     ld hl,mezes_left
     dec (hl)
     jr nz,mitsos_collect_next
@@ -2519,7 +2531,8 @@ open_basket
     ld (basket_dirty),a                 ; the lid is background, so it is put
     ld (granny_dirty),a                 ; on in the rebuild and not here, and
     ld (granny_whole),a                 ; the whole of her has to be off it
-    ret
+    ld a,SFX_BASKET
+    jp sfx_play
 
 ;; ---------------------------------------------------------------------------
 ;; basket_update - the lid, painted in the one window the cast is all off the
@@ -2558,6 +2571,8 @@ mitsos_escape
     ld a,2                              ; out through the basket, and done
     ld (mitsos_over),a
     call rush_stop
+    ld a,SFX_DONE
+    call sfx_play
     jp draw_done
 
 
@@ -2763,6 +2778,8 @@ granny_bounce_below
     ld (granny_dirty),a
     ld hl,BOUNCE_V
     ld (mitsos_vy),hl
+    ld a,SFX_BOUNCE
+    call sfx_play
     scf
     ret
 granny_bounce_no
@@ -3696,6 +3713,7 @@ wall_row_ptr
     include "text.asm"
     include "sprite.asm"
     include "unpack.asm"
+    include "mitsossfx.asm"
 
 ;; ---------------------------------------------------------------------------
 ;; The tune, and the player that reads it. Both come from Arkos Tracker 3 and
@@ -3713,9 +3731,14 @@ PLY_AKG_REMOVE_HOOKS = 1
 ;; ---------------------------------------------------------------------------
 ;; music_tick - what irq.asm calls once a frame. Everything the player
 ;; destroys is already on the stack when it gets here; see HAS_MUSIC there.
+;;
+;; The effects come after the player and not before it, and that is the whole
+;; reason they are audible: the player writes its registers every tick, so
+;; whoever writes last is what the chip holds. See mitsossfx.asm.
 ;; ---------------------------------------------------------------------------
 music_tick
-    jp PLY_AKG_Play
+    call PLY_AKG_Play
+    jp sfx_update
 
 code_end
 
@@ -3805,6 +3828,10 @@ basket_dirty    defs 1              ; and whether its lid is still to be painted
 mitsos_lives    defs 1              ; three, and the HUD prints this one
 mitsos_grace    defs 1              ; frames of blinking left after losing one
 mitsos_over     defs 1              ; out of them, and waiting for fire
+
+sfx_mix         defs 1              ; the effect's mixer, kept because the
+                                    ; player takes the real one back every
+                                    ; tick and it has to be put straight
 
 ;; The cast as it stands, copied from foes_init at the top of a game.
 foes            defs FOE_COUNT*E_SIZE

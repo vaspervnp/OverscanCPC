@@ -626,10 +626,41 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   is a different job and there are about ninety bytes left between `game_end` and
   `PIC_STORE`; its title screen has a tune and `PLY_AKG_Stop` hands the chip back
   to `sound.asm` before the room is painted.
-- **The second game has a tune and it never stops, because nothing else wants the
-  chip** - it has no effects at all. Arkos Tracker 3 again: `src/pantomusic.asm` is
-  the song, `src/playerakg.asm` is the same player, and three kilobytes of it moved
-  `ART_STORE` from #6000 to #6600.
+- **The second game has a tune and it never stops.** Arkos Tracker 3 again:
+  `src/pantomusic.asm` is the song, `src/playerakg.asm` is the same player, and
+  three kilobytes of it moved `ART_STORE` from #6000 to #6600.
+- **A tracker replay does not share the chip, so the effects go last.** It writes
+  every register it uses fifty times a second whatever anyone else has put in them,
+  which makes an effect written from the game loop last until the player's next tick
+  and no longer. Two things make `src/mitsossfx.asm` work anyway. The tune is one
+  voice - its linker gives channel B the melody and hands the other two an empty
+  track - so **channel A is free**, exactly as it is in the other game. And the
+  effect is written *after* the player on the same interrupt: `music_tick` calls
+  `PLY_AKG_Play` and falls into `sfx_update`, so the last word on every register is
+  the effect's. The two the player would otherwise take back, the mixer and the
+  noise pitch, are put back on every tick for as long as it lasts and let go the
+  moment it ends.
+- The game only asks. `sfx_play` writes state and never touches the chip, so there
+  is exactly one writer and the interrupt is it; the length is written last, by the
+  LDIR, and the length is what arms the effect, so a tick landing in the middle of
+  `sfx_play` sees a length of zero and does nothing. That is the whole of the
+  locking. **Every mixer value keeps tone B enabled** - no effect is worth silencing
+  the melody - and bit 6 stays 0 in all of them, as it does in the player's own.
+- **A game whose interrupt writes the PSG cannot have port A turned round underneath
+  it.** `read_keyboard` makes port A an input for its ten-line scan, and an OUT to a
+  port that is not driving its pins leaves the PSG latching whatever the key matrix
+  is putting on them - a wrong period for a frame, or a wrong R7, and a wrong R7
+  with bit 6 set stops the keyboard answering until the next tick. So `keys.asm`
+  scans with interrupts off when `HAS_MUSIC` is defined. It is about a hundred
+  microseconds, well inside the eight scanlines of VSYNC the handler has to land in.
+- **`tools/z80check.py --watch psg7` is how any of this was checked rather than
+  assumed.** It follows the eight-port PPI sequence and latches what the PSG would
+  hold, the player's Madram trick included - the select for each register happens a
+  step early, while port A still carries the last value, so the address latch has to
+  follow port A and not only the function change. `make check` pins the jump (mixer
+  60, channel A fading over eight frames, handed back on the ninth) and the belly
+  bounce (mixer 53, noise pitch 22 over the player's 0), and in both of them the
+  melody goes on stepping through.
 - **A tracker replay is stepped from the interrupt, not from the game loop**, and
   `irq.asm` has a hook for it: define `HAS_MUSIC` and provide `music_tick`, and the
   handler calls it on the one interrupt in six that is the frame. A game that does

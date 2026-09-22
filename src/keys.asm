@@ -30,8 +30,23 @@ CTL_QUIT        EQU 6
 ;; eight keys coming back on port A have to be repeated. Doing the whole
 ;; eight-port sequence per line cost three quarters of a millisecond a frame -
 ;; twelve scanlines out of the budget the sprites are fighting for.
+;;
+;; **Port A is an input for the whole of that scan, and a game with music
+;; writes the PSG from the interrupt through the same port.** An OUT to a port
+;; that is not driving its pins leaves the PSG latching whatever the key
+;; matrix happens to be putting on them: a wrong period for a frame, or a
+;; wrong R7 - and a wrong R7 with bit 6 set turns the PSG's own port A round
+;; and the keyboard stops answering until the next tick writes it back. So a
+;; game that defines HAS_MUSIC scans with interrupts off. It is about a
+;; hundred microseconds, which is well inside the eight scanlines of VSYNC the
+;; handler has to land in to recognise a frame. A game without music has the
+;; chip to itself and assembles the bytes it always did.
 ;; ---------------------------------------------------------------------------
 read_keyboard
+    IFDEF HAS_MUSIC
+    di                          ; port A is about to be an input, and a game
+    ENDIF                       ; with music writes the PSG through it from
+                                ; the interrupt - see below
     ld bc,#F40E                 ; PPI port A = PSG register 14, the matrix
     out (c),c
     ld bc,#F6C0                 ; port C: function 11, select that register
@@ -57,6 +72,9 @@ read_keyboard_loop
 
     ld bc,#F782                 ; PPI control: port A back to output
     out (c),c
+    IFDEF HAS_MUSIC
+    ei
+    ENDIF
     ret
 
 ;; ---------------------------------------------------------------------------

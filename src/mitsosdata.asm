@@ -1,5 +1,5 @@
 ;; ===========================================================================
-;; mitsosdata.asm - the shop's furniture, its stock and its palette.
+;; mitsosdata.asm - the shop's sounds, furniture, stock and palette.
 ;;
 ;; None of this is ever written to and none of it is ever executed, which is
 ;; the only property that matters here: it rides down to #0100 with the
@@ -13,6 +13,61 @@
 ;; can pack it. Both include mitsosshop.asm first, because every number in
 ;; here is a shelf.
 ;; ===========================================================================
+
+;; ---------------------------------------------------------------------------
+;; The sound effects: mixer, starting period, period step, length in 50 Hz
+;; frames. The volume is whatever is left of the length, so everything fades
+;; out without costing a byte of state, and a noise effect carries its pitch
+;; in the period's low byte and steps by nothing.
+;;
+;; A mixer bit is 0 to enable. Bit 1 is tone B and it is 0 in both of these,
+;; because channel B is the melody and the tune goes on through every one of
+;; them; bit 6 is 0 because it is the PSG's port A direction and the key
+;; matrix is read through that port. src/mitsossfx.asm is the engine.
+;; ---------------------------------------------------------------------------
+MIX_TONE        EQU %00111100   ; tone on A, and the melody still on B
+MIX_NOISE       EQU %00110101   ; noise on A, and the melody still on B
+
+sfx_tab
+    defb MIX_TONE               ; jump: he is a heavy cat, so it starts low -
+    defw 500                    ; 250 Hz, up to about 480 in eight frames
+    defw -30
+    defb 8
+
+    defb MIX_TONE               ; a meze off the shelf: a short bright blip
+    defw 160
+    defw -10
+    defb 4
+
+    defb MIX_TONE               ; the catnip: the same blip that will not stop,
+    defw 700                    ; most of a second of it, 180 Hz to 1.2 kHz
+    defw -30
+    defb 20
+
+    defb MIX_NOISE              ; the belly bounce: a thud, the noise pitch low
+    defw 22
+    defw 0
+    defb 10
+
+    defb MIX_NOISE              ; the broom going past him: a swish, and the
+    defw 6                      ; pitch high, because it is bristles
+    defw 0
+    defb 5
+
+    defb MIX_TONE               ; a life gone: 400 Hz sliding a long way down
+    defw 300
+    defw 48
+    defb 25
+
+    defb MIX_TONE               ; the basket: the lid coming off, rising fast
+    defw 900
+    defw -55
+    defb 14
+
+    defb MIX_TONE               ; and out through it with the shopping: the
+    defw 1000                   ; same climb, longer and slower, because it
+    defw -36                    ; is the last thing the game says
+    defb 26
 
 ;; ---------------------------------------------------------------------------
 ;; The shop, as boxes. x and y, then the list: dx, dy, width in bytes, height

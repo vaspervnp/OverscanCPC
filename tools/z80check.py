@@ -23,7 +23,10 @@ What it does NOT do, and what it therefore cannot tell you:
   * One static frame at the end of the run, decoded from the CRTC registers
     left set then. Rupture (reprogramming R12/R13 mid-frame) is invisible.
   * Only the PPI ports the keyboard and VSYNC need are modelled; every other
-    read returns #FF.
+    read returns #FF. The PSG is write-only here: the eight-port sequence is
+    followed through the PPI and the value latched into a register file, so
+    --watch psg7 says what the mixer holds and --watch psg8 what channel A's
+    volume is, but nothing is synthesised and there is no sound.
 
 It aborts on any opcode it does not implement rather than guessing, so a clean
 run means the code really did execute.
@@ -752,6 +755,7 @@ class CPCIO:
         self.ppi_a_input = False
         self.ppi_c = 0
         self.psg_reg = 0
+        self.psg = [0] * 16                     # the AY as it stands
         self.keys = keys            # (name, first frame, last frame)
         self.clock = 0
         self.frame_instr = frame_instr
@@ -789,10 +793,15 @@ class CPCIO:
                 self.crtc[self.crtc_sel] = val
         elif hi == 0xF4:                        # PPI port A - PSG data
             self.ppi_a = val
+            if (self.ppi_c >> 6) == 3:          # already selecting: the
+                self.psg_reg = val              # address latch follows port A
         elif hi == 0xF6:                        # PPI port C - PSG function
             self.ppi_c = val
             if (val >> 6) == 3:                 # 11 = select register
                 self.psg_reg = self.ppi_a
+            elif (val >> 6) == 2:               # 10 = write it
+                if self.psg_reg < 16 and not self.ppi_a_input:
+                    self.psg[self.psg_reg] = self.ppi_a
         elif hi == 0xF7:                        # PPI control
             if val & 0x80:
                 self.ppi_a_input = bool(val & 0x10)
@@ -1015,7 +1024,8 @@ def main():
     ap.add_argument("--watch", default="",
                     help="comma separated symbols to print once per frame, "
                          "optionally with a byte offset (enemies+8); suffix "
-                         ":w for a 16-bit value, :s for signed 16-bit")
+                         ":w for a 16-bit value, :s for signed 16-bit. psg0 "
+                         "to psg15 read the AY register file instead of RAM")
     ap.add_argument("--frames", type=int, default=0,
                     help="stop after this many virtual frames (0 = only on a "
                          "self-jump or HALT)")
@@ -1092,8 +1102,14 @@ def main():
         if not item:
             continue
         name, _, kind = item.partition(":")
-        if not args.sym:
+        if not args.sym and not name.lower().startswith("psg"):
             sys.exit("z80check: --watch needs --sym")
+        if name.lower().startswith("psg") and name[3:].isdigit():
+            n = int(name[3:])
+            if n > 15:
+                sys.exit("z80check: %r - the AY has sixteen registers" % name)
+            watch.append((name, n, "psg"))
+            continue
         base, offset = name, 0
         for sep in ("+", "-"):
             if sep in name:
@@ -1233,7 +1249,9 @@ def main():
                 last_frame = f
                 cells = []
                 for name, addr, kind in watch:
-                    if kind == "b":
+                    if kind == "psg":
+                        cells.append("%s=%d" % (name, cpu.io.psg[addr]))
+                    elif kind == "b":
                         cells.append("%s=%d" % (name, mem[addr]))
                     else:
                         v = mem[addr] | (mem[addr + 1] << 8)
