@@ -66,7 +66,13 @@ def main():
         c.key_down(0x20)                    # space is fire
         c.run_frames(10)
         c.key_up(0x20)
-        c.run_frames(300)                   # and draw_shop paints the room
+        c.run_frames(301)                   # and draw_shop paints the room
+        # An odd number, and that matters. run_frames stops on a frame
+        # boundary, which is the tick the rebuild starts on - and the cast is
+        # rebuilt top of the screen first, so whoever is lowest is put back
+        # last and is exactly who a picture taken there is missing. The game
+        # renders every second frame, so one more lands between two rebuilds
+        # with the whole cast on the screen.
         if not 0x4000 <= c.pc < 0x6800:
             sys.exit("mitsosshot: PC is #%04X, which is not the game" % c.pc)
         c.screenshot(out, scale=1, aspect=True)
