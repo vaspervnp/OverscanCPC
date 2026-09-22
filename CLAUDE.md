@@ -630,6 +630,13 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   or buried in the furniture, and a basket that is not makes the room impossible to
   leave. Neither shows up as a crash, and neither would ever be noticed by a run that
   does not reach that room.
+- `docs/mitsos-room*.png` are `z80check.py` renders - right about the layout, and a
+  model of the machine. `docs/mitsos-yard-6128.png` is the same room off the disc on
+  floooh/chips' 6128 with the real ROMs, which is what `tools/mitsosshot.py` is for:
+  it builds a `-DSTARTROOM=` disc in a scratch directory, types `RUN"MITSOS.BIN` at
+  the emulator and photographs what the gate array emitted. It puts the repository's
+  own `build/mitsos.dsk` back afterwards rather than leaving a build that starts in
+  the wrong room where the real one was.
 
 ## 10b. Sound
 
