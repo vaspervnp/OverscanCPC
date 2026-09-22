@@ -210,7 +210,9 @@ A_SHELF         EQU 1                   ; sitting where it was put
 A_MOUSE         EQU 2                   ; going somewhere on a mouse's back
 
 BASKET_W        EQU 8                   ; where it stands is the room's, and
-                                        ; how wide it is is the picture's
+BASKET_H        EQU 20                  ; how wide and how tall it is is the
+                                        ; picture's - box_basket, and what it
+                                        ; stands on is (room_basky)+BASKET_H
 
 SCORE_BYTES     EQU 3                   ; six BCD digits
 MEZE_POINTS     EQU #01                 ; BCD, into the hundreds digit
@@ -2498,6 +2500,14 @@ basket_update
 
 ;; ---------------------------------------------------------------------------
 ;; mitsos_escape - standing in an open basket is the end of the shop.
+;;
+;; Both tests are two-sided, the way mitsos_hurt's are. The vertical one was
+;; not: it asked only whether his feet were at or below the top of the basket,
+;; which is true of the whole room underneath it. With the basket on a shelf
+;; that meant walking to the right column of the floor finished the room, and
+;; no room in the game actually required climbing to its exit. His feet have
+;; to be inside the basket's own twenty scanlines - which, since a basket
+;; stands on a platform, is the platform it stands on and no other.
 ;; Destroys AF, BC, HL.
 ;; ---------------------------------------------------------------------------
 mitsos_escape
@@ -2510,10 +2520,13 @@ mitsos_escape
     call mitsos_overlap
     ret nc
     ld a,(mitsos_y)
-    add a,MITSOS_H-1
+    add a,MITSOS_H-1                    ; his feet
     ld hl,room_basky
     cp (hl)
-    ret c
+    ret c                               ; over the top of it
+    sub (hl)
+    cp BASKET_H+1
+    ret nc                              ; or somewhere below it altogether
     ld a,2                              ; out through the basket, and done
     ld (mitsos_over),a
     call rush_stop

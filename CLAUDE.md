@@ -676,6 +676,17 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   with nothing drawn beneath it is a cat standing in mid-air. None of the three shows
   up as a crash, and none would ever be noticed by a run that does not reach that room
   - and the scripted runs reach the first of twenty-nine.
+- **The way out was only half a test, and that made every room's climb
+  optional.** `mitsos_escape` asked whether his feet were at or below the top
+  of the basket, which is true of the whole room underneath it: with a basket
+  on a shelf, walking to the right column of the *floor* finished the room,
+  and no room in the game actually required getting up to its exit. Both
+  tests are two-sided now - his feet have to be inside the basket's own
+  `BASKET_H` scanlines, which since a basket stands on a platform is the
+  platform it stands on and no other. `mitsos_hurt` had been doing it the
+  right way all along and is what this now matches. Nothing in the game said
+  so and nothing could: a test that is too generous never fails, it only
+  makes the level design mean less than it looks.
 - `docs/mitsos-room*.png` are `z80check.py` renders - right about the layout, and a
   model of the machine. `docs/mitsos-yard-6128.png` is the same room off the disc on
   floooh/chips' 6128 with the real ROMs, which is what `tools/mitsosshot.py` is for:
