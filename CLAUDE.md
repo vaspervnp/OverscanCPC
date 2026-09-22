@@ -600,6 +600,36 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   same everywhere.
 - Room 1's geometry is frozen - the scripted run in `make check` depends on every shelf,
   sausage and patrol being exactly where it is. Decoration can move; collision cannot.
+- **The second game composes its rooms the same way, and its five pens are how a room
+  gets its own light for no code at all.** `src/mitsosrooms.asm` holds a record per
+  room - five pointers (platforms, furniture, soap, stock, cast), where he comes in,
+  where the basket is, the two ends of Grandma's beat, five pens and a border - and
+  `room_load` copies it into RAM so every read afterwards is an absolute address
+  rather than an index through IX. There are a lot of those reads and they are in the
+  middle of the frame.
+- The painter draws the same five things in every room: the wall, the joints cut into
+  it, the painted lower half of it, the floor band, and the grout between its tiles.
+  **Give any of them the pen of the thing behind it and it stops being there.** Mortar
+  the colour of the wall is plaster; grout the colour of the floor is tarmac; a dado
+  the colour of the wall is no dado. So a store room, a cold room and a back yard are
+  not special cases in `draw_shop` - they are four bytes each, and the cold room's
+  white-with-grey-joints is the brick painter drawing wall tiles and not knowing the
+  difference.
+- **What a room does not get to change is the grammar.** Every room has the same three
+  things after him and the same five to pick up, four of which the basket waits for.
+  That keeps the arrays in RAM one size and the loops over them one instruction, and
+  it is also the right game design: the room changes, the rules do not.
+- The basket is the way from one room to the next. Finishing one keeps the score and
+  the lives and calls `room_start`, which is `game_start` without the resetting of what
+  he has earned; the last room goes back to the title. `-DSTARTROOM=n` starts in one of
+  the others, which is how they are looked at without playing through.
+- **The scripted runs only ever play the first room, so the other three are checked
+  instead of played.** `tools/mitsosrooms.py` reads the tables out of the assembled low
+  block and asks, of every meze and every basket in every room, whether its feet are on
+  a platform that room's own table names. One that is not is either hanging in the air
+  or buried in the furniture, and a basket that is not makes the room impossible to
+  leave. Neither shows up as a crash, and neither would ever be noticed by a run that
+  does not reach that room.
 
 ## 10b. Sound
 

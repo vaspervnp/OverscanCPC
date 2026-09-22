@@ -1,10 +1,14 @@
 ;; ===========================================================================
-;; mitsosshop.asm - where the shop's shelves are, in scanlines.
+;; mitsosshop.asm - the numbers the shop's tables are written in.
 ;;
 ;; Its own file because two assemblies need it: the game, and the pass in
-;; mitsoslow.asm that weighs the low block. The box lists that draw the
-;; shelving and the table that stocks it are down there now, and they are
-;; written in these numbers.
+;; mitsoslow.asm that weighs the low block. Everything that is only ever read
+;; is down there now - the box lists that draw the shelving, the table that
+;; stocks it, the rooms themselves - and every one of them is written in
+;; scanlines off the floor and fields off the start of a record.
+;;
+;; Nothing in here is code and nothing in here is a decision; it is the
+;; vocabulary. What a room actually says is in mitsosrooms.asm.
 ;; ===========================================================================
 
 ;; --- The shop --------------------------------------------------------------
@@ -33,3 +37,57 @@ SHELF_1         EQU 204
 SHELF_2         EQU 172
 SHELF_3         EQU 140
 SHELF_4         EQU 108
+
+;; --- What is after him -----------------------------------------------------
+FOE_TICK        EQU 3                   ; frames between an enemy's steps
+FOE_ANIM        EQU 6                   ; and between its two pictures
+FOE_COUNT       EQU 3
+
+;; One enemy. IY addresses these, because IX is the line table cursor inside
+;; the sprite routines and there is only one of each.
+E_KIND          EQU 0                   ; index into foe_kinds
+E_X             EQU 1                   ; where it is, in bytes
+E_Y             EQU 2                   ; and scanlines
+E_Y0            EQU 3                   ; the line a flier bobs about
+E_X0            EQU 4                   ; the ends of its beat
+E_X1            EQU 5
+E_DIR           EQU 6                   ; 1 or -1
+E_TICK          EQU 7                   ; frames until its next step
+E_FRAME         EQU 8                   ; which of its two pictures
+E_ANIM          EQU 9                   ; frames until the other one
+E_STUN          EQU 10                  ; frames left flat on its back
+E_PHASE         EQU 11                  ; where it is in the bob
+E_DRAWN         EQU 12                  ; is the buffer under it worth anything
+E_OX            EQU 13                  ; and where its picture still is
+E_OY            EQU 14
+E_DIVE          EQU 15                  ; D_NONE, or which half of a dive
+E_REST          EQU 16                  ; frames before it tries that again
+E_CARRY         EQU 17                  ; a meze it has got hold of, plus one
+E_OPOSE         EQU 18                  ; and which picture its picture is: the
+                                        ; frame, with bit 7 for facing left.
+                                        ; One that is showing the right one in
+                                        ; the right place is left alone, and
+                                        ; two and a half milliseconds of a
+                                        ; twenty-millisecond frame is what
+                                        ; that is worth
+E_SIZE          EQU 19
+
+;; What a kind of enemy is: two pictures each way round, a size, and whether
+;; it flies. Three bytes and its art is what a new one costs.
+K_SPR           EQU 0                   ; four words: A and B, right then left
+K_W             EQU 8
+K_H             EQU 9
+K_FLY           EQU 10
+K_SIZE          EQU 11
+
+K_MOUSE         EQU 0
+K_GULL          EQU 1
+
+D_NONE          EQU 0                   ; on its beat
+D_DOWN          EQU 1                   ; coming down
+D_UP            EQU 2                   ; and going back up
+
+STEAL_REST      EQU 200                 ; four seconds before it tries again
+STEAL_START     EQU 250                 ; and five at the top of a life, so the
+                                        ; first meze is not gone before he
+                                        ; has had a chance at it

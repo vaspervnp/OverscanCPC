@@ -87,49 +87,6 @@ ST_AIR          EQU 1
 ;; seconds on its back.
 BOUNCE_V        EQU #FA80               ; -5.5 px/frame, about 60 scanlines
 STUN_TIME       EQU 100                 ; two seconds flat, at 50 Hz
-FOE_TICK        EQU 3                   ; frames between an enemy's steps
-FOE_ANIM        EQU 6                   ; and between its two pictures
-FOE_COUNT       EQU 3
-
-;; One enemy. IY addresses these, because IX is the line table cursor inside
-;; the sprite routines and there is only one of each.
-E_KIND          EQU 0                   ; index into foe_kinds
-E_X             EQU 1                   ; where it is, in bytes
-E_Y             EQU 2                   ; and scanlines
-E_Y0            EQU 3                   ; the line a flier bobs about
-E_X0            EQU 4                   ; the ends of its beat
-E_X1            EQU 5
-E_DIR           EQU 6                   ; 1 or -1
-E_TICK          EQU 7                   ; frames until its next step
-E_FRAME         EQU 8                   ; which of its two pictures
-E_ANIM          EQU 9                   ; frames until the other one
-E_STUN          EQU 10                  ; frames left flat on its back
-E_PHASE         EQU 11                  ; where it is in the bob
-E_DRAWN         EQU 12                  ; is the buffer under it worth anything
-E_OX            EQU 13                  ; and where its picture still is
-E_OY            EQU 14
-E_DIVE          EQU 15                  ; D_NONE, or which half of a dive
-E_REST          EQU 16                  ; frames before it tries that again
-E_CARRY         EQU 17                  ; a meze it has got hold of, plus one
-E_OPOSE         EQU 18                  ; and which picture its picture is: the
-                                        ; frame, with bit 7 for facing left.
-                                        ; One that is showing the right one in
-                                        ; the right place is left alone, and
-                                        ; two and a half milliseconds of a
-                                        ; twenty-millisecond frame is what
-                                        ; that is worth
-E_SIZE          EQU 19
-
-;; What a kind of enemy is: two pictures each way round, a size, and whether
-;; it flies. Three bytes and its art is what a new one costs.
-K_SPR           EQU 0                   ; four words: A and B, right then left
-K_W             EQU 8
-K_H             EQU 9
-K_FLY           EQU 10
-K_SIZE          EQU 11
-
-K_MOUSE         EQU 0
-K_GULL          EQU 1
 
 FOE_BUF         EQU SPR_SEAGULL_A_W*SPR_SEAGULL_A_H  ; the biggest of them
 
@@ -156,8 +113,6 @@ GRANNY_H        EQU SPR_GRANNY_A_H      ; 96 scanlines, the full height of her
 GRANNY_TOP      EQU FLOOR_TOP-GRANNY_H  ; she stands on the floor like he does
 GRANNY_BYTES    EQU GRANNY_W*GRANNY_H
 
-GRANNY_X0       EQU 30                  ; the beat she walks, in bytes -
-GRANNY_X1       EQU 50                  ; she is ten bytes wide herself
 GRANNY_WALK     EQU 8                   ; frames between her steps
 GRANNY_HUNT     EQU 8                   ; and when she has seen him - the same
                                         ; eight, but two bytes of floor in it
@@ -191,7 +146,7 @@ ART_STORE       EQU #8000               ; where the file carries them, packed,
                                         ; is above the stack on purpose - see
                                         ; unpack_tables below - and the ceiling
                                         ; is #A67B, where AMSDOS's buffers are
-LINE_TAB_AT     EQU #2E00               ; and behind them, the line table. It
+LINE_TAB_AT     EQU #3200               ; and behind them, the line table. It
                                         ; has moved up twice, each time the low
                                         ; block grew: everything that is only
                                         ; ever read is down there now, and this
@@ -215,9 +170,6 @@ DIVE_UP         EQU 2                   ; and climbing back, which is harder
 DIVE_FLOOR      EQU FLOOR_TOP-SPR_SEAGULL_A_H   ; where it pulls out
 DIVE_REST       EQU 100                 ; two seconds before it tries again
 
-D_NONE          EQU 0                   ; on its beat
-D_DOWN          EQU 1                   ; coming down
-D_UP            EQU 2                   ; and going back up
 
 ;; --- What he came for ------------------------------------------------------
 ;; Four mezedes on the shelves, and the basket by the top board does not open
@@ -244,9 +196,8 @@ A_GONE          EQU 0                   ; eaten
 A_SHELF         EQU 1                   ; sitting where it was put
 A_MOUSE         EQU 2                   ; going somewhere on a mouse's back
 
-BASKET_X        EQU 26                  ; standing on the top board
-BASKET_Y        EQU SHELF_4-20
-BASKET_W        EQU 8
+BASKET_W        EQU 8                   ; where it stands is the room's, and
+                                        ; how wide it is is the picture's
 
 SCORE_BYTES     EQU 3                   ; six BCD digits
 MEZE_POINTS     EQU #01                 ; BCD, into the hundreds digit
@@ -273,8 +224,8 @@ RUSH_POINTS     EQU #01                 ; sweeping one aside is worth a meze
 ;; and cannot be missed, and a game with 384 pixels of picture has no border
 ;; left to lose - which makes it exactly the right place to say that the
 ;; rules have changed for a moment.
-RUSH_COL        EQU #40+18              ; bright green, the catnip's own
-SHOP_COL        EQU #40+7               ; and the coral of the wall after it
+RUSH_COL        EQU #40+18              ; bright green, the catnip's own, and
+                                        ; the room's own border after it
 
 METER_X         EQU 40                  ; the gap between the score and LIVES
 METER_W         EQU RUSH_TIME/RUSH_BAR
@@ -290,10 +241,6 @@ METER_H         EQU 6
 ;; on the mouse, or go through it full of catnip - because a mouse that is
 ;; flat on its back drops what it was holding.
 CARRY_LIFT      EQU 8                   ; how high a stolen meze rides on it
-STEAL_REST      EQU 200                 ; four seconds before it tries again
-STEAL_START     EQU 250                 ; and five at the top of a life, so the
-                                        ; first meze is not gone before he
-                                        ; has had a chance at it
 
 ;; --- Lives -----------------------------------------------------------------
 ;; Three, and two seconds of grace after each one goes: walking back into the
@@ -349,6 +296,12 @@ LIVES_X         EQU 72
 LANG            EQU 0
     ENDIF
 
+;; Which room a new game starts in. Only ever anything but 0 for a build that
+;; wants to look at one of the others.
+    IFNDEF STARTROOM
+STARTROOM       EQU 0
+    ENDIF
+
 ;; ---------------------------------------------------------------------------
 ;; The low block, assembled where it runs and not where the file carries it.
 ;;
@@ -375,7 +328,8 @@ art_start
 pantomusic_song                         ; the tune rides down with them: the
     include "pantomusic.asm"            ; player reads it and never runs it
     include "mitsosdata.asm"            ; and so do the box lists that draw the
-art_end                                 ; shop, for the same reason
+    include "mitsosrooms.asm"           ; rooms, and the rooms themselves
+art_end
 ART_LEN         EQU art_end-art_start
 
 ;; ---------------------------------------------------------------------------
@@ -487,8 +441,6 @@ main_title
     call title_draw
 main_title_wait
     call title_loop                     ; until fire
-    ld a,START_LIVES
-    ld (mitsos_lives),a
     call game_start
 
 ;; ---------------------------------------------------------------------------
@@ -558,13 +510,26 @@ main_loop_think
     call cast_decide                    ; and whether the next picture can be
     jr main_loop                        ; done the quick way
 
-;; Out of lives: the shop stands where it stopped with GAME OVER across it,
-;; and fire puts the whole thing back.
+;; The room has stopped, one way or the other, and fire says go on. Out of
+;; lives it goes back to the title; out through the basket it is the next
+;; room, and he keeps his score and what lives he has left - which is what
+;; makes the last room worth reaching with any of them.
 main_over
     ld a,(ctl_pressed)
     bit CTL_FIRE,a
     jr z,main_loop
-    jp main_title
+    ld a,(mitsos_over)
+    dec a                               ; 1 is out of lives, 2 is out through
+    dec a                               ; the basket with the shopping
+    jp nz,main_title
+    ld hl,cur_room
+    ld a,(hl)
+    inc a
+    cp ROOM_COUNT
+    jp nc,main_title                    ; and that was the last of them
+    ld (hl),a
+    call room_start
+    jp main_loop
 
 ;; ---------------------------------------------------------------------------
 ;; title_draw - the shop, the name over it, and the two of them standing in
@@ -695,18 +660,62 @@ title_blink_hide
     jp clear_rows
 
 ;; ---------------------------------------------------------------------------
-;; game_start - the shop as it was and everybody back where they came in.
+;; room_load - cur_room's record, into the RAM the rest of the game reads it
+;; from. Twenty-one bytes copied rather than a pointer kept, so that every
+;; read afterwards is an absolute address and not an index through IX - there
+;; are a lot of them and they are in the middle of the frame.
+;; Destroys AF, BC, DE, HL.
+;; ---------------------------------------------------------------------------
+room_load
+    ld a,(cur_room)
+    ld l,a
+    ld h,0
+    ld d,h
+    ld e,l                              ; DE = the room number
+    add hl,hl                           ; and HL x21, which is R_SIZE
+    add hl,hl
+    add hl,de
+    add hl,hl
+    add hl,hl
+    add hl,de
+    ld de,rooms
+    add hl,de
+    ld de,room_rec
+    ld bc,R_SIZE
+    ldir
+    ret
+
+;; ---------------------------------------------------------------------------
+;; game_start - a new game: the first room, no score, and the lives he is
+;; allowed. Everything after the first room comes in at room_start instead,
+;; which is the same thing without the resetting of what he has earned.
 ;; Destroys everything.
 ;; ---------------------------------------------------------------------------
 game_start
+    ld a,STARTROOM                      ; -DSTARTROOM=n starts in one of the
+    ld (cur_room),a                     ; others, which is how they are looked
+    ld hl,0                             ; at without playing through to them
+    ld (score),hl
+    ld (score+1),hl
+    ld a,START_LIVES
+    ld (mitsos_lives),a
+    ;; fall through
+
+;; ---------------------------------------------------------------------------
+;; room_start - the room as it was drawn and everybody back where they came
+;; in. What he is carrying - score, lives - is not touched.
+;; Destroys everything.
+;; ---------------------------------------------------------------------------
+room_start
+    call room_load
     call draw_shop
     call draw_hud
 
-    ld hl,foes_init                     ; the cast, unflattened and back on
+    ld hl,(room_foes)                   ; the cast, unflattened and back on
     ld de,foes                          ; their marks
     ld bc,FOE_COUNT*E_SIZE
     ldir
-    ld hl,pickups_init                  ; and the shelves stocked again
+    ld hl,(room_picks)                  ; and the shelves stocked again
     ld de,pickups
     ld bc,PICK_COUNT*P_SIZE
     ldir
@@ -722,10 +731,6 @@ game_start
     dec a                               ; none of it is on the screen yet
     ld (rush_bars),a
     call rush_stop                      ; his own weight back, and the border
-    ld h,a                              ; and nothing on the score
-    ld l,a
-    ld (score),hl
-    ld (score+1),hl
     ld a,MEZE_COUNT
     ld (mezes_left),a
     call granny_reset
@@ -738,7 +743,7 @@ game_start
 ;; Destroys AF, HL.
 ;; ---------------------------------------------------------------------------
 mitsos_spawn
-    ld a,8
+    ld a,(room_startx)
     ld (mitsos_x),a
     ld a,MITSOS_Y0
     ld (mitsos_y),a
@@ -1101,7 +1106,7 @@ mitsos_slippery
     ld a,(mitsos_y)
     add a,MITSOS_H
     ld b,a                              ; his feet
-    ld hl,shop_soap
+    ld hl,(room_soap)
 mitsos_slippery_loop
     ld a,(hl)
     inc a
@@ -1153,7 +1158,7 @@ mitsos_ground_check
     ld a,(mitsos_y)
     add a,MITSOS_H
     ld b,a                              ; his feet
-    ld hl,shop_plats
+    ld hl,(room_plat)
 mitsos_ground_loop
     ld a,(hl)
     inc a
@@ -1264,7 +1269,7 @@ mitsos_air_land
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 mitsos_find_landing
-    ld hl,shop_plats
+    ld hl,(room_plat)
     ld c,#FF                            ; best so far
 mitsos_find_loop
     ld a,(hl)
@@ -2013,65 +2018,6 @@ foes_move_next
     djnz foes_move_one
     ret
 
-;; Sixteen steps of a lazy arc, in scanlines off the line it flies along.
-foe_bob
-    defb 0, 1, 2, 3, 4, 5, 5, 6, 6, 6, 5, 5, 4, 3, 2, 1
-
-;; ---------------------------------------------------------------------------
-;; The three kinds, and the three of them in the shop. A kind is two pictures
-;; each way round, how big it is, and whether it flies.
-;; ---------------------------------------------------------------------------
-foe_kinds
-    defw spr_mouse_a, spr_mouse_b, spr_mouse_a_l, spr_mouse_b_l
-    defb SPR_MOUSE_A_W, SPR_MOUSE_A_H, 0
-    defw spr_seagull_a, spr_seagull_b, spr_seagull_a_l, spr_seagull_b_l
-    defb SPR_SEAGULL_A_W, SPR_SEAGULL_A_H, 1
-
-;; kind, x, y, the line a flier bobs about, the two ends of its beat, which
-;; way it is going, and then the eight bytes it keeps for itself. This is the
-;; copy nothing writes to: the game runs on the one it puts in RAM, so a new
-;; game gets them all back on their feet and where they started.
-foes_init                               ; kind, x, y, y0, x0, x1, dir
-                                        ; tick, frame, anim, stun, phase,
-                                        ; drawn, ox, oy, dive, rest, carry,
-                                        ; and the pose its picture is showing
-    defb K_MOUSE, 80, FLOOR_TOP-SPR_MOUSE_A_H, 0, 56, 92, -1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
-    ;; and the one that walks the counter, which is where the sausage is
-    defb K_MOUSE, 58, SHELF_1-24-SPR_MOUSE_A_H, 0, 58, 84, 1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
-    defb K_GULL, 64, 72, 72, 58, 84, 1
-    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
-foes_init_end
-    ASSERT foes_init_end-foes_init == FOE_COUNT*E_SIZE
-
-;; ---------------------------------------------------------------------------
-;; What he can stand on: first column, last column, top scanline - and #FF at
-;; the end of it. The floor, the four boards of the shelving, the lid of the
-;; crates and the counter top, which are the same rectangles the furniture is
-;; drawn from and have to stay that way.
-;; ---------------------------------------------------------------------------
-shop_plats
-    defb  0, 95, FLOOR_TOP
-    defb  4, 33, SHELF_1
-    defb  4, 33, SHELF_2
-    defb  4, 33, SHELF_3
-    defb  4, 33, SHELF_4
-    defb 38, 51, SHELF_1-8              ; the lid of the crates
-    defb 56, 87, SHELF_1-24             ; and the counter top
-    defb #FF
-
-;; ---------------------------------------------------------------------------
-;; And where somebody has been mopping: the same three bytes, and the surface
-;; has to be one a line of shop_plats names or nothing will ever be standing
-;; on it. Both of these are on the floor, which is where a bucket gets put
-;; down.
-;; ---------------------------------------------------------------------------
-shop_soap
-    defb 34, 50, FLOOR_TOP              ; one at the foot of the crates
-    defb 58, 74, FLOOR_TOP              ; and one in front of the counter
-    defb #FF
-
 ;; ---------------------------------------------------------------------------
 ;; mitsos_erase - put the shop back where he was standing.
 ;; Destroys AF, BC, DE, HL, IX.
@@ -2140,27 +2086,6 @@ mitsos_draw_pick
     ld (mitsos_drawn),a
     jp spr_draw
 
-;; The three frames facing right, then the same three facing left. Two bytes
-;; each, so the frame number is an index and nothing has to be worked out.
-mitsos_frames
-    defw spr_mitsos_stand
-    defw spr_mitsos_walk1
-    defw spr_mitsos_walk2
-    defw spr_mitsos_stand_l
-    defw spr_mitsos_walk1_l
-    defw spr_mitsos_walk2_l
-
-;; And the same six with his eyes out on stalks, which is what the catnip
-;; looks like from the outside. Same size, same frame numbers, so nothing but
-;; which table is read changes while it lasts.
-mitsos_rush_frames
-    defw spr_mitsos_rush
-    defw spr_mitsos_rush1
-    defw spr_mitsos_rush2
-    defw spr_mitsos_rush_l
-    defw spr_mitsos_rush1_l
-    defw spr_mitsos_rush2_l
-
 ;; ---------------------------------------------------------------------------
 ;; draw_shop - the background, once.
 ;;
@@ -2171,36 +2096,36 @@ mitsos_rush_frames
 ;; Destroys AF, BC, DE, HL, IX.
 ;; ---------------------------------------------------------------------------
 draw_shop
-    ld hl,line_tab                      ; the brick, wall to wall, to start
+    ld hl,line_tab                      ; the wall, wall to wall, to start
     ld de,DISPLAY_LINES
-    ld a,PEN1_BYTE
+    ld a,(wall_byte)
     call clear_rows
 
     call draw_wall                      ; then the joints cut into it
 
-    ld hl,line_tab+DADO_TOP*2           ; the painted lower half of it
-    ld de,FLOOR_TOP-DADO_TOP
-    ld a,PEN10_BYTE
+    ld hl,line_tab+DADO_TOP*2           ; the painted lower half of it, which
+    ld de,FLOOR_TOP-DADO_TOP            ; is not there in a room whose dado is
+    ld a,(dado_byte)                    ; the same pen as its wall
     call clear_rows
 
     ld hl,line_tab+DADO_TOP*2           ; and the line where the paint stops
     ld de,2
-    ld a,PEN3_BYTE
+    ld a,(mortar_byte)
     call clear_rows
 
     ld hl,line_tab+FLOOR_TOP*2          ; the tiles
     ld de,DISPLAY_LINES-FLOOR_TOP
-    ld a,PEN5_BYTE
+    ld a,(floor_byte)
     call clear_rows
 
     ld hl,line_tab+FLOOR_TOP*2
     ld de,2
-    ld a,PEN3_BYTE
+    ld a,(mortar_byte)
     call clear_rows
 
-    ld hl,1                             ; and the grout between them
-    ld (fill_w),hl
-    ld a,PEN3_BYTE
+    ld hl,1                             ; and the grout between them, which a
+    ld (fill_w),hl                      ; room with a tarmac yard turns off by
+    ld a,(grout_byte)                   ; making it the colour of the ground
     ld (fill_b),a
     ld c,0
 draw_shop_grout
@@ -2219,7 +2144,7 @@ draw_shop_grout
 
 ;; The soap, over the tiles and the line between them, because a puddle does
 ;; not respect grouting.
-    ld hl,shop_soap
+    ld hl,(room_soap)
 draw_shop_soap
     ld a,(hl)
     inc a
@@ -2279,7 +2204,7 @@ draw_shop_soap
 ;; The furniture, in the order it stands in: the window is in the wall behind
 ;; everything, the shelving and the counter in front of it.
 draw_shop_props
-    ld hl,shop_props
+    ld hl,(room_props)
 draw_shop_prop
     ld a,(hl)
     inc a
@@ -2302,9 +2227,9 @@ draw_shop_prop
 
 ;; The way out, shut. It opens when the last meze comes off a shelf.
 draw_shop_props_done
-    ld a,BASKET_X
+    ld a,(room_baskx)
     ld (prop_x),a
-    ld a,BASKET_Y
+    ld a,(room_basky)
     ld (prop_y),a
     ld hl,box_basket
     jp draw_boxes
@@ -2545,9 +2470,9 @@ basket_update
     ret z
     xor a
     ld (basket_dirty),a
-    ld a,BASKET_X
+    ld a,(room_baskx)
     ld (prop_x),a
-    ld a,BASKET_Y
+    ld a,(room_basky)
     ld (prop_y),a
     ld hl,box_basket_open
     jp draw_boxes
@@ -2560,13 +2485,15 @@ mitsos_escape
     ld a,(basket_open)
     or a
     ret z
-    ld b,BASKET_X
-    ld a,BASKET_X+BASKET_W-1
+    ld a,(room_baskx)
+    ld b,a
+    add a,BASKET_W-1
     call mitsos_overlap
     ret nc
     ld a,(mitsos_y)
     add a,MITSOS_H-1
-    cp BASKET_Y
+    ld hl,room_basky
+    cp (hl)
     ret c
     ld a,2                              ; out through the basket, and done
     ld (mitsos_over),a
@@ -2596,7 +2523,7 @@ mitsos_escape
 ;; Destroys AF.
 ;; ---------------------------------------------------------------------------
 granny_reset
-    ld a,GRANNY_X1                      ; the far end of her beat, walking
+    ld a,(room_granx1)                  ; the far end of her beat, walking
     ld (granny_x),a                     ; back towards the door - which is the
     ld a,-1                             ; length of the shop's worth of warning
     ld (granny_dir),a                   ; he gets at the start of a life
@@ -2688,9 +2615,13 @@ granny_move_step
 granny_move_one
     ld a,(granny_x)
     add a,b
-    cp GRANNY_X0
+    ld hl,room_granx0
+    cp (hl)
     jr c,granny_move_end
-    cp GRANNY_X1+1
+    inc hl
+    ld b,(hl)
+    inc b
+    cp b
     jr nc,granny_move_end
     ld (granny_x),a
     ld a,1
@@ -3512,7 +3443,7 @@ rush_stop
     ld (mitsos_rush),hl
     xor a
     call set_speeds
-    ld a,SHOP_COL
+    ld a,(room_border)
     call set_border
     jp draw_meter
 
@@ -3543,7 +3474,7 @@ rush_tick
     jr nc,rush_tick_green
     bit 3,l
     jr nz,rush_tick_green
-    ld a,SHOP_COL
+    ld a,(room_border)
     jr rush_tick_border
 rush_tick_green
     ld a,RUSH_COL
@@ -3652,8 +3583,9 @@ set_border
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 draw_wall
-    ld a,PEN15_BYTE                     ; mortar, pale against the red
-    ld (fill_b),a
+    ld a,(mortar_byte)                  ; pale against the red - and the same
+    ld (fill_b),a                       ; pen as the wall in a room that is
+                                        ; plastered rather than built
     ld bc,0                             ; B = stagger, C = top of the course
 
 draw_wall_course
@@ -3828,6 +3760,29 @@ basket_dirty    defs 1              ; and whether its lid is still to be painted
 mitsos_lives    defs 1              ; three, and the HUD prints this one
 mitsos_grace    defs 1              ; frames of blinking left after losing one
 mitsos_over     defs 1              ; out of them, and waiting for fire
+
+;; Which room he is in, and the room itself - mitsosrooms.asm's record copied
+;; here by room_load, field for field in the order R_PLAT..R_BORDER names.
+cur_room        defs 1
+room_rec
+room_plat       defs 2              ; what he can stand on
+room_props      defs 2              ; the furniture
+room_soap       defs 2              ; where somebody has been mopping
+room_picks      defs 2              ; what is standing on the furniture
+room_foes       defs 2              ; and what is after him
+room_startx     defs 1              ; where he comes in
+room_baskx      defs 1              ; and where the way out is
+room_basky      defs 1
+room_granx0     defs 1              ; the two ends of Grandma's beat
+room_granx1     defs 1
+wall_byte       defs 1              ; the five pens the room is painted in:
+mortar_byte     defs 1              ; give any of them the pen of the thing
+dado_byte       defs 1              ; behind it and it stops being there
+floor_byte      defs 1
+grout_byte      defs 1
+room_border     defs 1              ; and the frame round the lot
+room_rec_end
+    ASSERT room_rec_end-room_rec == R_SIZE
 
 sfx_mix         defs 1              ; the effect's mixer, kept because the
                                     ; player takes the real one back every

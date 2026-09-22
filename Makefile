@@ -162,7 +162,7 @@ src/tablepack.asm: $(BUILD)/tables.bin tools/mkpack.py
 # the ASSERT at the bottom of mitsos.asm is what catches that.
 MITSOSLOW := src/mitsoslow.asm src/config.asm src/mitsosshop.asm \
              src/font.asm src/mitsosstr.asm src/mitsosart.asm \
-             src/pantomusic.asm src/mitsosdata.asm
+             src/pantomusic.asm src/mitsosdata.asm src/mitsosrooms.asm
 
 $(BUILD)/mitsosart.bin: $(MITSOSLOW) | $(BUILD)
 	$(RASM) src/mitsoslow.asm
@@ -342,8 +342,8 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin $(BUILD)/mitsosart.bin \
 	@echo "    somewhere to get off: her head is level with the third board,"
 	@echo "    so the floor and the two boards over it are hers. There is no"
 	@echo "    jumping over her and nowhere above her but that third board -"
-	@echo "    this is him walking off the end of it at 168. He lands on her"
-	@echo "    head at 169: she sits down for the hundred frames anything"
+	@echo "    this is him walking off the end of it at 166. He lands on her"
+	@echo "    head at 167: she sits down for the hundred frames anything"
 	@echo "    else in here gets, and he leaves at BOUNCE_V, -5.5 against"
 	@echo "    the -4.5 of his own jump, which has him at scanline 81 by"
 	@echo "    176 - over the top board. Where she is standing is poked"
@@ -354,7 +354,7 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin $(BUILD)/mitsosart.bin \
 		--poke "granny_x=32@160" --poke "granny_dirty=1@160" \
 		--sym $(BUILD)/mitsos.sym \
 		--watch "mitsos_x,mitsos_y,mitsos_vy:s,granny_x,granny_stun,mitsos_lives" \
-		| grep -E "frame +(168|169|176) "
+		| grep -E "frame +(166|167|176) "
 	@echo "=== mitsos, the seagull comes down ==="
 	@echo "    it keeps a beat across the window at scanline 72 until he is"
 	@echo "    within five bytes of being under it, and at 158 it commits: the"
@@ -400,14 +400,40 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin $(BUILD)/mitsosart.bin \
 	@echo "    the last one is off a shelf. The catnip is not one of the four -"
 	@echo "    it is worth five hundred against their hundred and the way out"
 	@echo "    does not wait for it, which is the choice it exists to make."
-	@echo "    Three of the four are poked away rather than walked to: 146 eats"
+	@echo "    Three of the four are poked away rather than walked to: 145 eats"
 	@echo "    the fish, which is the last of them, the lid comes off the same"
-	@echo "    frame, and he walks into it at 189. That is the shop done."
+	@echo "    frame, and he walks into it at 190. That is the shop done."
 	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 215 $(MITSOS_SIM) \
 		--poke "mezes_left=1@130" --sym $(BUILD)/mitsos.sym \
 		--keys "FIRE@30-30,FIRE@60-63,FIRE@88-91,FIRE@116-119,FIRE@144-147,RIGHT@180-205" \
 		--watch "mitsos_x,score+1,mezes_left,basket_open,mitsos_over" \
-		| grep -E "poked|frame +(90|145|146|189) "
+		| grep -E "poked|frame +(90|144|145|190) "
+	@echo "=== mitsos, four rooms and nothing hanging in the air ==="
+	@echo "    the scripted runs only ever play the first room, so the other"
+	@echo "    three are checked instead of played: tools/mitsosrooms.py reads"
+	@echo "    the tables out of the assembled low block and asks, of every"
+	@echo "    meze and every basket in every room, whether its feet are on a"
+	@echo "    platform that room's own table names. A meze that is not is"
+	@echo "    either hanging in the air or buried in the furniture, and a"
+	@echo "    basket that is not makes the room impossible to leave."
+	@$(PYTHON) tools/mitsosrooms.py
+	@echo "=== mitsos, and out of the shop into the store room ==="
+	@echo "    four rooms, and the basket is the way from one to the next. A"
+	@echo "    room is a record in mitsosrooms.asm - five pointers, where"
+	@echo "    things stand, and five pens - and room_load copies it into RAM"
+	@echo "    for the rest of the game to read. Nothing else in here knows"
+	@echo "    how many rooms there are."
+	@echo "    The same run as above, and fire on the END panel at 230: 232"
+	@echo "    is cur_room going to 1, the second and a half after it is"
+	@echo "    draw_shop painting the store room, and by 253 he is standing"
+	@echo "    on its floor at 8 with four mezedes to find. What he walked in"
+	@echo "    with he keeps - six hundred points and three lives - which is"
+	@echo "    what makes the fourth room worth reaching with any of them."
+	@./tools/z80check.py $(BUILD)/mitsos.bin --frames 260 $(MITSOS_SIM) \
+		--poke "mezes_left=1@130" --sym $(BUILD)/mitsos.sym \
+		--keys "FIRE@30-30,FIRE@60-63,FIRE@88-91,FIRE@116-119,FIRE@144-147,RIGHT@180-205,FIRE@230-233" \
+		--watch "mitsos_x,cur_room,mezes_left,basket_open,mitsos_over,mitsos_lives,score+1" \
+		| grep -E "frame +(190|232|253) "
 	@echo "=== mitsos, the catnip rush ==="
 	@echo "    what the catnip is for, and it is not the five hundred points."
 	@echo "    90 is him eating it: 384 frames of double speed - 512 against"
