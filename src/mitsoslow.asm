@@ -32,7 +32,8 @@ art_start
 pantomusic_song
     include "pantomusic.asm"
     include "mitsosdata.asm"
-    include "mitsosrooms.asm"
+    include "mitsosfurniture.asm"
+    include "mitsospage.asm"
 art_end
 
     SAVE "build/mitsosart.bin",art_start,art_end-art_start

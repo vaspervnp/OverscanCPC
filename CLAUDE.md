@@ -600,13 +600,47 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   same everywhere.
 - Room 1's geometry is frozen - the scripted run in `make check` depends on every shelf,
   sausage and patrol being exactly where it is. Decoration can move; collision cannot.
-- **The second game composes its rooms the same way, and its five pens are how a room
-  gets its own light for no code at all.** `src/mitsosrooms.asm` holds a record per
-  room - five pointers (platforms, furniture, soap, stock, cast), where he comes in,
-  where the basket is, the two ends of Grandma's beat, five pens and a border - and
-  `room_load` copies it into RAM so every read afterwards is an absolute address
-  rather than an index through IX. There are a lot of those reads and they are in the
-  middle of the frame.
+- **The second game's rooms live in the other sixty-four kilobytes.** Sixteen
+  kilobytes below #4000 is the only RAM this game has that the screen does not own,
+  and the low block had it down to about 1,400 spare - eight more rooms. The 6128 has
+  a second 64K: port #7Fxx, values #C4-#C7, put bank 4-7 over **#4000-#7FFF** in place
+  of bank 1, and #8000-#FFFF - the screen - is untouched by all of them. A room is a
+  fixed 192-byte block there, so twenty-nine of them cost the game no RAM at all.
+- **The paging routine cannot be in the window it pages.** #4000-#7FFF is where this
+  game's code and its title picture are; with bank 4 in, every byte of it belongs to
+  somebody else, including the instruction that would page it back. `src/mitsospage.asm`
+  runs from #0100 with the low block and is the one thing down there that is executed
+  rather than read. Three things make that safe and all three are arranged elsewhere:
+  **interrupts off** across the window (#0038 jumps to a handler at #4000-something,
+  and the music player is up there too), **the stack below #4000** (`MITSOS_STACK`, not
+  the other game's #7FFE), and `page_set` **keeping BC**, because both callers are
+  holding an LDIR length across it and the Gate Array is addressed through BC. That
+  last one cost a 32 KB LDIR into the bank before `--sp-floor` named it.
+- It also wants the boot order right: `rooms_to_bank` runs twelve instructions into the
+  game and **must not enable interrupts**, because `irq_init` has not written #0038 yet
+  and with both ROMs off that is the low block, read as code. `page_home` therefore
+  leaves the interrupt state alone and the two callers decide.
+- **A room is a fixed block at fixed offsets**, which is what makes `room_read` one
+  LDIR and every read afterwards an absolute address rather than an index through a
+  pointer - there are a lot of those reads and they are in the middle of frames. The
+  block is where he comes in, where the basket is, the two ends of Grandma's beat, five
+  pens, a border, and then the platform, prop, soap, pickup and enemy tables. `foes`
+  and `pickups` **are** the room's own records, played on in place: the copy nothing
+  writes to is the one still sitting in the bank.
+- The rooms are written in `assets/mitsos/rooms.txt` and `tools/mkrooms.py` generates
+  `src/mitsosrooms.asm` from it. Hand-writing an ORG per field per room for
+  twenty-nine rooms gets one of them wrong and nothing says so; the generator does the
+  offsets and rasm still does the arithmetic, because every number is passed through as
+  an expression and `SHELF_2-8` means what `mitsosshop.asm` says. It also refuses a
+  room that breaks the grammar - three after him, five to pick up, four of them mezedes.
+- **The furniture stays below #4000 while the rooms do not.** A room's prop list is
+  four bytes an entry, two of which are the address of a box list, and an address is
+  only any use if what it points at is there when the bank is out. That is
+  `src/mitsosfurniture.asm`, and it is shared across rooms anyway.
+- `tools/z80check.py` models the banking - #C4-#C7 swap 16 KB in and out of its flat
+  array rather than indirecting every access, because every access is the
+  interpreter's whole cost - and refuses the configurations it does not model instead
+  of getting them quietly wrong.
 - The painter draws the same five things in every room: the wall, the joints cut into
   it, the painted lower half of it, the floor band, and the grout between its tiles.
   **Give any of them the pen of the thing behind it and it stops being there.** Mortar

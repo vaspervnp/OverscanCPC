@@ -19,7 +19,9 @@ What it does NOT do, and what it therefore cannot tell you:
     starts a frame are both real; nothing about raster position, or how long a
     routine takes in microseconds, is. In particular a profile that shows the
     frame half idle says nothing about whether it is idle on a real CPC.
-  * No ROMs, no 128K banking - a flat 64K of RAM.
+  * No ROMs. The 128K banking is modelled only as far as the second game
+    uses it: #C4-#C7 swap bank 4-7 into #4000-#7FFF and #C0 puts bank 1
+    back. Anything else stops the run rather than being got wrong quietly.
   * One static frame at the end of the run, decoded from the CRTC registers
     left set then. Rupture (reprogramming R12/R13 mid-frame) is invisible.
   * Only the PPI ports the keyboard and VSYNC need are modelled; every other
@@ -750,6 +752,21 @@ class CPCIO:
         self.rmr = None
         self.ram_cfg = None
 
+        # The other 64K. Only the four configurations the second game uses
+        # are modelled: #C0 is the plain map, and #C4-#C7 put bank 4, 5, 6 or
+        # 7 at #4000-#7FFF in place of bank 1. The screen is at #8000-#FFFF,
+        # which none of them touch, and the code is in the window - which is
+        # why the game's own paging routine runs from below #4000.
+        #
+        # It is done by swapping sixteen kilobytes in and out of the flat
+        # array rather than by indirecting every memory access, because every
+        # memory access is the interpreter's whole cost and a page-in happens
+        # twice at boot and twice a room.
+        self.mem = None                         # set by main, once
+        self.banks = [bytearray(0x4000) for _ in range(4)]
+        self.bank1 = None                       # what #4000 holds when out
+        self.banked = None                      # which of them is in, if any
+
         # PPI / PSG state, enough for the keyboard and the VSYNC bit
         self.ppi_a = 0
         self.ppi_a_input = False
@@ -814,6 +831,26 @@ class CPCIO:
                 self.rmr = val
             else:
                 self.ram_cfg = val
+                self.set_bank(val)
+
+    def set_bank(self, val):
+        """#C4-#C7 put bank 4-7 at #4000-#7FFF; anything else is bank 1."""
+        if self.mem is None:
+            return
+        cfg = val & 7
+        want = cfg - 4 if cfg >= 4 else None
+        if cfg in (1, 2, 3):
+            sys.exit("z80check: RAM configuration #%02X is not modelled - "
+                     "only #C0 and #C4-#C7 are" % val)
+        if want == self.banked:
+            return
+        if self.banked is not None:                 # put back what is there
+            self.banks[self.banked][:] = self.mem[0x4000:0x8000]
+            self.mem[0x4000:0x8000] = self.bank1
+        if want is not None:                        # and take out what is not
+            self.bank1 = bytes(self.mem[0x4000:0x8000])
+            self.mem[0x4000:0x8000] = self.banks[want]
+        self.banked = want
 
     def inp(self, port):
         hi = port >> 8
@@ -1129,6 +1166,7 @@ def main():
     mem[org:org + len(code)] = code
 
     io = CPCIO(keys, args.frame_instr)
+    io.mem = mem
     cpu = Z80(mem, io)
     if args.trap:
         cpu.trap = (symbols.get(args.trap.upper()) if args.trap.upper() in symbols

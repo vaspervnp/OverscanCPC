@@ -91,3 +91,29 @@ STEAL_REST      EQU 200                 ; four seconds before it tries again
 STEAL_START     EQU 250                 ; and five at the top of a life, so the
                                         ; first meze is not gone before he
                                         ; has had a chance at it
+
+;; --- A room, as it sits in bank 4 ------------------------------------------
+;; Fixed offsets in a fixed block, so room_read is one LDIR and every read
+;; afterwards is an absolute address rather than an index through a pointer.
+;; The room_rec labels in mitsos.asm's workspace are laid out to match and
+;; assert that they do; tools/mkrooms.py writes the other side of it.
+ROOM_BANK       EQU #4000       ; where a room is while its bank is paged in
+ROOM_BLOCK      EQU 192         ; and how far apart they are
+
+R_STARTX        EQU 0           ; where he comes in
+R_BASKX         EQU 1           ; the way out, which opens on the last meze
+R_BASKY         EQU 2
+R_GRANX0        EQU 3           ; the two ends of Grandma's beat
+R_GRANX1        EQU 4
+R_WALL          EQU 5           ; the five pens the room is painted in, as
+R_MORTAR        EQU 6           ; solid mode 0 bytes. Give any of them the pen
+R_DADO          EQU 7           ; of the thing behind it and that feature
+R_FLOOR         EQU 8           ; stops being there
+R_GROUT         EQU 9
+R_BORDER        EQU 10          ; and the frame round the lot
+R_PLAT          EQU 12          ; 8 x (first column, last column, top) + #FF
+R_PROPS         EQU 37          ; 6 x (x, y, box list) + #FF
+R_SOAP          EQU 62          ; 3 x (first column, last column, top) + #FF
+R_PICKS         EQU 72          ; PICK_COUNT whole pickup records
+R_FOES          EQU 112         ; FOE_COUNT whole enemy records
+ROOM_USED       EQU 169         ; and the rest of the block is spare

@@ -64,7 +64,8 @@ TEXTSRC := assets/font.txt text/loukoumas.en.txt text/loukoumas.el.txt tools/mkt
 
 assets: src/font.asm src/strings.asm src/mitsosstr.asm src/sprites.asm \
         src/artwork.asm src/titlepic.asm src/mitsosart.asm \
-        src/mitsosmenupic.asm src/mitsosartpack.asm
+        src/mitsosmenupic.asm src/mitsosartpack.asm \
+        src/mitsosrooms.asm $(BUILD)/mitsosrooms.bin
 
 src/font.asm src/strings.asm: $(TEXTSRC)
 	$(PYTHON) tools/mktext.py loukoumas
@@ -162,13 +163,26 @@ src/tablepack.asm: $(BUILD)/tables.bin tools/mkpack.py
 # the ASSERT at the bottom of mitsos.asm is what catches that.
 MITSOSLOW := src/mitsoslow.asm src/config.asm src/mitsosshop.asm \
              src/font.asm src/mitsosstr.asm src/mitsosart.asm \
-             src/pantomusic.asm src/mitsosdata.asm src/mitsosrooms.asm
+             src/pantomusic.asm src/mitsosdata.asm src/mitsosfurniture.asm \
+             src/mitsospage.asm
 
 $(BUILD)/mitsosart.bin: $(MITSOSLOW) | $(BUILD)
 	$(RASM) src/mitsoslow.asm
 
 src/mitsosartpack.asm: $(BUILD)/mitsosart.bin tools/mkpack.py
 	$(PYTHON) tools/mkpack.py $(BUILD)/mitsosart.bin $@ 0x0100 art
+
+# And a third pass, for the rooms. They are assembled where bank 4 will hold
+# them - #4000, which is where the game's own code is - so they can only be
+# built on their own, and the file carries the image raw for rooms_to_bank to
+# put in the bank at boot. Everything below #4000 is assembled first, for its
+# labels: a room's prop list points at box lists that stay down there.
+src/mitsosrooms.asm: assets/mitsos/rooms.txt tools/mkrooms.py
+	$(PYTHON) tools/mkrooms.py
+
+$(BUILD)/mitsosrooms.bin: src/mitsosbank.asm src/mitsosrooms.asm $(MITSOSLOW) \
+                          | $(BUILD)
+	$(RASM) src/mitsosbank.asm
 
 # ---------------------------------------------------------------------------
 # HELLO WORLD - the overscan proof of concept
@@ -251,14 +265,14 @@ $(BUILD)/loukoumas_roof.bin: $(DEPS) | $(BUILD)
 # ---------------------------------------------------------------------------
 mitsos: $(BUILD)/mitsos.sna $(BUILD)/mitsos.dsk
 
-$(BUILD)/mitsos.sna: $(DEPS) | $(BUILD)
+$(BUILD)/mitsos.sna: $(DEPS) $(BUILD)/mitsosrooms.bin | $(BUILD)
 	$(RASM) src/mitsos.asm -DTARGET=1 -oi $@
 
-$(BUILD)/mitsos.dsk: $(DEPS) | $(BUILD)
+$(BUILD)/mitsos.dsk: $(DEPS) $(BUILD)/mitsosrooms.bin | $(BUILD)
 	rm -f $@
 	$(RASM) src/mitsos.asm -DTARGET=2 -eo
 
-$(BUILD)/mitsos.bin: $(DEPS) | $(BUILD)
+$(BUILD)/mitsos.bin: $(DEPS) $(BUILD)/mitsosrooms.bin | $(BUILD)
 	$(RASM) src/mitsos.asm -DTARGET=3 -DTITLEPIC=0 -s -sa -os $(BUILD)/mitsos.sym
 	mv $(BUILD)/out.bin $@
 

@@ -11,9 +11,11 @@ collected - and a basket in the same position, which makes the room
 impossible to leave. The scripted runs in make check only ever play the
 first room, so they would not catch either one in the other three.
 
-This reads what was actually assembled rather than the source: the low
-block is saved raw by src/mitsoslow.asm and every label in it is in
-build/mitsos.sym, so the tables here are the bytes the Z80 will read.
+This reads what was actually assembled rather than the source. The rooms
+are saved raw by src/mitsosbank.asm as the image that goes into bank 4 -
+fixed blocks at fixed offsets, which is what makes them checkable without
+knowing a single label - and the low block beside it holds the sprites
+their pickups point at.
 
 Nothing about the climb is checked - whether the platforms can be reached
 from one another in the order the mezedes are on them is a judgement about
@@ -24,27 +26,31 @@ import os
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SYM = os.path.join(ROOT, "build", "mitsos.sym")
 LOW = os.path.join(ROOT, "build", "mitsosart.bin")
+ROOMS = os.path.join(ROOT, "build", "mitsosrooms.bin")
 LOW_ORG = 0x0100                        # where mitsoslow.asm assembles it
+ROOM_BANK = 0x4000                      # and where bank 4 holds a room
 
+#: mitsosshop.asm, and the asserts in the generated source check the game
+#: agrees. Duplicated rather than parsed because they are the format.
+ROOM_BLOCK = 192
+R_BASKX, R_BASKY = 1, 2
+R_PLAT, R_PICKS = 12, 72
 PICK_COUNT = 5
 P_SIZE = 8
-R_SIZE = 21
 BASKET_W = 8
 BASKET_H = 20                           # box_basket, and what it stands on
 
 
 def load():
-    syms = {}
-    for line in open(SYM, encoding="utf-8"):
-        p = line.split()
-        if len(p) >= 2 and p[1].startswith("#"):
-            syms[p[0].upper()] = int(p[1][1:], 16)
     mem = bytearray(0x10000)
     blob = open(LOW, "rb").read()
     mem[LOW_ORG:LOW_ORG + len(blob)] = blob
-    return syms, mem
+    rooms = open(ROOMS, "rb").read()
+    if len(rooms) % ROOM_BLOCK:
+        sys.exit("roomcheck: %d bytes of rooms is not a whole number of "
+                 "%d-byte blocks" % (len(rooms), ROOM_BLOCK))
+    return mem, rooms
 
 
 def word(mem, a):
@@ -69,18 +75,20 @@ def standing_on(plats, x, w, top):
 
 
 def main():
-    if not os.path.exists(SYM) or not os.path.exists(LOW):
-        sys.exit("roomcheck: build/mitsos.sym and build/mitsosart.bin first")
-    syms, mem = load()
-    rooms = syms["ROOMS"]
-    count = sum(1 for n in range(1, 100) if "R%d_PLAT" % n in syms)
+    for path in (LOW, ROOMS):
+        if not os.path.exists(path):
+            sys.exit("roomcheck: build %s first" % os.path.relpath(path, ROOT))
+    mem, image = load()
+    count = len(image) // ROOM_BLOCK
+    # the rooms where the game will read them, so the offsets are the offsets
+    mem[ROOM_BANK:ROOM_BANK + len(image)] = image
 
     bad = 0
     for n in range(count):
-        rec = rooms + n * R_SIZE
-        plats = platforms(mem, word(mem, rec + 0))
-        picks = word(mem, rec + 6)
-        bx, by = mem[rec + 11], mem[rec + 12]
+        rec = ROOM_BANK + n * ROOM_BLOCK
+        plats = platforms(mem, rec + R_PLAT)
+        picks = rec + R_PICKS
+        bx, by = mem[rec + R_BASKX], mem[rec + R_BASKY]
 
         where = standing_on(plats, bx, BASKET_W, by + BASKET_H)
         if where is None:

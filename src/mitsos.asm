@@ -146,6 +146,19 @@ ART_STORE       EQU #8000               ; where the file carries them, packed,
                                         ; is above the stack on purpose - see
                                         ; unpack_tables below - and the ceiling
                                         ; is #A67B, where AMSDOS's buffers are
+MITSOS_STACK    EQU #4000               ; **not the other game's #7FFE.**
+                                        ; #4000-#7FFF is the window bank 4 is
+                                        ; paged into to read a room out of it,
+                                        ; and a stack in there would be swapped
+                                        ; away underneath the routine doing
+                                        ; the paging. Down here it costs
+                                        ; nothing - there is a kilobyte of
+                                        ; RAM between mitsos_end and #4000 -
+                                        ; and it hands the title picture back
+                                        ; the 256 bytes it was keeping clear
+STACK_BYTES     EQU 256                 ; and the assert at the bottom keeps
+                                        ; the workspace out of them
+
 LINE_TAB_AT     EQU #3200               ; and behind them, the line table. It
                                         ; has moved up twice, each time the low
                                         ; block grew: everything that is only
@@ -328,8 +341,9 @@ art_start
 pantomusic_song                         ; the tune rides down with them: the
     include "pantomusic.asm"            ; player reads it and never runs it
     include "mitsosdata.asm"            ; and so do the box lists that draw the
-    include "mitsosrooms.asm"           ; rooms, and the rooms themselves
-art_end
+    include "mitsosfurniture.asm"       ; rooms - which have to stay down here,
+    include "mitsospage.asm"            ; because the rooms point at them from
+art_end                                 ; a bank that is not always in
 ART_LEN         EQU art_end-art_start
 
 ;; ---------------------------------------------------------------------------
@@ -344,6 +358,22 @@ ART_LEN         EQU art_end-art_start
 ;; ---------------------------------------------------------------------------
     ORG ART_STORE
     include "mitsosartpack.asm"
+
+;; ---------------------------------------------------------------------------
+;; And behind it, every room, raw. src/mitsosbank.asm assembled them at #4000
+;; for bank 4; rooms_to_bank puts them there in the first dozen instructions,
+;; while the file is still lying over the screen and before anything has
+;; looked at it. They are not packed: the file has the room for them and the
+;; address space has not, which is the whole reason they are in a bank.
+;; ---------------------------------------------------------------------------
+ROOM_STORE
+    incbin "../build/mitsosrooms.bin"
+ROOM_BYTES      EQU $-ROOM_STORE
+ROOM_COUNT      EQU ROOM_BYTES/ROOM_BLOCK   ; the image is exactly this many
+                                        ; blocks, so nothing has to be kept
+                                        ; in step with how many rooms there
+                                        ; are - adding one to rooms.txt is
+                                        ; the whole of adding one
 
 ;; ---------------------------------------------------------------------------
 ;; The title picture, riding at the top of the file behind the sprites: the
@@ -398,7 +428,7 @@ SPR_UNROLL_MAX  EQU ART_MAX_W           ; and Grandma is ten bytes of it
 ;; ---------------------------------------------------------------------------
 mitsos_start
     di                                  ; the firmware's handler is about to go
-    ld sp,STACK_TOP
+    ld sp,MITSOS_STACK
 
     ld bc,#7F00+GA_MODE                 ; mode 0, upper and lower ROM disabled
     out (c),c
@@ -412,6 +442,10 @@ mitsos_start
                                         ; is just below #8000 and this is a
                                         ; call, so a return address would land
                                         ; in the middle of what it is reading
+
+    ld hl,ROOM_STORE                    ; and every room up into bank 4, from
+    ld bc,ROOM_BYTES                    ; the same file, before the screen is
+    call rooms_to_bank                  ; anything but the file
 
     ld hl,pal_blank                     ; build the shop unseen, so none of
     call set_pal                        ; the firmware's leftovers show
@@ -660,30 +694,18 @@ title_blink_hide
     jp clear_rows
 
 ;; ---------------------------------------------------------------------------
-;; room_load - cur_room's record, into the RAM the rest of the game reads it
-;; from. Twenty-one bytes copied rather than a pointer kept, so that every
-;; read afterwards is an absolute address and not an index through IX - there
-;; are a lot of them and they are in the middle of the frame.
+;; room_load - cur_room's block, out of bank 4 and into the RAM the rest of
+;; the game reads it from. Copied rather than addressed in place for two
+;; reasons: the bank is only in for as long as the copy, and a fixed block
+;; at a fixed address makes every read afterwards absolute rather than an
+;; index through a pointer. There are a lot of them, in the middle of frames.
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 room_load
     ld a,(cur_room)
-    ld l,a
-    ld h,0
-    ld d,h
-    ld e,l                              ; DE = the room number
-    add hl,hl                           ; and HL x21, which is R_SIZE
-    add hl,hl
-    add hl,de
-    add hl,hl
-    add hl,hl
-    add hl,de
-    ld de,rooms
-    add hl,de
     ld de,room_rec
-    ld bc,R_SIZE
-    ldir
-    ret
+    jp room_read                        ; which is at #0100, because it pages
+                                        ; bank 4 over the window this is in
 
 ;; ---------------------------------------------------------------------------
 ;; game_start - a new game: the first room, no score, and the lives he is
@@ -711,15 +733,12 @@ room_start
     call draw_shop
     call draw_hud
 
-    ld hl,(room_foes)                   ; the cast, unflattened and back on
-    ld de,foes                          ; their marks
-    ld bc,FOE_COUNT*E_SIZE
-    ldir
-    ld hl,(room_picks)                  ; and the shelves stocked again
-    ld de,pickups
-    ld bc,PICK_COUNT*P_SIZE
-    ldir
-
+                                        ; the cast is back on its marks and
+                                        ; the shelves stocked by room_read
+                                        ; itself: foes and pickups *are* the
+                                        ; room's own records, and the copy
+                                        ; nothing writes to is the one in the
+                                        ; bank
     xor a
     ld (mitsos_over),a
     ld (mitsos_grace),a
@@ -1106,7 +1125,7 @@ mitsos_slippery
     ld a,(mitsos_y)
     add a,MITSOS_H
     ld b,a                              ; his feet
-    ld hl,(room_soap)
+    ld hl,room_soap
 mitsos_slippery_loop
     ld a,(hl)
     inc a
@@ -1158,7 +1177,7 @@ mitsos_ground_check
     ld a,(mitsos_y)
     add a,MITSOS_H
     ld b,a                              ; his feet
-    ld hl,(room_plat)
+    ld hl,room_plat
 mitsos_ground_loop
     ld a,(hl)
     inc a
@@ -1269,7 +1288,7 @@ mitsos_air_land
 ;; Destroys AF, BC, DE, HL.
 ;; ---------------------------------------------------------------------------
 mitsos_find_landing
-    ld hl,(room_plat)
+    ld hl,room_plat
     ld c,#FF                            ; best so far
 mitsos_find_loop
     ld a,(hl)
@@ -2144,7 +2163,7 @@ draw_shop_grout
 
 ;; The soap, over the tiles and the line between them, because a puddle does
 ;; not respect grouting.
-    ld hl,(room_soap)
+    ld hl,room_soap
 draw_shop_soap
     ld a,(hl)
     inc a
@@ -2204,7 +2223,7 @@ draw_shop_soap
 ;; The furniture, in the order it stands in: the window is in the wall behind
 ;; everything, the shelving and the counter in front of it.
 draw_shop_props
-    ld hl,(room_props)
+    ld hl,room_props
 draw_shop_prop
     ld a,(hl)
     inc a
@@ -3764,12 +3783,13 @@ mitsos_over     defs 1              ; out of them, and waiting for fire
 ;; Which room he is in, and the room itself - mitsosrooms.asm's record copied
 ;; here by room_load, field for field in the order R_PLAT..R_BORDER names.
 cur_room        defs 1
+
+;; The room itself, laid out byte for byte the way bank 4 holds it, so that
+;; room_read is one LDIR and nothing in here has to be worked out. The tables
+;; are not pointed at, they are *here*: foes and pickups are the room's own
+;; records and are played on in place, because the copy nothing writes to is
+;; the one still sitting in the bank.
 room_rec
-room_plat       defs 2              ; what he can stand on
-room_props      defs 2              ; the furniture
-room_soap       defs 2              ; where somebody has been mopping
-room_picks      defs 2              ; what is standing on the furniture
-room_foes       defs 2              ; and what is after him
 room_startx     defs 1              ; where he comes in
 room_baskx      defs 1              ; and where the way out is
 room_basky      defs 1
@@ -3781,20 +3801,31 @@ dado_byte       defs 1              ; behind it and it stops being there
 floor_byte      defs 1
 grout_byte      defs 1
 room_border     defs 1              ; and the frame round the lot
+                defs 1              ; spare, so the tables start on twelve
+room_plat       defs 25             ; what he can stand on
+room_props      defs 25             ; the furniture
+room_soap       defs 10             ; where somebody has been mopping
+room_picks      defs PICK_COUNT*P_SIZE
+room_foes       defs FOE_COUNT*E_SIZE
 room_rec_end
-    ASSERT room_rec_end-room_rec == R_SIZE
+    ASSERT room_plat-room_rec == R_PLAT
+    ASSERT room_props-room_rec == R_PROPS
+    ASSERT room_soap-room_rec == R_SOAP
+    ASSERT room_picks-room_rec == R_PICKS
+    ASSERT room_foes-room_rec == R_FOES
+    ASSERT room_rec_end-room_rec == ROOM_USED
+    ASSERT ROOM_USED <= ROOM_BLOCK
+
+foes            EQU room_foes       ; the cast as it stands, and the shelves
+pickups         EQU room_picks      ; as they stand: the same bytes the room
+                                    ; arrived as
 
 sfx_mix         defs 1              ; the effect's mixer, kept because the
                                     ; player takes the real one back every
                                     ; tick and it has to be put straight
 
-;; The cast as it stands, copied from foes_init at the top of a game.
-foes            defs FOE_COUNT*E_SIZE
-
-;; The shelves as they stand.
-pickups         defs PICK_COUNT*P_SIZE
 mitsos_end
-    ASSERT mitsos_end <= #4000
+    ASSERT mitsos_end <= MITSOS_STACK-STACK_BYTES
 
     IF TARGET==1
 RUN mitsos_start
@@ -3808,10 +3839,10 @@ RUN mitsos_start
 ;; are moved, everything under #4000 has to stay under it, and the whole
 ;; thing has to stay clear of AMSDOS's buffers at #A67B.
 ;; ---------------------------------------------------------------------------
-IMAGE_LEN       EQU ART_STORE+ART_PACKED_LEN-mitsos_start
+IMAGE_LEN       EQU ROOM_STORE+ROOM_BYTES-mitsos_start
     ASSERT code_end <= MENU_STORE
     ASSERT MENU_STORE+MITSOSMENU_PACKED_LEN <= ART_STORE
-    ASSERT ART_STORE+ART_PACKED_LEN <= #A67B
+    ASSERT ROOM_STORE+ROOM_BYTES <= #A67B
     ASSERT ART_LEN == ART_RAW_LEN       ; the two build passes have to agree
     ASSERT ART_ORG+ART_LEN <= LINE_TAB_AT
     ASSERT MENU_STORE+MITSOSMENU_PACKED_LEN <= #8000
