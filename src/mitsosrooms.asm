@@ -68,12 +68,16 @@ rooms
     defb 8
     defb 66, SHELF_4-20                 ; the basket, on the top board again
     defb 24, 56                         ; her beat, across the middle of it
-    defb PEN10_BYTE, PEN10_BYTE, PEN10_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb PEN10_BYTE, PEN10_BYTE, PEN10_BYTE, PEN6_BYTE, PEN15_BYTE
     defb #40+6                          ; teal
 
     ;; --- 3: the cold room -------------------------------------------------
     ;; White with grey joints, which is the brick painter drawing wall tiles
     ;; and not knowing the difference, and cyan for everything cold.
+    ;;
+    ;; He comes in at the right-hand end, so the mouse's beat and the gull's
+    ;; both stop short of it: a room that walks something into him while he
+    ;; is still standing where it put him is not difficult, it is rude.
     defw r3_plat, r3_props, r3_soap, r3_picks, r3_foes
     defb 88                             ; in at the far end for once
     defb  4, SHELF_4-20
@@ -404,11 +408,11 @@ r3_picks                                ; picture, x, y, meze, alive, ox, oy
     defb 46, SHELF_1-8-SPR_FISH_H, 0, 1, #FF, 0
 
 r3_foes
-    defb K_MOUSE, 52, FLOOR_TOP-SPR_MOUSE_A_H, 0, 36, 88, -1
+    defb K_MOUSE, 52, FLOOR_TOP-SPR_MOUSE_A_H, 0, 36, 70, -1
     defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
     defb K_MOUSE, 10, SHELF_2-SPR_MOUSE_A_H, 0, 4, 30, 1
     defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
-    defb K_GULL, 56, 64, 64, 40, 90, 1
+    defb K_GULL, 56, 64, 64, 40, 76, 1
     defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
 r3_foes_end
     ASSERT r3_foes_end-r3_foes == FOE_COUNT*E_SIZE
