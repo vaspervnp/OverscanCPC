@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Photograph one of the second game's rooms on a real 6128.
 
-    tools/mitsosshot.py 3 docs/mitsos-yard-6128.png
+    tools/mitsosshot.py 3 docs/mitsos-yard-6128.png [settle]
 
 Everything in docs/mitsos-room*.png came out of tools/z80check.py, which
 executes the code and decodes video RAM through the CPC's own MA/RA wiring -
@@ -30,9 +30,10 @@ sys.path.insert(0, EMU)
 
 
 def main():
-    if len(sys.argv) != 3:
-        sys.exit("usage: mitsosshot.py <room 0-3> <out.png>")
+    if not 3 <= len(sys.argv) <= 4:
+        sys.exit("usage: mitsosshot.py <room> <out.png> [settle]")
     room, out = sys.argv[1], sys.argv[2]
+    settle = int(sys.argv[3]) if len(sys.argv) > 3 else 1
 
     try:
         from cpc import CPC
@@ -66,13 +67,17 @@ def main():
         c.key_down(0x20)                    # space is fire
         c.run_frames(10)
         c.key_up(0x20)
-        c.run_frames(301)                   # and draw_shop paints the room
-        # An odd number, and that matters. run_frames stops on a frame
-        # boundary, which is the tick the rebuild starts on - and the cast is
-        # rebuilt top of the screen first, so whoever is lowest is put back
-        # last and is exactly who a picture taken there is missing. The game
-        # renders every second frame, so one more lands between two rebuilds
-        # with the whole cast on the screen.
+        # draw_shop paints the room, and then a frame or two to settle.
+        #
+        # That last bit is not superstition. run_frames stops on a frame
+        # boundary, which is the tick a rebuild starts on, and a rebuild that
+        # overruns its frame - the whole cast off and back on, which is what
+        # cast_slow asks for whenever Grandma or a tangle needs it - is still
+        # running at the next boundary. A picture taken there is missing
+        # whoever goes back last, which is whoever is lowest on the screen.
+        # Which frames those are depends on the room, so `settle` is a knob:
+        # if the cat is not in the picture, try the next number.
+        c.run_frames(300 + settle)
         if not 0x4000 <= c.pc < 0x6800:
             sys.exit("mitsosshot: PC is #%04X, which is not the game" % c.pc)
         c.screenshot(out, scale=1, aspect=True)

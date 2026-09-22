@@ -638,7 +638,11 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   twenty-nine rooms gets one of them wrong and nothing says so; the generator does the
   offsets and rasm still does the arithmetic, because every number is passed through as
   an expression and `SHELF_2-8` means what `mitsosshop.asm` says. It also refuses a
-  room that breaks the grammar - three after him, five to pick up, four of them mezedes.
+  room that breaks the grammar - three after him, five to pick up, four of them mezedes
+  - and a room that paints its wall, dado or floor in **pen 7**, which is the pen Mitsos
+  is drawn in. An orange cat on an orange wall is his stripes and his belly and nothing
+  else; the game knows exactly where he is and only a picture shows it, which is the
+  same mistake Grandma's face made against the coral brick of the shop.
 - **The furniture stays below #4000 while the rooms do not.** A room's prop list is
   four bytes an entry, two of which are the address of a box list, and an address is
   only any use if what it points at is there when the bank is out. That is

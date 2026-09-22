@@ -187,7 +187,10 @@ box_beam
 box_dormer
     defb  0,  0, 16, 48, 3      ; the frame
     defb  2,  4, 12, 24, 11     ; sky
-    defb  2, 28, 12, 16, 15     ; and the roofs of the town under it
+    defb  2, 28, 12, 16, 12     ; and the tiled roofs of the town under it,
+                                ; dark red rather than pale - a pale roof in
+                                ; a room with a pale plaster wall is a hole
+                                ; in the middle of the window
     defb  7,  0,  2, 48, 3      ; the bar down the middle
     defb  3, 32,  4,  4, 7
     defb 10, 34,  4,  4, 7

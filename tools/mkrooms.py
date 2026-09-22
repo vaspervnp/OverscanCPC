@@ -63,6 +63,16 @@ R_FOES, FOE_COUNT = 112, 3
 MEZE_COUNT = 4
 
 PENS = ("wall", "mortar", "dado", "floor", "grout", "border")
+#: The pen Mitsos himself is drawn in. A room painted in it loses him: he is
+#: an orange cat, and against an orange wall what is left of him is the dark
+#: red of his stripes and the white of his belly. It is the same mistake
+#: Grandma's face made against the coral brick of the shop, and it does not
+#: show up in anything but a picture - the game knows exactly where he is.
+HIS_PEN = "7"
+#: and the ones a room may not paint the ground he walks on in. `mortar` and
+#: `grout` are lines a pixel or two wide and he is twenty-four scanlines, so
+#: those may be anything.
+HIS_GROUND = ("wall", "dado", "floor")
 KINDS = {"mouse": "K_MOUSE", "gull": "K_GULL"}
 #: What a foe's E_REST starts at. A mouse that steals wants a head start.
 REST = {"steal": "STEAL_START", "rest": "STEAL_REST"}
@@ -136,6 +146,11 @@ def check(r):
                 % (r["name"], len(r[key]), key, most))
     if not r["stand"]:
         die(n, "room %s has nothing to stand on" % r["name"])
+    for key in HIS_GROUND:
+        if r["light"][key] == HIS_PEN:
+            die(n, "room %s paints its %s in pen %s, which is the pen Mitsos "
+                   "is drawn in - he would walk about in it invisible"
+                % (r["name"], key, HIS_PEN))
     if len(r["pick"]) != PICK_COUNT:
         die(n, "room %s has %d things to pick up and every room has %d"
             % (r["name"], len(r["pick"]), PICK_COUNT))

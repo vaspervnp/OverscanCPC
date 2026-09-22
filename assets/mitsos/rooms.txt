@@ -577,7 +577,7 @@ room the dormer
   gull   20 92 8 32 -1 100
 
 room the apple loft
-  light  wall=7 mortar=7 dado=6 floor=6 grout=12 border=14
+  light  wall=12 mortar=7 dado=6 floor=6 grout=12 border=28
   start  4
   basket 76 SHELF_3-20
   beat   26 62
@@ -765,7 +765,7 @@ room the dusty end
   gull   34 54 22 64 1
 
 room the roof light
-  light  wall=7 mortar=15 dado=7 floor=6 grout=15 border=14
+  light  wall=15 mortar=7 dado=15 floor=6 grout=12 border=3
   start  88
   basket 8 SHELF_3-20
   beat   30 60

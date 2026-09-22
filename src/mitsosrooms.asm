@@ -1151,8 +1151,8 @@ ROOM_COUNT      EQU 29
     defb 4                          ; where he comes in
     defb 76, SHELF_3-20         ; the way out
     defb 26, 62                 ; her beat
-    defb PEN7_BYTE, PEN7_BYTE, PEN6_BYTE, PEN6_BYTE, PEN12_BYTE
-    defb #40+14
+    defb PEN12_BYTE, PEN7_BYTE, PEN6_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb #40+28
     ORG ROOM_BANK+21*ROOM_BLOCK+R_PLAT
     defb 0, 95, FLOOR_TOP
     defb 6, 19, SHELF_3
@@ -1539,8 +1539,8 @@ ROOM_COUNT      EQU 29
     defb 88                         ; where he comes in
     defb 8, SHELF_3-20         ; the way out
     defb 30, 60                 ; her beat
-    defb PEN7_BYTE, PEN15_BYTE, PEN7_BYTE, PEN6_BYTE, PEN15_BYTE
-    defb #40+14
+    defb PEN15_BYTE, PEN7_BYTE, PEN15_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb #40+3
     ORG ROOM_BANK+28*ROOM_BLOCK+R_PLAT
     defb 0, 95, FLOOR_TOP
     defb 8, 31, SHELF_1

@@ -2,10 +2,10 @@
 ;;
 ;; The game's low block, LZSS packed. See the tool for the
 ;; format; src/unpack.asm has the decoder, forty bytes of it.
-;; 11767 bytes in 3172, 1290 literals and 550 matches.
+;; 11767 bytes in 3171, 1287 literals and 551 matches.
 
 ART_RAW_LEN      EQU 11767
-ART_PACKED_LEN   EQU 3172
+ART_PACKED_LEN   EQU 3171
 
 art_packed
     defb #BF,#00,#07,#00,#01,#60,#90,#90,#F0,#90,#90,#FB,#90,#00,#E0,#90
@@ -201,9 +201,9 @@ art_packed
     defb #EF,#0A,#20,#06,#03,#7A,#2E,#04,#0F,#04,#00,#F6,#08,#20,#06,#04
     defb #03,#6F,#2D,#0F,#FF,#03,#06,#01,#BB,#0C,#03,#3C,#04,#60,#08,#06
     defb #03,#94,#2E,#02,#0F,#5F,#04,#1C,#2E,#30,#03,#BE,#2C,#0C,#18,#0B
-    defb #02,#1C,#FF,#0C,#10,#0F,#07,#00,#02,#30,#03,#FE,#03,#20,#04,#04
-    defb #07,#0A,#22,#03,#B5,#2E,#FF,#FF,#F3,#3E,#C4,#CD,#EE,#2E,#11,#FF
-    defb #00,#40,#ED,#B0,#18,#21,#F3,#6F,#EE,#26,#00,#29,#05,#CF,#2E,#44
-    defb #4D,#29,#03,#7A,#03,#FB,#40,#09,#01,#A9,#00,#05,#BF,#2E,#ED,#B0
-    defb #FF,#CD,#EC,#2E,#FB,#C9,#3E,#C0,#C5,#FF,#01,#00,#7F,#4F,#ED,#49
-    defb #C1,#C9,#00,#00
+    defb #02,#1C,#DF,#0C,#10,#03,#87,#2D,#02,#30,#03,#03,#20,#FB,#04,#04
+    defb #07,#0A,#22,#03,#B5,#2E,#FF,#F3,#FF,#3E,#C4,#CD,#EE,#2E,#11,#00
+    defb #40,#FF,#ED,#B0,#18,#21,#F3,#6F,#26,#00,#BB,#29,#05,#CF,#2E,#44
+    defb #4D,#29,#03,#7A,#03,#40,#09,#EF,#01,#A9,#00,#05,#BF,#2E,#ED,#B0
+    defb #CD,#EC,#FF,#2E,#FB,#C9,#3E,#C0,#C5,#01,#00,#FC,#7F,#4F,#ED,#49
+    defb #C1,#C9,#00
