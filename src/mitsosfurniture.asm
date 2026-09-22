@@ -141,3 +141,54 @@ box_gate
     defb 10,  4,  2, 20, 12
     defb  0,  0, 16,  2, 15     ; the lintel over it
     defb #FF
+
+;; 56 x 40 px: a barrel on its side, chocked so it does not roll. The flat of
+;; the top is a shelf, which is what a cellar has instead of shelving.
+box_barrel
+    defb  0,  4, 14, 36, 6      ; the staves
+    defb  0,  0, 14,  6, 2      ; and the flat he can stand on
+    defb  0, 12, 14,  4, 12     ; two hoops
+    defb  0, 30, 14,  4, 12
+    defb  5, 18,  4,  6, 4      ; the bung
+    defb #FF
+
+;; 96 x 32 px: a board of jars up on the wall. The board is the platform and
+;; the jars are what it is for - a shelf with nothing behind it, which reads
+;; as a cellar wall rather than as a grocer's shelving.
+box_jars
+    defb  0, 28, 24,  4, 2      ; the board
+    defb  2, 12,  4, 16, 11     ; and four jars of something each
+    defb  8, 14,  4, 14, 15
+    defb 14, 10,  4, 18, 9
+    defb 20, 16,  4, 12, 7
+    defb #FF
+
+;; 48 x 96 px: the stone steps down. Scenery - the way between rooms is the
+;; basket here as everywhere - but a cellar with no way into it is a hole.
+box_steps
+    defb  0, 64, 12, 32, 6      ; olive rather than the grey of a stone wall,
+    defb  0, 64, 12,  4, 15     ; because two of the three cellars these are
+    defb  2, 32, 10, 32, 6      ; in have grey walls and steps that are the
+    defb  2, 32, 10,  4, 15     ; colour of the wall behind them are a few
+    defb  4,  0,  8, 32, 6      ; white lines and nothing else
+    defb  4,  0,  8,  4, 15
+    defb #FF
+
+;; 384 x 20 px: a roof beam right across the loft, with the dark of the tiles
+;; above it. Nothing stands on it; it is what tells you which way is up, and
+;; a beam that stops a quarter of the way over is a black bar in the corner.
+box_beam
+    defb  0,  0, 96, 12, 4      ; the tiles
+    defb  0, 12, 96,  8, 6      ; the beam
+    defb  0, 12, 96,  2, 15     ; and the light along the top edge of it
+    defb #FF
+
+;; 64 x 48 px: the dormer, which is the only daylight in a loft.
+box_dormer
+    defb  0,  0, 16, 48, 3      ; the frame
+    defb  2,  4, 12, 24, 11     ; sky
+    defb  2, 28, 12, 16, 15     ; and the roofs of the town under it
+    defb  7,  0,  2, 48, 3      ; the bar down the middle
+    defb  3, 32,  4,  4, 7
+    defb 10, 34,  4,  4, 7
+    defb #FF

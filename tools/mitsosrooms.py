@@ -35,7 +35,8 @@ ROOM_BANK = 0x4000                      # and where bank 4 holds a room
 #: agrees. Duplicated rather than parsed because they are the format.
 ROOM_BLOCK = 192
 R_BASKX, R_BASKY = 1, 2
-R_PLAT, R_PICKS = 12, 72
+R_PLAT, R_PROPS, R_PICKS = 12, 37, 72
+FLOOR_TOP = 236
 PICK_COUNT = 5
 P_SIZE = 8
 BASKET_W = 8
@@ -66,6 +67,35 @@ def platforms(mem, a):
     return out
 
 
+def props(mem, a):
+    """x, y, and the box list drawn there - #FF ends it."""
+    out = []
+    while mem[a] != 0xFF:
+        out.append((mem[a], mem[a + 1], word(mem, a + 2)))
+        a += 4
+    return out
+
+
+def footprint(mem, x, y, lst):
+    """The rectangle a prop's boxes cover, in columns and scanlines."""
+    x0 = y0 = 255
+    x1 = y1 = 0
+    while mem[lst] != 0xFF:
+        dx, dy, w, h = mem[lst], mem[lst + 1], mem[lst + 2], mem[lst + 3]
+        x0, y0 = min(x0, x + dx), min(y0, y + dy)
+        x1, y1 = max(x1, x + dx + w - 1), max(y1, y + dy + h - 1)
+        lst += 5
+    return x0, y0, x1, y1
+
+
+def held_up(shapes, x0, x1, y):
+    """Is this platform the top of something that is actually drawn?"""
+    for px0, py0, px1, py1 in shapes:
+        if x0 >= px0 and x1 <= px1 and py0 <= y <= py1:
+            return True
+    return False
+
+
 def standing_on(plats, x, w, top):
     """A platform whose top is exactly this, under the whole width of it."""
     for x0, x1, y in plats:
@@ -89,6 +119,16 @@ def main():
         plats = platforms(mem, rec + R_PLAT)
         picks = rec + R_PICKS
         bx, by = mem[rec + R_BASKX], mem[rec + R_BASKY]
+
+        shapes = [footprint(mem, x, y, lst)
+                  for x, y, lst in props(mem, rec + R_PROPS)]
+        for x0, x1, y in plats:
+            if y == FLOOR_TOP:
+                continue
+            if not held_up(shapes, x0, x1, y):
+                print("room %d: the platform at %d-%d on scanline %d has no "
+                      "furniture under it" % (n + 1, x0, x1, y))
+                bad += 1
 
         where = standing_on(plats, bx, BASKET_W, by + BASKET_H)
         if where is None:

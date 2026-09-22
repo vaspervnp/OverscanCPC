@@ -627,6 +627,12 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   pens, a border, and then the platform, prop, soap, pickup and enemy tables. `foes`
   and `pickups` **are** the room's own records, played on in place: the copy nothing
   writes to is the one still sitting in the bank.
+- **Twenty-nine rooms: the shop, the yard, fifteen of cellar under it and ten of loft
+  over it.** They are made of nine box lists between them, because furniture is shared
+  and a new room is a few pointers rather than new pictures - what makes them different
+  is the five pens, where the platforms are and what is standing on them. The cellar is
+  stone, brick and bare earth with no daylight in any of it; the loft is plaster and
+  boards with a beam across every ceiling and a dormer for the gulls to get in by.
 - The rooms are written in `assets/mitsos/rooms.txt` and `tools/mkrooms.py` generates
   `src/mitsosrooms.asm` from it. Hand-writing an ORG per field per room for
   twenty-nine rooms gets one of them wrong and nothing says so; the generator does the
@@ -662,8 +668,10 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   block and asks, of every meze and every basket in every room, whether its feet are on
   a platform that room's own table names. One that is not is either hanging in the air
   or buried in the furniture, and a basket that is not makes the room impossible to
-  leave. Neither shows up as a crash, and neither would ever be noticed by a run that
-  does not reach that room.
+  leave. It also checks that every platform has furniture under it, because a platform
+  with nothing drawn beneath it is a cat standing in mid-air. None of the three shows
+  up as a crash, and none would ever be noticed by a run that does not reach that room
+  - and the scripted runs reach the first of twenty-nine.
 - `docs/mitsos-room*.png` are `z80check.py` renders - right about the layout, and a
   model of the machine. `docs/mitsos-yard-6128.png` is the same room off the disc on
   floooh/chips' 6128 with the real ROMs, which is what `tools/mitsosshot.py` is for:

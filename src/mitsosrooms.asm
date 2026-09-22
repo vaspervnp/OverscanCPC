@@ -6,7 +6,7 @@
 ;; place: src/mitsosbank.asm saves the image, the file carries
 ;; it, and rooms_to_bank puts it where it belongs at boot.
 
-ROOM_COUNT      EQU 4
+ROOM_COUNT      EQU 29
 
 ;; --- 1: the shop --------------------------------------------------
     ORG ROOM_BANK+0*ROOM_BLOCK
@@ -226,6 +226,1367 @@ ROOM_COUNT      EQU 4
     defb K_GULL, 70, 92, 92, 52, 88, -1
     defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 100, 0, 0
     ASSERT $ == ROOM_BANK+3*ROOM_BLOCK+ROOM_USED
+
+;; --- 5: the cellar steps ------------------------------------------
+    ORG ROOM_BANK+4*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 66, SHELF_4-20         ; the way out
+    defb 30, 58                 ; her beat
+    defb PEN5_BYTE, PEN3_BYTE, PEN5_BYTE, PEN5_BYTE, PEN3_BYTE
+    defb #40+0
+    ORG ROOM_BANK+4*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 66, 95, SHELF_1
+    defb 66, 95, SHELF_2
+    defb 66, 95, SHELF_3
+    defb 66, 95, SHELF_4
+    defb 8, 21, SHELF_1-8
+    defb 24, 37, SHELF_2-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+4*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+4*ROOM_BLOCK+R_PROPS
+    defb 0, FLOOR_TOP-96
+    defw box_steps
+    defb 66, 76
+    defw box_shelving
+    defb 8, SHELF_1-8
+    defw box_crates
+    defb 24, SHELF_2-8
+    defw box_crates
+    defb 44, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+4*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+4*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+4*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+4*ROOM_BLOCK+R_PICKS
+    defw spr_sausage
+    defb 10, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 26, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 70, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 86, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 78, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+4*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+4*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 46, FLOOR_TOP-SPR_MOUSE_A_H, 0, 24, 62, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 70, SHELF_2-SPR_MOUSE_A_H, 0, 66, 90, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 84, SHELF_4-SPR_MOUSE_A_H, 0, 66, 90, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+4*ROOM_BLOCK+ROOM_USED
+
+;; --- 6: the oil store ---------------------------------------------
+    ORG ROOM_BANK+5*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 4, SHELF_4-20         ; the way out
+    defb 36, 64                 ; her beat
+    defb PEN6_BYTE, PEN6_BYTE, PEN6_BYTE, PEN5_BYTE, PEN3_BYTE
+    defb #40+30
+    ORG ROOM_BANK+5*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 50, 63, SHELF_1-8
+    defb 68, 81, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+5*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+5*ROOM_BLOCK+R_PROPS
+    defb 4, 76
+    defw box_rack
+    defb 50, SHELF_1-8
+    defw box_barrel
+    defb 68, SHELF_1-8
+    defw box_barrel
+    defb 36, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+5*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+5*ROOM_BLOCK+R_SOAP
+    defb 36, 48, FLOOR_TOP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+5*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+5*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 54, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 72, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 8, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 22, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 6, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+5*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+5*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 44, FLOOR_TOP-SPR_MOUSE_A_H, 0, 30, 76, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_1-SPR_MOUSE_A_H, 0, 4, 30, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 24, SHELF_3-SPR_MOUSE_A_H, 0, 4, 30, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+5*ROOM_BLOCK+ROOM_USED
+
+;; --- 7: the wine cellar -------------------------------------------
+    ORG ROOM_BANK+6*ROOM_BLOCK
+    defb 8                          ; where he comes in
+    defb 76, SHELF_3-20         ; the way out
+    defb 26, 62                 ; her beat
+    defb PEN12_BYTE, PEN1_BYTE, PEN12_BYTE, PEN6_BYTE, PEN6_BYTE
+    defb #40+28
+    ORG ROOM_BANK+6*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 6, 19, SHELF_3
+    defb 6, 19, SHELF_2
+    defb 6, 19, SHELF_1
+    defb 76, 89, SHELF_3
+    defb 76, 89, SHELF_2
+    defb 76, 89, SHELF_1
+    defb 40, 53, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+6*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+6*ROOM_BLOCK+R_PROPS
+    defb 6, SHELF_3
+    defw box_stack
+    defb 76, SHELF_3
+    defw box_stack
+    defb 40, SHELF_1-8
+    defw box_barrel
+    defb 58, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+6*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+6*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+6*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+6*ROOM_BLOCK+R_PICKS
+    defw spr_sausage
+    defb 8, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 8, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 78, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 44, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 78, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+6*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+6*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 62, FLOOR_TOP-SPR_MOUSE_A_H, 0, 26, 74, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 80, SHELF_2-SPR_MOUSE_A_H, 0, 76, 88, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 34, 68, 68, 24, 68, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+6*ROOM_BLOCK+ROOM_USED
+
+;; --- 8: the jar shelf ---------------------------------------------
+    ORG ROOM_BANK+7*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 40, SHELF_4-20         ; the way out
+    defb 30, 60                 ; her beat
+    defb PEN5_BYTE, PEN4_BYTE, PEN5_BYTE, PEN5_BYTE, PEN4_BYTE
+    defb #40+0
+    ORG ROOM_BANK+7*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 10, 33, SHELF_1
+    defb 40, 63, SHELF_2
+    defb 10, 33, SHELF_3
+    defb 40, 63, SHELF_4
+    defb 72, 85, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+7*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+7*ROOM_BLOCK+R_PROPS
+    defb 10, SHELF_1-28
+    defw box_jars
+    defb 40, SHELF_2-28
+    defw box_jars
+    defb 10, SHELF_3-28
+    defw box_jars
+    defb 40, SHELF_4-28
+    defw box_jars
+    defb 72, SHELF_1-8
+    defw box_crates
+    defb 88, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+7*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+7*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+7*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+7*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 14, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 44, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 20, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 76, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 56, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+7*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+7*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 60, FLOOR_TOP-SPR_MOUSE_A_H, 0, 26, 82, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 14, SHELF_1-SPR_MOUSE_A_H, 0, 10, 32, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 46, SHELF_2-SPR_MOUSE_A_H, 0, 40, 62, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+7*ROOM_BLOCK+ROOM_USED
+
+;; --- 9: the coal hole ---------------------------------------------
+    ORG ROOM_BANK+8*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 8, SHELF_4-20         ; the way out
+    defb 34, 66                 ; her beat
+    defb PEN4_BYTE, PEN5_BYTE, PEN4_BYTE, PEN4_BYTE, PEN5_BYTE
+    defb #40+20
+    ORG ROOM_BANK+8*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 46, 59, SHELF_1-8
+    defb 62, 75, SHELF_2-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+8*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+8*ROOM_BLOCK+R_PROPS
+    defb 4, 76
+    defw box_rack
+    defb 46, SHELF_1-8
+    defw box_crates
+    defb 62, SHELF_2-8
+    defw box_crates
+    defb 80, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+8*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+8*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+8*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+8*ROOM_BLOCK+R_PICKS
+    defw spr_meatball
+    defb 50, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 66, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 6, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 24, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+8*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+8*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 40, FLOOR_TOP-SPR_MOUSE_A_H, 0, 34, 76, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 20, SHELF_3-SPR_MOUSE_A_H, 0, 4, 30, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 8, SHELF_1-SPR_MOUSE_A_H, 0, 4, 30, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+8*ROOM_BLOCK+ROOM_USED
+
+;; --- 10: the flour bins --------------------------------------------
+    ORG ROOM_BANK+9*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 66, SHELF_4-20         ; the way out
+    defb 28, 58                 ; her beat
+    defb PEN15_BYTE, PEN5_BYTE, PEN15_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb #40+3
+    ORG ROOM_BANK+9*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 66, 95, SHELF_1
+    defb 66, 95, SHELF_2
+    defb 66, 95, SHELF_3
+    defb 66, 95, SHELF_4
+    defb 6, 19, SHELF_1-8
+    defb 22, 35, SHELF_2-8
+    defb 38, 51, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+9*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+9*ROOM_BLOCK+R_PROPS
+    defb 66, 76
+    defw box_shelving
+    defb 6, SHELF_1-8
+    defw box_crates
+    defb 22, SHELF_2-8
+    defw box_crates
+    defb 38, SHELF_1-8
+    defw box_crates
+    defb 54, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+9*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+9*ROOM_BLOCK+R_SOAP
+    defb 52, 64, FLOOR_TOP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+9*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+9*ROOM_BLOCK+R_PICKS
+    defw spr_cheese
+    defb 8, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 24, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 70, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 86, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 42, SHELF_1-8-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+9*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+9*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 62, FLOOR_TOP-SPR_MOUSE_A_H, 0, 28, 76, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 74, SHELF_1-SPR_MOUSE_A_H, 0, 66, 90, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 50, 60, 60, 30, 70, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+9*ROOM_BLOCK+ROOM_USED
+
+;; --- 11: the cold store --------------------------------------------
+    ORG ROOM_BANK+10*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 4, SHELF_4-20         ; the way out
+    defb 38, 68                 ; her beat
+    defb PEN3_BYTE, PEN10_BYTE, PEN10_BYTE, PEN5_BYTE, PEN11_BYTE
+    defb #40+6
+    ORG ROOM_BANK+10*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 44, 67, SHELF_1-8
+    defb 68, 91, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+10*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+10*ROOM_BLOCK+R_PROPS
+    defb 4, 76
+    defw box_rack
+    defb 44, SHELF_1-8
+    defw box_icebox
+    defb 68, SHELF_1-8
+    defw box_icebox
+    defb #FF
+    ASSERT $ <= ROOM_BANK+10*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+10*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+10*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+10*ROOM_BLOCK+R_PICKS
+    defw spr_sausage
+    defb 48, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 74, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 6, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 24, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+10*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+10*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 56, FLOOR_TOP-SPR_MOUSE_A_H, 0, 38, 74, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_2-SPR_MOUSE_A_H, 0, 4, 30, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 58, 62, 62, 42, 78, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+10*ROOM_BLOCK+ROOM_USED
+
+;; --- 12: the brine vats --------------------------------------------
+    ORG ROOM_BANK+11*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 40, SHELF_2-8-20       ; the way out
+    defb 30, 60                 ; her beat
+    defb PEN10_BYTE, PEN10_BYTE, PEN8_BYTE, PEN5_BYTE, PEN3_BYTE
+    defb #40+6
+    ORG ROOM_BANK+11*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 8, 21, SHELF_1-8
+    defb 24, 37, SHELF_2-8
+    defb 40, 53, SHELF_2-8
+    defb 56, 69, SHELF_1-8
+    defb 76, 95, SHELF_1
+    defb 76, 95, SHELF_2
+    defb #FF
+    ASSERT $ <= ROOM_BANK+11*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+11*ROOM_BLOCK+R_PROPS
+    defb 8, SHELF_1-8
+    defw box_barrel
+    defb 24, SHELF_2-8
+    defw box_barrel
+    defb 40, SHELF_2-8
+    defw box_barrel
+    defb 56, SHELF_1-8
+    defw box_barrel
+    defb 76, SHELF_2-28
+    defw box_jars
+    defb 76, SHELF_1-28
+    defw box_jars
+    defb #FF
+    ASSERT $ <= ROOM_BANK+11*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+11*ROOM_BLOCK+R_SOAP
+    defb 68, 78, FLOOR_TOP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+11*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+11*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 12, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 28, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 60, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 80, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 82, SHELF_1-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+11*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+11*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 50, FLOOR_TOP-SPR_MOUSE_A_H, 0, 30, 72, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 80, SHELF_1-SPR_MOUSE_A_H, 0, 76, 92, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 30, SHELF_2-8-SPR_MOUSE_A_H, 0, 24, 36, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+11*ROOM_BLOCK+ROOM_USED
+
+;; --- 13: the root cellar -------------------------------------------
+    ORG ROOM_BANK+12*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 8, SHELF_3-20         ; the way out
+    defb 32, 62                 ; her beat
+    defb PEN6_BYTE, PEN6_BYTE, PEN6_BYTE, PEN6_BYTE, PEN4_BYTE
+    defb #40+30
+    ORG ROOM_BANK+12*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 6, 19, SHELF_3
+    defb 6, 19, SHELF_2
+    defb 6, 19, SHELF_1
+    defb 30, 43, SHELF_1-8
+    defb 46, 59, SHELF_2-8
+    defb 70, 83, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+12*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+12*ROOM_BLOCK+R_PROPS
+    defb 6, SHELF_3
+    defw box_stack
+    defb 30, SHELF_1-8
+    defw box_crates
+    defb 46, SHELF_2-8
+    defw box_crates
+    defb 70, SHELF_1-8
+    defw box_crates
+    defb 84, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+12*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+12*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+12*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+12*ROOM_BLOCK+R_PICKS
+    defw spr_meatball
+    defb 34, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 50, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 74, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 8, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_1-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+12*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+12*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 62, FLOOR_TOP-SPR_MOUSE_A_H, 0, 26, 80, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_3-SPR_MOUSE_A_H, 0, 6, 18, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 50, SHELF_2-8-SPR_MOUSE_A_H, 0, 46, 58, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+12*ROOM_BLOCK+ROOM_USED
+
+;; --- 14: the deep cellar -------------------------------------------
+    ORG ROOM_BANK+13*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 76, SHELF_3-20         ; the way out
+    defb 26, 66                 ; her beat
+    defb PEN4_BYTE, PEN12_BYTE, PEN4_BYTE, PEN5_BYTE, PEN12_BYTE
+    defb #40+20
+    ORG ROOM_BANK+13*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 76, 89, SHELF_3
+    defb 76, 89, SHELF_2
+    defb 76, 89, SHELF_1
+    defb 10, 33, SHELF_1
+    defb 10, 33, SHELF_3
+    defb 46, 59, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+13*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+13*ROOM_BLOCK+R_PROPS
+    defb 76, SHELF_3
+    defw box_stack
+    defb 10, SHELF_1-28
+    defw box_jars
+    defb 10, SHELF_3-28
+    defw box_jars
+    defb 46, SHELF_1-8
+    defw box_barrel
+    defb 62, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+13*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+13*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+13*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+13*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 14, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 20, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 50, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 80, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 80, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+13*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+13*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 40, FLOOR_TOP-SPR_MOUSE_A_H, 0, 26, 72, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 80, SHELF_1-SPR_MOUSE_A_H, 0, 76, 88, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 34, 56, 56, 22, 62, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+13*ROOM_BLOCK+ROOM_USED
+
+;; --- 15: the grating -----------------------------------------------
+    ORG ROOM_BANK+14*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 4, SHELF_4-20         ; the way out
+    defb 34, 64                 ; her beat
+    defb PEN5_BYTE, PEN3_BYTE, PEN10_BYTE, PEN5_BYTE, PEN3_BYTE
+    defb #40+0
+    ORG ROOM_BANK+14*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 42, 55, SHELF_1-8
+    defb 58, 71, SHELF_2-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+14*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+14*ROOM_BLOCK+R_PROPS
+    defb 58, 24
+    defw box_window
+    defb 4, 76
+    defw box_shelving
+    defb 42, SHELF_1-8
+    defw box_crates
+    defb 58, SHELF_2-8
+    defw box_crates
+    defb 80, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+14*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+14*ROOM_BLOCK+R_SOAP
+    defb 72, 84, FLOOR_TOP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+14*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+14*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 46, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 62, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 8, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 24, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 6, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+14*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+14*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 44, FLOOR_TOP-SPR_MOUSE_A_H, 0, 34, 78, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_GULL, 58, 66, 66, 42, 76, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 24, 94, 94, 12, 32, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 100, 0, 0
+    ASSERT $ == ROOM_BANK+14*ROOM_BLOCK+ROOM_USED
+
+;; --- 16: the lamp cellar -------------------------------------------
+    ORG ROOM_BANK+15*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 66, SHELF_4-20         ; the way out
+    defb 28, 56                 ; her beat
+    defb PEN12_BYTE, PEN7_BYTE, PEN12_BYTE, PEN6_BYTE, PEN7_BYTE
+    defb #40+28
+    ORG ROOM_BANK+15*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 66, 95, SHELF_1
+    defb 66, 95, SHELF_2
+    defb 66, 95, SHELF_3
+    defb 66, 95, SHELF_4
+    defb 8, 31, SHELF_1
+    defb 8, 31, SHELF_3
+    defb 40, 53, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+15*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+15*ROOM_BLOCK+R_PROPS
+    defb 66, 76
+    defw box_shelving
+    defb 8, SHELF_1-28
+    defw box_jars
+    defb 8, SHELF_3-28
+    defw box_jars
+    defb 40, SHELF_1-8
+    defw box_barrel
+    defb 56, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+15*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+15*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+15*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+15*ROOM_BLOCK+R_PICKS
+    defw spr_cheese
+    defb 12, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 18, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 44, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 70, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 86, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+15*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+15*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 58, FLOOR_TOP-SPR_MOUSE_A_H, 0, 28, 74, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 72, SHELF_3-SPR_MOUSE_A_H, 0, 66, 90, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 14, SHELF_1-SPR_MOUSE_A_H, 0, 8, 30, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+15*ROOM_BLOCK+ROOM_USED
+
+;; --- 17: the ice pit -----------------------------------------------
+    ORG ROOM_BANK+16*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 76, SHELF_3-20         ; the way out
+    defb 30, 62                 ; her beat
+    defb PEN11_BYTE, PEN3_BYTE, PEN3_BYTE, PEN3_BYTE, PEN11_BYTE
+    defb #40+19
+    ORG ROOM_BANK+16*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 76, 89, SHELF_3
+    defb 76, 89, SHELF_2
+    defb 76, 89, SHELF_1
+    defb 20, 43, SHELF_1-8
+    defb 46, 69, SHELF_1-8
+    defb 6, 19, SHELF_1
+    defb #FF
+    ASSERT $ <= ROOM_BANK+16*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+16*ROOM_BLOCK+R_PROPS
+    defb 76, SHELF_3
+    defw box_stack
+    defb 20, SHELF_1-8
+    defw box_icebox
+    defb 46, SHELF_1-8
+    defw box_icebox
+    defb 6, SHELF_1-28
+    defw box_jars
+    defb #FF
+    ASSERT $ <= ROOM_BANK+16*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+16*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+16*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+16*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 24, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 50, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 80, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 8, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 80, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+16*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+16*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 62, FLOOR_TOP-SPR_MOUSE_A_H, 0, 30, 72, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 80, SHELF_1-SPR_MOUSE_A_H, 0, 76, 88, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 40, 58, 58, 24, 68, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+16*ROOM_BLOCK+ROOM_USED
+
+;; --- 18: the long cellar -------------------------------------------
+    ORG ROOM_BANK+17*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 8, SHELF_4-20         ; the way out
+    defb 36, 70                 ; her beat
+    defb PEN6_BYTE, PEN15_BYTE, PEN6_BYTE, PEN5_BYTE, PEN15_BYTE
+    defb #40+30
+    ORG ROOM_BANK+17*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 44, 57, SHELF_1-8
+    defb 60, 73, SHELF_2-8
+    defb 76, 89, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+17*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+17*ROOM_BLOCK+R_PROPS
+    defb 4, 76
+    defw box_shelving
+    defb 44, SHELF_1-8
+    defw box_crates
+    defb 60, SHELF_2-8
+    defw box_crates
+    defb 76, SHELF_1-8
+    defw box_barrel
+    defb 36, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+17*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+17*ROOM_BLOCK+R_SOAP
+    defb 34, 46, FLOOR_TOP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+17*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+17*ROOM_BLOCK+R_PICKS
+    defw spr_meatball
+    defb 48, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 64, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 80, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 8, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 24, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+17*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+17*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 40, FLOOR_TOP-SPR_MOUSE_A_H, 0, 36, 78, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_1-SPR_MOUSE_A_H, 0, 4, 30, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_MOUSE, 24, SHELF_4-SPR_MOUSE_A_H, 0, 4, 30, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_REST, 0, 0
+    ASSERT $ == ROOM_BANK+17*ROOM_BLOCK+ROOM_USED
+
+;; --- 19: the last of the cellar ------------------------------------
+    ORG ROOM_BANK+18*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 6, SHELF_3-20         ; the way out
+    defb 32, 68                 ; her beat
+    defb PEN4_BYTE, PEN3_BYTE, PEN4_BYTE, PEN4_BYTE, PEN3_BYTE
+    defb #40+20
+    ORG ROOM_BANK+18*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 6, 19, SHELF_3
+    defb 6, 19, SHELF_2
+    defb 6, 19, SHELF_1
+    defb 34, 47, SHELF_1-8
+    defb 50, 63, SHELF_2-8
+    defb 66, 79, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+18*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+18*ROOM_BLOCK+R_PROPS
+    defb 6, SHELF_3
+    defw box_stack
+    defb 34, SHELF_1-8
+    defw box_barrel
+    defb 50, SHELF_2-8
+    defw box_crates
+    defb 66, SHELF_1-8
+    defw box_barrel
+    defb 0, FLOOR_TOP-96
+    defw box_steps
+    defb #FF
+    ASSERT $ <= ROOM_BANK+18*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+18*ROOM_BLOCK+R_SOAP
+    defb 22, 32, FLOOR_TOP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+18*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+18*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 38, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 54, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 70, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 8, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_1-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+18*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+18*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 44, FLOOR_TOP-SPR_MOUSE_A_H, 0, 32, 80, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_3-SPR_MOUSE_A_H, 0, 6, 18, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 56, 54, 54, 34, 76, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+18*ROOM_BLOCK+ROOM_USED
+
+;; --- 20: the loft stair --------------------------------------------
+    ORG ROOM_BANK+19*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 66, SHELF_4-20         ; the way out
+    defb 28, 58                 ; her beat
+    defb PEN15_BYTE, PEN15_BYTE, PEN6_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb #40+3
+    ORG ROOM_BANK+19*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 66, 95, SHELF_1
+    defb 66, 95, SHELF_2
+    defb 66, 95, SHELF_3
+    defb 66, 95, SHELF_4
+    defb 8, 21, SHELF_1-8
+    defb 24, 37, SHELF_2-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+19*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+19*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 66, 76
+    defw box_shelving
+    defb 8, SHELF_1-8
+    defw box_crates
+    defb 24, SHELF_2-8
+    defw box_crates
+    defb 46, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+19*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+19*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+19*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+19*ROOM_BLOCK+R_PICKS
+    defw spr_cheese
+    defb 12, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 28, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 70, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 86, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 78, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+19*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+19*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 52, FLOOR_TOP-SPR_MOUSE_A_H, 0, 28, 76, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 74, SHELF_1-SPR_MOUSE_A_H, 0, 66, 90, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 40, 62, 62, 24, 70, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+19*ROOM_BLOCK+ROOM_USED
+
+;; --- 21: the dormer ------------------------------------------------
+    ORG ROOM_BANK+20*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 4, SHELF_4-20         ; the way out
+    defb 34, 64                 ; her beat
+    defb PEN15_BYTE, PEN15_BYTE, PEN6_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb #40+3
+    ORG ROOM_BANK+20*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 46, 59, SHELF_1-8
+    defb 62, 75, SHELF_2-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+20*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+20*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 56, 40
+    defw box_dormer
+    defb 4, 76
+    defw box_shelving
+    defb 46, SHELF_1-8
+    defw box_crates
+    defb 62, SHELF_2-8
+    defw box_crates
+    defb #FF
+    ASSERT $ <= ROOM_BANK+20*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+20*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+20*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+20*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 50, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 66, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 6, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 24, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+20*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+20*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 40, FLOOR_TOP-SPR_MOUSE_A_H, 0, 34, 78, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_GULL, 60, 60, 60, 44, 78, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 20, 92, 92, 8, 32, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 100, 0, 0
+    ASSERT $ == ROOM_BANK+20*ROOM_BLOCK+ROOM_USED
+
+;; --- 22: the apple loft --------------------------------------------
+    ORG ROOM_BANK+21*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 76, SHELF_3-20         ; the way out
+    defb 26, 62                 ; her beat
+    defb PEN7_BYTE, PEN7_BYTE, PEN6_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb #40+14
+    ORG ROOM_BANK+21*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 6, 19, SHELF_3
+    defb 6, 19, SHELF_2
+    defb 6, 19, SHELF_1
+    defb 76, 89, SHELF_3
+    defb 76, 89, SHELF_2
+    defb 76, 89, SHELF_1
+    defb 40, 53, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+21*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+21*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 6, SHELF_3
+    defw box_stack
+    defb 76, SHELF_3
+    defw box_stack
+    defb 40, SHELF_1-8
+    defw box_crates
+    defb 58, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+21*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+21*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+21*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+21*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 8, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 44, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 80, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 80, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+21*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+21*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 62, FLOOR_TOP-SPR_MOUSE_A_H, 0, 26, 74, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_2-SPR_MOUSE_A_H, 0, 6, 18, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 34, 66, 66, 24, 68, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+21*ROOM_BLOCK+ROOM_USED
+
+;; --- 23: the drying room -------------------------------------------
+    ORG ROOM_BANK+22*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 40, SHELF_4-20         ; the way out
+    defb 30, 62                 ; her beat
+    defb PEN15_BYTE, PEN7_BYTE, PEN15_BYTE, PEN6_BYTE, PEN7_BYTE
+    defb #40+3
+    ORG ROOM_BANK+22*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 8, 31, SHELF_1
+    defb 40, 63, SHELF_2
+    defb 8, 31, SHELF_3
+    defb 40, 63, SHELF_4
+    defb 72, 85, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+22*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+22*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 8, SHELF_1-28
+    defw box_jars
+    defb 40, SHELF_2-28
+    defw box_jars
+    defb 8, SHELF_3-28
+    defw box_jars
+    defb 40, SHELF_4-28
+    defw box_jars
+    defb 72, SHELF_1-8
+    defw box_crates
+    defb #FF
+    ASSERT $ <= ROOM_BANK+22*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+22*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+22*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+22*ROOM_BLOCK+R_PICKS
+    defw spr_sausage
+    defb 12, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 46, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 20, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 76, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 56, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+22*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+22*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 58, FLOOR_TOP-SPR_MOUSE_A_H, 0, 30, 82, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 14, SHELF_3-SPR_MOUSE_A_H, 0, 8, 30, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 46, 58, 58, 40, 62, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+22*ROOM_BLOCK+ROOM_USED
+
+;; --- 24: the rafters -----------------------------------------------
+    ORG ROOM_BANK+23*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 8, SHELF_4-20         ; the way out
+    defb 32, 66                 ; her beat
+    defb PEN6_BYTE, PEN15_BYTE, PEN6_BYTE, PEN6_BYTE, PEN15_BYTE
+    defb #40+30
+    ORG ROOM_BANK+23*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 50, 63, SHELF_1-8
+    defb 66, 79, SHELF_2-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+23*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+23*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 0, SHELF_4-40
+    defw box_beam
+    defb 4, 76
+    defw box_rack
+    defb 50, SHELF_1-8
+    defw box_crates
+    defb 66, SHELF_2-8
+    defw box_crates
+    defb 84, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+23*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+23*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+23*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+23*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 54, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 70, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 8, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 24, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+23*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+23*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 44, FLOOR_TOP-SPR_MOUSE_A_H, 0, 32, 80, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 20, SHELF_3-SPR_MOUSE_A_H, 0, 4, 30, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 58, 56, 56, 44, 76, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+23*ROOM_BLOCK+ROOM_USED
+
+;; --- 25: the tile store --------------------------------------------
+    ORG ROOM_BANK+24*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 6, SHELF_3-20         ; the way out
+    defb 30, 64                 ; her beat
+    defb PEN12_BYTE, PEN1_BYTE, PEN12_BYTE, PEN5_BYTE, PEN3_BYTE
+    defb #40+28
+    ORG ROOM_BANK+24*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 6, 19, SHELF_3
+    defb 6, 19, SHELF_2
+    defb 6, 19, SHELF_1
+    defb 34, 47, SHELF_1-8
+    defb 50, 63, SHELF_2-8
+    defb 66, 79, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+24*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+24*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 6, SHELF_3
+    defw box_stack
+    defb 34, SHELF_1-8
+    defw box_crates
+    defb 50, SHELF_2-8
+    defw box_crates
+    defb 66, SHELF_1-8
+    defw box_crates
+    defb 84, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+24*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+24*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+24*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+24*ROOM_BLOCK+R_PICKS
+    defw spr_meatball
+    defb 38, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 54, SHELF_2-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 70, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 8, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_1-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+24*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+24*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 44, FLOOR_TOP-SPR_MOUSE_A_H, 0, 30, 78, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_3-SPR_MOUSE_A_H, 0, 6, 18, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 56, 58, 58, 34, 74, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+24*ROOM_BLOCK+ROOM_USED
+
+;; --- 26: the swallow's nest ----------------------------------------
+    ORG ROOM_BANK+25*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 66, SHELF_4-20         ; the way out
+    defb 26, 58                 ; her beat
+    defb PEN11_BYTE, PEN11_BYTE, PEN15_BYTE, PEN6_BYTE, PEN12_BYTE
+    defb #40+19
+    ORG ROOM_BANK+25*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 66, 95, SHELF_1
+    defb 66, 95, SHELF_2
+    defb 66, 95, SHELF_3
+    defb 66, 95, SHELF_4
+    defb 8, 31, SHELF_1
+    defb 8, 31, SHELF_3
+    defb 44, 57, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+25*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+25*ROOM_BLOCK+R_PROPS
+    defb 24, 40
+    defw box_dormer
+    defb 66, 76
+    defw box_shelving
+    defb 8, SHELF_1-28
+    defw box_jars
+    defb 8, SHELF_3-28
+    defw box_jars
+    defb 44, SHELF_1-8
+    defw box_crates
+    defb 60, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+25*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+25*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+25*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+25*ROOM_BLOCK+R_PICKS
+    defw spr_cheese
+    defb 12, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 18, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 48, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 86, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 70, SHELF_4-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+25*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+25*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 60, FLOOR_TOP-SPR_MOUSE_A_H, 0, 26, 76, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_GULL, 40, 64, 64, 24, 66, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 76, 96, 96, 66, 92, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 100, 0, 0
+    ASSERT $ == ROOM_BANK+25*ROOM_BLOCK+ROOM_USED
+
+;; --- 27: the linen press -------------------------------------------
+    ORG ROOM_BANK+26*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 4, SHELF_4-20         ; the way out
+    defb 36, 66                 ; her beat
+    defb PEN3_BYTE, PEN5_BYTE, PEN10_BYTE, PEN5_BYTE, PEN10_BYTE
+    defb #40+11
+    ORG ROOM_BANK+26*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 4, 33, SHELF_1
+    defb 4, 33, SHELF_2
+    defb 4, 33, SHELF_3
+    defb 4, 33, SHELF_4
+    defb 44, 67, SHELF_1-8
+    defb 68, 91, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+26*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+26*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 4, 76
+    defw box_rack
+    defb 44, SHELF_1-8
+    defw box_icebox
+    defb 68, SHELF_1-8
+    defw box_icebox
+    defb #FF
+    ASSERT $ <= ROOM_BANK+26*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+26*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+26*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+26*ROOM_BLOCK+R_PICKS
+    defw spr_sausage
+    defb 48, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 74, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_fish
+    defb 6, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 24, SHELF_4-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 8, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+26*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+26*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 56, FLOOR_TOP-SPR_MOUSE_A_H, 0, 36, 76, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 10, SHELF_1-SPR_MOUSE_A_H, 0, 4, 30, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 58, 62, 62, 42, 78, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+26*ROOM_BLOCK+ROOM_USED
+
+;; --- 28: the dusty end ---------------------------------------------
+    ORG ROOM_BANK+27*ROOM_BLOCK
+    defb 4                          ; where he comes in
+    defb 76, SHELF_3-20         ; the way out
+    defb 28, 64                 ; her beat
+    defb PEN6_BYTE, PEN6_BYTE, PEN4_BYTE, PEN4_BYTE, PEN6_BYTE
+    defb #40+30
+    ORG ROOM_BANK+27*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 76, 89, SHELF_3
+    defb 76, 89, SHELF_2
+    defb 76, 89, SHELF_1
+    defb 10, 33, SHELF_1
+    defb 10, 33, SHELF_3
+    defb 48, 61, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+27*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+27*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 76, SHELF_3
+    defw box_stack
+    defb 10, SHELF_1-28
+    defw box_jars
+    defb 10, SHELF_3-28
+    defw box_jars
+    defb 48, SHELF_1-8
+    defw box_barrel
+    defb 64, 212
+    defw box_sacks
+    defb #FF
+    ASSERT $ <= ROOM_BANK+27*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+27*ROOM_BLOCK+R_SOAP
+    defb 38, 48, FLOOR_TOP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+27*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+27*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 14, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 22, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 52, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 80, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 80, SHELF_3-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+27*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+27*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 40, FLOOR_TOP-SPR_MOUSE_A_H, 0, 28, 74, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 80, SHELF_1-SPR_MOUSE_A_H, 0, 76, 88, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 34, 54, 54, 22, 64, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+27*ROOM_BLOCK+ROOM_USED
+
+;; --- 29: the roof light --------------------------------------------
+    ORG ROOM_BANK+28*ROOM_BLOCK
+    defb 88                         ; where he comes in
+    defb 8, SHELF_3-20         ; the way out
+    defb 30, 60                 ; her beat
+    defb PEN7_BYTE, PEN15_BYTE, PEN7_BYTE, PEN6_BYTE, PEN15_BYTE
+    defb #40+14
+    ORG ROOM_BANK+28*ROOM_BLOCK+R_PLAT
+    defb 0, 95, FLOOR_TOP
+    defb 8, 31, SHELF_1
+    defb 40, 63, SHELF_2
+    defb 8, 31, SHELF_3
+    defb 72, 85, SHELF_1-8
+    defb #FF
+    ASSERT $ <= ROOM_BANK+28*ROOM_BLOCK+R_PROPS
+    ORG ROOM_BANK+28*ROOM_BLOCK+R_PROPS
+    defb 0, 28
+    defw box_beam
+    defb 72, 32
+    defw box_dormer
+    defb 8, SHELF_1-28
+    defw box_jars
+    defb 40, SHELF_2-28
+    defw box_jars
+    defb 8, SHELF_3-28
+    defw box_jars
+    defb 72, SHELF_1-8
+    defw box_crates
+    defb #FF
+    ASSERT $ <= ROOM_BANK+28*ROOM_BLOCK+R_SOAP
+    ORG ROOM_BANK+28*ROOM_BLOCK+R_SOAP
+    defb #FF
+    ASSERT $ <= ROOM_BANK+28*ROOM_BLOCK+R_PICKS
+    ORG ROOM_BANK+28*ROOM_BLOCK+R_PICKS
+    defw spr_fish
+    defb 12, SHELF_1-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_meatball
+    defb 46, SHELF_2-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_cheese
+    defb 20, SHELF_3-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_sausage
+    defb 76, SHELF_1-8-SPR_FISH_H, 1, 1, #FF, 0
+    defw spr_catnip
+    defb 26, SHELF_1-SPR_FISH_H, 0, 1, #FF, 0
+    ASSERT $ == ROOM_BANK+28*ROOM_BLOCK+R_FOES
+    ORG ROOM_BANK+28*ROOM_BLOCK+R_FOES
+    defb K_MOUSE, 56, FLOOR_TOP-SPR_MOUSE_A_H, 0, 30, 80, -1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, STEAL_START, 0, 0
+    defb K_MOUSE, 14, SHELF_3-SPR_MOUSE_A_H, 0, 8, 30, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    defb K_GULL, 46, 56, 56, 40, 62, 1
+    defb FOE_TICK, 0, FOE_ANIM, 0, 0, 0, 0, 0, D_NONE, 0, 0, 0
+    ASSERT $ == ROOM_BANK+28*ROOM_BLOCK+ROOM_USED
 
     ORG ROOM_BANK+ROOM_COUNT*ROOM_BLOCK
 rooms_end

@@ -115,3 +115,676 @@ room the yard
   mouse  46 FLOOR_TOP 22 70 1 steal
   gull   34 60 24 66 1
   gull   70 92 52 88 -1 100
+
+; ---------------------------------------------------------------------------
+; ΤΟ ΚΕΛΑΡΙ - fifteen rooms under the shop. No daylight in any of them: the
+; wall is stone, brick or bare earth, the mortar is what tells you which, and
+; the floor is flags or beaten earth. Everything is colder and lower than the
+; shop, and the gulls get in only where a grating does.
+; ---------------------------------------------------------------------------
+
+room the cellar steps
+  light  wall=5 mortar=3 dado=5 floor=5 grout=3 border=0
+  start  4
+  basket 66 SHELF_4-20
+  beat   30 58
+  stand  0 95 FLOOR_TOP
+  stand  66 95 SHELF_1
+  stand  66 95 SHELF_2
+  stand  66 95 SHELF_3
+  stand  66 95 SHELF_4
+  stand  8 21 SHELF_1-8
+  stand  24 37 SHELF_2-8
+  prop   0 FLOOR_TOP-96 steps
+  prop   66 76 shelving
+  prop   8 SHELF_1-8 crates
+  prop   24 SHELF_2-8 crates
+  prop   44 212 sacks
+  meze   sausage 10 SHELF_1-8
+  meze   cheese 26 SHELF_2-8
+  meze   fish 70 SHELF_3
+  meze   meatball 86 SHELF_1
+  catnip 78 SHELF_4
+  mouse  46 FLOOR_TOP 24 62 1 steal
+  mouse  70 SHELF_2 66 90 1
+  mouse  84 SHELF_4 66 90 -1 rest
+
+room the oil store
+  light  wall=6 mortar=6 dado=6 floor=5 grout=3 border=30
+  start  88
+  basket 4 SHELF_4-20
+  beat   36 64
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  50 63 SHELF_1-8
+  stand  68 81 SHELF_1-8
+  prop   4 76 rack
+  prop   50 SHELF_1-8 barrel
+  prop   68 SHELF_1-8 barrel
+  prop   36 212 sacks
+  soap   36 48 FLOOR_TOP
+  meze   fish 54 SHELF_1-8
+  meze   cheese 72 SHELF_1-8
+  meze   sausage 8 SHELF_2
+  meze   meatball 22 SHELF_4
+  catnip 6 SHELF_3
+  mouse  44 FLOOR_TOP 30 76 -1 steal
+  mouse  10 SHELF_1 4 30 1
+  mouse  24 SHELF_3 4 30 -1 rest
+
+room the wine cellar
+  light  wall=12 mortar=1 dado=12 floor=6 grout=6 border=28
+  start  8
+  basket 76 SHELF_3-20
+  beat   26 62
+  stand  0 95 FLOOR_TOP
+  stand  6 19 SHELF_3
+  stand  6 19 SHELF_2
+  stand  6 19 SHELF_1
+  stand  76 89 SHELF_3
+  stand  76 89 SHELF_2
+  stand  76 89 SHELF_1
+  stand  40 53 SHELF_1-8
+  prop   6 SHELF_3 stack
+  prop   76 SHELF_3 stack
+  prop   40 SHELF_1-8 barrel
+  prop   58 212 sacks
+  meze   sausage 8 SHELF_1
+  meze   fish 8 SHELF_3
+  meze   cheese 78 SHELF_2
+  meze   meatball 44 SHELF_1-8
+  catnip 78 SHELF_3
+  mouse  62 FLOOR_TOP 26 74 -1 steal
+  mouse  80 SHELF_2 76 88 1
+  gull   34 68 24 68 1
+
+room the jar shelf
+  light  wall=5 mortar=4 dado=5 floor=5 grout=4 border=0
+  start  4
+  basket 40 SHELF_4-20
+  beat   30 60
+  stand  0 95 FLOOR_TOP
+  stand  10 33 SHELF_1
+  stand  40 63 SHELF_2
+  stand  10 33 SHELF_3
+  stand  40 63 SHELF_4
+  stand  72 85 SHELF_1-8
+  prop   10 SHELF_1-28 jars
+  prop   40 SHELF_2-28 jars
+  prop   10 SHELF_3-28 jars
+  prop   40 SHELF_4-28 jars
+  prop   72 SHELF_1-8 crates
+  prop   88 212 sacks
+  meze   fish 14 SHELF_1
+  meze   cheese 44 SHELF_2
+  meze   sausage 20 SHELF_3
+  meze   meatball 76 SHELF_1-8
+  catnip 56 SHELF_4
+  mouse  60 FLOOR_TOP 26 82 -1 steal
+  mouse  14 SHELF_1 10 32 1
+  mouse  46 SHELF_2 40 62 -1 rest
+
+room the coal hole
+  light  wall=4 mortar=5 dado=4 floor=4 grout=5 border=20
+  start  88
+  basket 8 SHELF_4-20
+  beat   34 66
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  46 59 SHELF_1-8
+  stand  62 75 SHELF_2-8
+  prop   4 76 rack
+  prop   46 SHELF_1-8 crates
+  prop   62 SHELF_2-8 crates
+  prop   80 212 sacks
+  meze   meatball 50 SHELF_1-8
+  meze   sausage 66 SHELF_2-8
+  meze   fish 6 SHELF_2
+  meze   cheese 24 SHELF_4
+  catnip 8 SHELF_3
+  mouse  40 FLOOR_TOP 34 76 1 steal
+  mouse  20 SHELF_3 4 30 -1
+  mouse  8 SHELF_1 4 30 1 rest
+
+room the flour bins
+  light  wall=15 mortar=5 dado=15 floor=6 grout=12 border=3
+  start  4
+  basket 66 SHELF_4-20
+  beat   28 58
+  stand  0 95 FLOOR_TOP
+  stand  66 95 SHELF_1
+  stand  66 95 SHELF_2
+  stand  66 95 SHELF_3
+  stand  66 95 SHELF_4
+  stand  6 19 SHELF_1-8
+  stand  22 35 SHELF_2-8
+  stand  38 51 SHELF_1-8
+  prop   66 76 shelving
+  prop   6 SHELF_1-8 crates
+  prop   22 SHELF_2-8 crates
+  prop   38 SHELF_1-8 crates
+  prop   54 212 sacks
+  soap   52 64 FLOOR_TOP
+  meze   cheese 8 SHELF_1-8
+  meze   fish 24 SHELF_2-8
+  meze   sausage 70 SHELF_2
+  meze   meatball 86 SHELF_4
+  catnip 42 SHELF_1-8
+  mouse  62 FLOOR_TOP 28 76 -1 steal
+  mouse  74 SHELF_1 66 90 1
+  gull   50 60 30 70 1
+
+room the cold store
+  light  wall=3 mortar=10 dado=10 floor=5 grout=11 border=6
+  start  88
+  basket 4 SHELF_4-20
+  beat   38 68
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  44 67 SHELF_1-8
+  stand  68 91 SHELF_1-8
+  prop   4 76 rack
+  prop   44 SHELF_1-8 icebox
+  prop   68 SHELF_1-8 icebox
+  meze   sausage 48 SHELF_1-8
+  meze   fish 74 SHELF_1-8
+  meze   cheese 6 SHELF_1
+  meze   meatball 24 SHELF_3
+  catnip 8 SHELF_4
+  mouse  56 FLOOR_TOP 38 74 -1 steal
+  mouse  10 SHELF_2 4 30 1
+  gull   58 62 42 78 1
+
+room the brine vats
+  light  wall=10 mortar=10 dado=8 floor=5 grout=3 border=6
+  start  4
+  basket 40 SHELF_2-8-20
+  beat   30 60
+  stand  0 95 FLOOR_TOP
+  stand  8 21 SHELF_1-8
+  stand  24 37 SHELF_2-8
+  stand  40 53 SHELF_2-8
+  stand  56 69 SHELF_1-8
+  stand  76 95 SHELF_1
+  stand  76 95 SHELF_2
+  prop   8 SHELF_1-8 barrel
+  prop   24 SHELF_2-8 barrel
+  prop   40 SHELF_2-8 barrel
+  prop   56 SHELF_1-8 barrel
+  prop   76 SHELF_2-28 jars
+  prop   76 SHELF_1-28 jars
+  soap   68 78 FLOOR_TOP
+  meze   fish 12 SHELF_1-8
+  meze   cheese 28 SHELF_2-8
+  meze   sausage 60 SHELF_1-8
+  meze   meatball 80 SHELF_2
+  catnip 82 SHELF_1
+  mouse  50 FLOOR_TOP 30 72 1 steal
+  mouse  80 SHELF_1 76 92 -1
+  mouse  30 SHELF_2-8 24 36 1 rest
+
+room the root cellar
+  light  wall=6 mortar=6 dado=6 floor=6 grout=4 border=30
+  start  88
+  basket 8 SHELF_3-20
+  beat   32 62
+  stand  0 95 FLOOR_TOP
+  stand  6 19 SHELF_3
+  stand  6 19 SHELF_2
+  stand  6 19 SHELF_1
+  stand  30 43 SHELF_1-8
+  stand  46 59 SHELF_2-8
+  stand  70 83 SHELF_1-8
+  prop   6 SHELF_3 stack
+  prop   30 SHELF_1-8 crates
+  prop   46 SHELF_2-8 crates
+  prop   70 SHELF_1-8 crates
+  prop   84 212 sacks
+  meze   meatball 34 SHELF_1-8
+  meze   sausage 50 SHELF_2-8
+  meze   cheese 74 SHELF_1-8
+  meze   fish 8 SHELF_2
+  catnip 8 SHELF_1
+  mouse  62 FLOOR_TOP 26 80 -1 steal
+  mouse  10 SHELF_3 6 18 1
+  mouse  50 SHELF_2-8 46 58 -1 rest
+
+room the deep cellar
+  light  wall=4 mortar=12 dado=4 floor=5 grout=12 border=20
+  start  4
+  basket 76 SHELF_3-20
+  beat   26 66
+  stand  0 95 FLOOR_TOP
+  stand  76 89 SHELF_3
+  stand  76 89 SHELF_2
+  stand  76 89 SHELF_1
+  stand  10 33 SHELF_1
+  stand  10 33 SHELF_3
+  stand  46 59 SHELF_1-8
+  prop   76 SHELF_3 stack
+  prop   10 SHELF_1-28 jars
+  prop   10 SHELF_3-28 jars
+  prop   46 SHELF_1-8 barrel
+  prop   62 212 sacks
+  meze   fish 14 SHELF_1
+  meze   cheese 20 SHELF_3
+  meze   sausage 50 SHELF_1-8
+  meze   meatball 80 SHELF_2
+  catnip 80 SHELF_3
+  mouse  40 FLOOR_TOP 26 72 1 steal
+  mouse  80 SHELF_1 76 88 -1
+  gull   34 56 22 62 1
+
+room the grating
+  light  wall=5 mortar=3 dado=10 floor=5 grout=3 border=0
+  start  88
+  basket 4 SHELF_4-20
+  beat   34 64
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  42 55 SHELF_1-8
+  stand  58 71 SHELF_2-8
+  prop   58 24 window
+  prop   4 76 shelving
+  prop   42 SHELF_1-8 crates
+  prop   58 SHELF_2-8 crates
+  prop   80 212 sacks
+  soap   72 84 FLOOR_TOP
+  meze   fish 46 SHELF_1-8
+  meze   sausage 62 SHELF_2-8
+  meze   cheese 8 SHELF_1
+  meze   meatball 24 SHELF_3
+  catnip 6 SHELF_4
+  mouse  44 FLOOR_TOP 34 78 1 steal
+  gull   58 66 42 76 1
+  gull   24 94 12 32 -1 100
+
+room the lamp cellar
+  light  wall=12 mortar=7 dado=12 floor=6 grout=7 border=28
+  start  4
+  basket 66 SHELF_4-20
+  beat   28 56
+  stand  0 95 FLOOR_TOP
+  stand  66 95 SHELF_1
+  stand  66 95 SHELF_2
+  stand  66 95 SHELF_3
+  stand  66 95 SHELF_4
+  stand  8 31 SHELF_1
+  stand  8 31 SHELF_3
+  stand  40 53 SHELF_1-8
+  prop   66 76 shelving
+  prop   8 SHELF_1-28 jars
+  prop   8 SHELF_3-28 jars
+  prop   40 SHELF_1-8 barrel
+  prop   56 212 sacks
+  meze   cheese 12 SHELF_1
+  meze   meatball 18 SHELF_3
+  meze   sausage 44 SHELF_1-8
+  meze   fish 70 SHELF_2
+  catnip 86 SHELF_4
+  mouse  58 FLOOR_TOP 28 74 -1 steal
+  mouse  72 SHELF_3 66 90 1
+  mouse  14 SHELF_1 8 30 -1 rest
+
+room the ice pit
+  light  wall=11 mortar=3 dado=3 floor=3 grout=11 border=19
+  start  4
+  basket 76 SHELF_3-20
+  beat   30 62
+  stand  0 95 FLOOR_TOP
+  stand  76 89 SHELF_3
+  stand  76 89 SHELF_2
+  stand  76 89 SHELF_1
+  stand  20 43 SHELF_1-8
+  stand  46 69 SHELF_1-8
+  stand  6 19 SHELF_1
+  prop   76 SHELF_3 stack
+  prop   20 SHELF_1-8 icebox
+  prop   46 SHELF_1-8 icebox
+  prop   6 SHELF_1-28 jars
+  meze   fish 24 SHELF_1-8
+  meze   cheese 50 SHELF_1-8
+  meze   sausage 80 SHELF_2
+  meze   meatball 8 SHELF_1
+  catnip 80 SHELF_3
+  mouse  62 FLOOR_TOP 30 72 1 steal
+  mouse  80 SHELF_1 76 88 -1
+  gull   40 58 24 68 1
+
+room the long cellar
+  light  wall=6 mortar=15 dado=6 floor=5 grout=15 border=30
+  start  88
+  basket 8 SHELF_4-20
+  beat   36 70
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  44 57 SHELF_1-8
+  stand  60 73 SHELF_2-8
+  stand  76 89 SHELF_1-8
+  prop   4 76 shelving
+  prop   44 SHELF_1-8 crates
+  prop   60 SHELF_2-8 crates
+  prop   76 SHELF_1-8 barrel
+  prop   36 212 sacks
+  soap   34 46 FLOOR_TOP
+  meze   meatball 48 SHELF_1-8
+  meze   fish 64 SHELF_2-8
+  meze   cheese 80 SHELF_1-8
+  meze   sausage 8 SHELF_2
+  catnip 24 SHELF_4
+  mouse  40 FLOOR_TOP 36 78 1 steal
+  mouse  10 SHELF_1 4 30 1
+  mouse  24 SHELF_4 4 30 -1 rest
+
+room the last of the cellar
+  light  wall=4 mortar=3 dado=4 floor=4 grout=3 border=20
+  start  88
+  basket 6 SHELF_3-20
+  beat   32 68
+  stand  0 95 FLOOR_TOP
+  stand  6 19 SHELF_3
+  stand  6 19 SHELF_2
+  stand  6 19 SHELF_1
+  stand  34 47 SHELF_1-8
+  stand  50 63 SHELF_2-8
+  stand  66 79 SHELF_1-8
+  prop   6 SHELF_3 stack
+  prop   34 SHELF_1-8 barrel
+  prop   50 SHELF_2-8 crates
+  prop   66 SHELF_1-8 barrel
+  prop   0 FLOOR_TOP-96 steps
+  soap   22 32 FLOOR_TOP
+  meze   fish 38 SHELF_1-8
+  meze   cheese 54 SHELF_2-8
+  meze   meatball 70 SHELF_1-8
+  meze   sausage 8 SHELF_2
+  catnip 8 SHELF_1
+  mouse  44 FLOOR_TOP 32 80 -1 steal
+  mouse  10 SHELF_3 6 18 -1
+  gull   56 54 34 76 1
+
+; ---------------------------------------------------------------------------
+; ΤΟ ΠΑΤΑΡΙ - ten rooms over the shop, up under the tiles. Plaster and bare
+; boards, a roof beam low over every one of them, and the only daylight is a
+; dormer - so the gulls are back, and they come in through it.
+; ---------------------------------------------------------------------------
+
+room the loft stair
+  light  wall=15 mortar=15 dado=6 floor=6 grout=12 border=3
+  start  4
+  basket 66 SHELF_4-20
+  beat   28 58
+  stand  0 95 FLOOR_TOP
+  stand  66 95 SHELF_1
+  stand  66 95 SHELF_2
+  stand  66 95 SHELF_3
+  stand  66 95 SHELF_4
+  stand  8 21 SHELF_1-8
+  stand  24 37 SHELF_2-8
+  prop   0 28 beam
+  prop   66 76 shelving
+  prop   8 SHELF_1-8 crates
+  prop   24 SHELF_2-8 crates
+  prop   46 212 sacks
+  meze   cheese 12 SHELF_1-8
+  meze   sausage 28 SHELF_2-8
+  meze   fish 70 SHELF_2
+  meze   meatball 86 SHELF_4
+  catnip 78 SHELF_3
+  mouse  52 FLOOR_TOP 28 76 -1 steal
+  mouse  74 SHELF_1 66 90 1
+  gull   40 62 24 70 1
+
+room the dormer
+  light  wall=15 mortar=15 dado=6 floor=6 grout=12 border=3
+  start  88
+  basket 4 SHELF_4-20
+  beat   34 64
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  46 59 SHELF_1-8
+  stand  62 75 SHELF_2-8
+  prop   0 28 beam
+  prop   56 40 dormer
+  prop   4 76 shelving
+  prop   46 SHELF_1-8 crates
+  prop   62 SHELF_2-8 crates
+  meze   fish 50 SHELF_1-8
+  meze   meatball 66 SHELF_2-8
+  meze   cheese 6 SHELF_2
+  meze   sausage 24 SHELF_4
+  catnip 8 SHELF_3
+  mouse  40 FLOOR_TOP 34 78 1 steal
+  gull   60 60 44 78 1
+  gull   20 92 8 32 -1 100
+
+room the apple loft
+  light  wall=7 mortar=7 dado=6 floor=6 grout=12 border=14
+  start  4
+  basket 76 SHELF_3-20
+  beat   26 62
+  stand  0 95 FLOOR_TOP
+  stand  6 19 SHELF_3
+  stand  6 19 SHELF_2
+  stand  6 19 SHELF_1
+  stand  76 89 SHELF_3
+  stand  76 89 SHELF_2
+  stand  76 89 SHELF_1
+  stand  40 53 SHELF_1-8
+  prop   0 28 beam
+  prop   6 SHELF_3 stack
+  prop   76 SHELF_3 stack
+  prop   40 SHELF_1-8 crates
+  prop   58 212 sacks
+  meze   fish 8 SHELF_1
+  meze   sausage 44 SHELF_1-8
+  meze   cheese 80 SHELF_2
+  meze   meatball 80 SHELF_1
+  catnip 8 SHELF_3
+  mouse  62 FLOOR_TOP 26 74 -1 steal
+  mouse  10 SHELF_2 6 18 1
+  gull   34 66 24 68 1
+
+room the drying room
+  light  wall=15 mortar=7 dado=15 floor=6 grout=7 border=3
+  start  88
+  basket 40 SHELF_4-20
+  beat   30 62
+  stand  0 95 FLOOR_TOP
+  stand  8 31 SHELF_1
+  stand  40 63 SHELF_2
+  stand  8 31 SHELF_3
+  stand  40 63 SHELF_4
+  stand  72 85 SHELF_1-8
+  prop   0 28 beam
+  prop   8 SHELF_1-28 jars
+  prop   40 SHELF_2-28 jars
+  prop   8 SHELF_3-28 jars
+  prop   40 SHELF_4-28 jars
+  prop   72 SHELF_1-8 crates
+  meze   sausage 12 SHELF_1
+  meze   cheese 46 SHELF_2
+  meze   fish 20 SHELF_3
+  meze   meatball 76 SHELF_1-8
+  catnip 56 SHELF_4
+  mouse  58 FLOOR_TOP 30 82 -1 steal
+  mouse  14 SHELF_3 8 30 1
+  gull   46 58 40 62 1
+
+room the rafters
+  light  wall=6 mortar=15 dado=6 floor=6 grout=15 border=30
+  start  4
+  basket 8 SHELF_4-20
+  beat   32 66
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  50 63 SHELF_1-8
+  stand  66 79 SHELF_2-8
+  prop   0 28 beam
+  prop   0 SHELF_4-40 beam
+  prop   4 76 rack
+  prop   50 SHELF_1-8 crates
+  prop   66 SHELF_2-8 crates
+  prop   84 212 sacks
+  meze   fish 54 SHELF_1-8
+  meze   cheese 70 SHELF_2-8
+  meze   sausage 8 SHELF_1
+  meze   meatball 24 SHELF_2
+  catnip 8 SHELF_4
+  mouse  44 FLOOR_TOP 32 80 1 steal
+  mouse  20 SHELF_3 4 30 -1
+  gull   58 56 44 76 1
+
+room the tile store
+  light  wall=12 mortar=1 dado=12 floor=5 grout=3 border=28
+  start  88
+  basket 6 SHELF_3-20
+  beat   30 64
+  stand  0 95 FLOOR_TOP
+  stand  6 19 SHELF_3
+  stand  6 19 SHELF_2
+  stand  6 19 SHELF_1
+  stand  34 47 SHELF_1-8
+  stand  50 63 SHELF_2-8
+  stand  66 79 SHELF_1-8
+  prop   0 28 beam
+  prop   6 SHELF_3 stack
+  prop   34 SHELF_1-8 crates
+  prop   50 SHELF_2-8 crates
+  prop   66 SHELF_1-8 crates
+  prop   84 212 sacks
+  meze   meatball 38 SHELF_1-8
+  meze   fish 54 SHELF_2-8
+  meze   cheese 70 SHELF_1-8
+  meze   sausage 8 SHELF_2
+  catnip 8 SHELF_1
+  mouse  44 FLOOR_TOP 30 78 -1 steal
+  mouse  10 SHELF_3 6 18 1
+  gull   56 58 34 74 1
+
+room the swallow's nest
+  light  wall=11 mortar=11 dado=15 floor=6 grout=12 border=19
+  start  4
+  basket 66 SHELF_4-20
+  beat   26 58
+  stand  0 95 FLOOR_TOP
+  stand  66 95 SHELF_1
+  stand  66 95 SHELF_2
+  stand  66 95 SHELF_3
+  stand  66 95 SHELF_4
+  stand  8 31 SHELF_1
+  stand  8 31 SHELF_3
+  stand  44 57 SHELF_1-8
+  prop   24 40 dormer
+  prop   66 76 shelving
+  prop   8 SHELF_1-28 jars
+  prop   8 SHELF_3-28 jars
+  prop   44 SHELF_1-8 crates
+  prop   60 212 sacks
+  meze   cheese 12 SHELF_1
+  meze   sausage 18 SHELF_3
+  meze   fish 48 SHELF_1-8
+  meze   meatball 86 SHELF_2
+  catnip 70 SHELF_4
+  mouse  60 FLOOR_TOP 26 76 -1 steal
+  gull   40 64 24 66 1
+  gull   76 96 66 92 -1 100
+
+room the linen press
+  light  wall=3 mortar=5 dado=10 floor=5 grout=10 border=11
+  start  88
+  basket 4 SHELF_4-20
+  beat   36 66
+  stand  0 95 FLOOR_TOP
+  stand  4 33 SHELF_1
+  stand  4 33 SHELF_2
+  stand  4 33 SHELF_3
+  stand  4 33 SHELF_4
+  stand  44 67 SHELF_1-8
+  stand  68 91 SHELF_1-8
+  prop   0 28 beam
+  prop   4 76 rack
+  prop   44 SHELF_1-8 icebox
+  prop   68 SHELF_1-8 icebox
+  meze   sausage 48 SHELF_1-8
+  meze   meatball 74 SHELF_1-8
+  meze   fish 6 SHELF_2
+  meze   cheese 24 SHELF_4
+  catnip 8 SHELF_3
+  mouse  56 FLOOR_TOP 36 76 -1 steal
+  mouse  10 SHELF_1 4 30 1
+  gull   58 62 42 78 1
+
+room the dusty end
+  light  wall=6 mortar=6 dado=4 floor=4 grout=6 border=30
+  start  4
+  basket 76 SHELF_3-20
+  beat   28 64
+  stand  0 95 FLOOR_TOP
+  stand  76 89 SHELF_3
+  stand  76 89 SHELF_2
+  stand  76 89 SHELF_1
+  stand  10 33 SHELF_1
+  stand  10 33 SHELF_3
+  stand  48 61 SHELF_1-8
+  prop   0 28 beam
+  prop   76 SHELF_3 stack
+  prop   10 SHELF_1-28 jars
+  prop   10 SHELF_3-28 jars
+  prop   48 SHELF_1-8 barrel
+  prop   64 212 sacks
+  soap   38 48 FLOOR_TOP
+  meze   fish 14 SHELF_1
+  meze   cheese 22 SHELF_3
+  meze   sausage 52 SHELF_1-8
+  meze   meatball 80 SHELF_2
+  catnip 80 SHELF_3
+  mouse  40 FLOOR_TOP 28 74 1 steal
+  mouse  80 SHELF_1 76 88 -1
+  gull   34 54 22 64 1
+
+room the roof light
+  light  wall=7 mortar=15 dado=7 floor=6 grout=15 border=14
+  start  88
+  basket 8 SHELF_3-20
+  beat   30 60
+  stand  0 95 FLOOR_TOP
+  stand  8 31 SHELF_1
+  stand  40 63 SHELF_2
+  stand  8 31 SHELF_3
+  stand  72 85 SHELF_1-8
+  prop   0 28 beam
+  prop   72 32 dormer
+  prop   8 SHELF_1-28 jars
+  prop   40 SHELF_2-28 jars
+  prop   8 SHELF_3-28 jars
+  prop   72 SHELF_1-8 crates
+  meze   fish 12 SHELF_1
+  meze   meatball 46 SHELF_2
+  meze   cheese 20 SHELF_3
+  meze   sausage 76 SHELF_1-8
+  catnip 26 SHELF_1
+  mouse  56 FLOOR_TOP 30 80 -1 steal
+  mouse  14 SHELF_3 8 30 1
+  gull   46 56 40 62 1
