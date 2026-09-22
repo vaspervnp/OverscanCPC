@@ -285,6 +285,7 @@ $(BUILD)/mitsos.bin: $(DEPS) $(BUILD)/mitsosrooms.bin | $(BUILD)
 # anyone actually runs, and without this they can sit a conversion behind the
 # sources while check goes on passing against freshly built .bin files.
 check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin $(BUILD)/mitsosart.bin \
+       $(BUILD)/mitsosrooms.bin \
        $(BUILD)/loukoumas_en.bin $(BUILD)/loukoumas_el.bin \
        $(BUILD)/loukoumas_lounge.bin $(BUILD)/loukoumas_yard.bin \
        $(BUILD)/loukoumas_roof.bin $(BUILD)/loukoumas_title.bin \
@@ -448,6 +449,20 @@ check: all $(BUILD)/hello.bin $(BUILD)/mitsos.bin $(BUILD)/mitsosart.bin \
 		--keys "FIRE@30-30,FIRE@60-63,FIRE@88-91,FIRE@116-119,FIRE@144-147,RIGHT@180-205,FIRE@230-233" \
 		--watch "mitsos_x,cur_room,mezes_left,basket_open,mitsos_over,mitsos_lives,score+1" \
 		| grep -E "frame +(190|232|253) "
+	@echo "=== mitsos, all twenty-nine rooms, and the end of the game ==="
+	@echo "    the run above leaves one room. This one leaves all of them and"
+	@echo "    comes out the other side: every room paged in from bank 4,"
+	@echo "    painted, played for a moment and left through its basket, and"
+	@echo "    after the twenty-ninth main_title - which is the only thing"
+	@echo "    that says this game has an end rather than a last room that"
+	@echo "    goes nowhere. The last column is where he went out; the wrap"
+	@echo "    back to room 0 at the bottom is the title screen starting a"
+	@echo "    new game, so the loop is closed."
+	@echo "    It is a skip and not a playthrough: nothing in it jumps to a"
+	@echo "    shelf or collects a meze. What it proves is the machinery -"
+	@echo "    the paging, room_load, draw_shop, the advance and the wrap."
+	@echo "    Whether a room can be climbed is mitsosrooms.py above."
+	@$(PYTHON) tools/mitsosroute.py
 	@echo "=== mitsos, the catnip rush ==="
 	@echo "    what the catnip is for, and it is not the five hundred points."
 	@echo "    90 is him eating it: 384 frames of double speed - 512 against"

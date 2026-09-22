@@ -687,6 +687,21 @@ Both games ship in Greek and English. The rules that keeps that from rotting:
   right way all along and is what this now matches. Nothing in the game said
   so and nothing could: a test that is too generous never fails, it only
   makes the level design mean less than it looks.
+- **`tools/mitsosroute.py` plays all twenty-nine and is the only thing that
+  says the game has an end.** Per room it pokes the basket open, puts him on
+  the platform the basket stands on and drums fire; the run walks `cur_room`
+  from 0 to 28 and then sees it come back to 0, which is `game_start` - so
+  main_title was reached and the loop is closed. It is a skip and not a
+  playthrough and the tool says so: it proves the paging, `room_load`,
+  `draw_shop`, the advance and the wrap, and proves nothing about whether a
+  room can be climbed, which is `mitsosrooms.py` beside it. Seventeen seconds
+  for fifteen hundred virtual frames. It is also the test the escape fix
+  above needed: drop him on the floor under the basket instead of on its
+  shelf and not one of the twenty-nine rooms finishes.
+- The geometry it needs is read out of `build/mitsos.sym` rather than copied
+  into the tool - rasm writes every EQU into the symbol file, and a constant
+  copied into a tool is a constant that will one day disagree. That is worth
+  doing to `mitsosrooms.py` too, which still carries its own copies.
 - `docs/mitsos-room*.png` are `z80check.py` renders - right about the layout, and a
   model of the machine. `docs/mitsos-yard-6128.png` is the same room off the disc on
   floooh/chips' 6128 with the real ROMs, which is what `tools/mitsosshot.py` is for:
